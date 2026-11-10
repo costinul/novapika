@@ -68,6 +68,8 @@ export class DebugPanel {
   private readonly raycaster = new Raycaster();
   private readonly held: { hit: Hit | null; time: number; wasPressed: boolean }[] = [];
   private hovered: Hit | null = null;
+  /** A pointer is aimed at the panel, so its trigger belongs to the panel. */
+  pointerOnPanel = false;
   private page = 0;
   private readonly pageCount: number;
   private statusTimer = 0;
@@ -122,6 +124,7 @@ export class DebugPanel {
   }
 
   update(dt: number, pointers: readonly PanelPointer[]): void {
+    this.pointerOnPanel = false;
     if (!this.object.visible) return;
     this.board.updateMatrixWorld();
 
@@ -133,6 +136,7 @@ export class DebugPanel {
       this.raycaster.set(p.origin, p.direction);
       const hit = this.raycaster.intersectObject(this.board, false)[0];
       this.showPointer(i, p.origin, hit?.point);
+      if (hit) this.pointerOnPanel = true;
 
       const target = hit?.uv ? this.hitAt(hit.uv.x, hit.uv.y) : null;
       if (target) hovered = target;

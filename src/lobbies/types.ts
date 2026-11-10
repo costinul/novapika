@@ -1,5 +1,6 @@
 import type { Object3D } from 'three';
 import type { PhysicsWorld } from '../engine/physics';
+import type { LobbyContent } from '../world/types';
 
 export interface SpawnPoint {
   /** World position of the player's feet. */
@@ -17,8 +18,8 @@ export interface LobbyInstance {
 }
 
 /**
- * A lobby is a self-contained module: geometry, spawn points, lighting and
- * (from later milestones) toys, activities and sounds. The engine knows
+ * A lobby is a self-contained module: geometry, spawn points, lighting, toys
+ * and (from later milestones) activities and sounds. The engine knows
  * nothing about any particular lobby.
  */
 export interface LobbyModule {
@@ -26,5 +27,7 @@ export interface LobbyModule {
   name: string;
   skyColor: number;
   spawnPoints: readonly SpawnPoint[];
+  /** Toys, places to put them, and things to peck. */
+  content?: LobbyContent;
   load(ctx: LobbyContext): LobbyInstance;
 }

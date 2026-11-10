@@ -9,6 +9,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { Material, Mesh, Object3D, Texture } from 'three';
+import { Sounds } from '../audio/Sounds';
 import { movementConfig } from '../config/movement';
 import { DebugPanel } from '../debug/DebugPanel';
 import type { PanelPointer } from '../debug/DebugPanel';
@@ -20,6 +21,11 @@ import { HANDS, Player } from '../player/Player';
 import type { InputSource, PlayerInput } from '../player/Player';
 import { PlayerView } from '../player/PlayerView';
 import { XRInput } from '../player/XRInput';
+import { ActionLayer } from '../world/actions';
+import { beakPosition } from '../world/beak';
+import { WorldState } from '../world/WorldState';
+import type { Toy } from '../world/WorldState';
+import { WorldView } from '../world/WorldView';
 import { FixedStepper } from './fixedStep';
 import { PhysicsWorld } from './physics';
 
@@ -62,6 +68,14 @@ export class Engine {
   private readonly playerView: PlayerView;
   private readonly debugPanel: DebugPanel;
   private readonly stepper = new FixedStepper(1 / SIM_HZ);
+  private readonly world: WorldState;
+  private readonly actions: ActionLayer;
+  private readonly worldView: WorldView;
+  private readonly sounds = new Sounds();
+  /** The toy the local player's beak could bite right now. */
+  private biteable: Toy | null = null;
+  private biteWasPressed = false;
+  private desktopBite = false;
 
   private lobby: { module: LobbyModule; instance: LobbyInstance } | null = null;
   /** Movement input: this frame's, last frame's, and the blend fed to each step. */
@@ -112,6 +126,17 @@ export class Engine {
     }));
     this.scene.add(this.debugPanel.object);
 
+    this.world = new WorldState(this.physics);
+    this.world.players.set(this.localPlayer.id, this.localPlayer);
+    this.actions = new ActionLayer(this.world);
+    this.worldView = new WorldView(this.world);
+    this.scene.add(this.worldView.object);
+    this.actions.onApplied((action) => {
+      this.worldView.onAction(action);
+      this.sounds.onAction(action);
+    });
+    this.world.onJingle = (_toy, strength) => this.sounds.jingle(strength);
+
     // Head height changes when a session starts or ends, so re-seat the player.
     this.renderer.xr.addEventListener('sessionstart', () => (this.needsSpawn = true));
     this.renderer.xr.addEventListener('sessionend', () => (this.needsSpawn = true));
@@ -132,10 +157,13 @@ export class Engine {
     if (this.lobby) {
       this.scene.remove(this.lobby.instance.root);
       disposeTree(this.lobby.instance.root);
+      this.world.clear();
       this.physics.clear();
     }
 
     const instance = module.load({ physics: this.physics });
+    if (module.content) this.world.load(module.content);
+    this.worldView.rebuild();
     this.scene.add(instance.root);
     this.scene.background = new Color(module.skyColor);
     this.lobby = { module, instance };
@@ -166,6 +194,7 @@ export class Engine {
 
   /** Must be called from a user gesture such as a button click. */
   async enterVR(): Promise<void> {
+    this.sounds.unlock();
     if (this.renderer.xr.isPresenting) return;
     const session = await navigator.xr!.requestSession('immersive-vr', {
       requiredFeatures: ['local-floor'],
@@ -211,6 +240,8 @@ export class Engine {
     player.updateWorldPoses(this.viewPosition);
     this.rig.position.copy(this.viewPosition);
     this.playerView.update();
+    this.updateBeak();
+    this.worldView.update(dt, this.biteable);
     this.updateDebugPanel(dt);
 
     this.renderer.render(this.scene, this.camera);
@@ -220,6 +251,30 @@ export class Engine {
   private simulate(dt: number): void {
     this.physics.step(dt);
     stepMovement(this.localPlayer, this.moveStep, this.physics, movementConfig, dt);
+    this.world.step(dt, this.actions);
+  }
+
+  /** Beak: carry, peck, and bite or drop on a trigger press. */
+  private updateBeak(): void {
+    const player = this.localPlayer;
+    this.world.updateInteractions(this.actions);
+
+    this.biteable = player.carriedItemId
+      ? null
+      : this.world.nearestBiteable(beakPosition(player.head, this.scratch), movementConfig.biteReach.value);
+
+    const held = this.desktopBite || HANDS.some((h) => player.input.hands[h].triggerPressed);
+    const pressed = held && !this.biteWasPressed;
+    this.biteWasPressed = held;
+    this.desktopBite = false;
+    if (!pressed || this.debugPanel.pointerOnPanel) return;
+
+    if (player.carriedItemId) {
+      this.actions.dispatch({ type: 'drop', playerId: player.id });
+    } else if (this.biteable) {
+      this.actions.dispatch({ type: 'pickUp', playerId: player.id, toyId: this.biteable.id });
+      this.biteable = null;
+    }
   }
 
   /**
@@ -297,6 +352,7 @@ export class Engine {
     };
     canvas.addEventListener('pointermove', aimMouse);
     canvas.addEventListener('pointerdown', (e) => {
+      this.sounds.unlock();
       aimMouse(e);
       this.mouse.pressed = true;
     });
@@ -305,6 +361,7 @@ export class Engine {
     });
     window.addEventListener('keydown', (e) => {
       if (e.key === 'p') this.debugPanel.toggle(this.localPlayer.head);
+      if (e.key === 'b') this.desktopBite = true; // bite or drop, as the trigger does
     });
   }
 }

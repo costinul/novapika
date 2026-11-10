@@ -13,6 +13,7 @@ import {
   RepeatWrapping,
   SRGBColorSpace,
 } from 'three';
+import type { LobbyContent } from '../../world/types';
 import type { LobbyModule } from '../types';
 
 const SIZE = 24; // m, floor is SIZE x SIZE: room to fly a circle
@@ -31,7 +32,36 @@ const BLOCKS: readonly (readonly [number, Vec3, Vec3])[] = [
   [0x9b7bea, [-3.5, 0.75, -3.4], [1, 1.5, 1]],
   // Free-standing climbing wall straight ahead.
   [0x5aa9f0, [0, 1.6, -3.5], [3, 3.2, 0.4]],
+  // Stand for the low bell: a post and an arm.
+  [0xc98a4b, [-1.9, 0.65, 1.5], [0.08, 1.3, 0.08]],
+  [0xc98a4b, [-1.7, 1.27, 1.5], [0.48, 0.06, 0.06]],
+  // Arm near the top of the pole for the high bell.
+  [0xc98a4b, [3.3, 3.37, -1.5], [0.5, 0.06, 0.06]],
 ];
+
+/** Toys, the toy box and the bells. */
+const CONTENT: LobbyContent = {
+  toyTypes: {
+    woodBlock: { shape: 'box', size: 0.12, color: 0xe8b06a, density: 300, bounce: 0.2 },
+    bellBall: { shape: 'ball', size: 0.14, color: 0xff5fa2, density: 200, bounce: 0.6, jingles: true },
+  },
+  toys: [
+    { id: 'block-1', type: 'woodBlock', position: [0.6, 0.06, -0.9] },
+    { id: 'block-2', type: 'woodBlock', position: [-0.7, 0.06, -1.0] },
+    { id: 'block-3', type: 'woodBlock', position: [-2.5, 0.36, -1] }, // on the first step
+    { id: 'block-4', type: 'woodBlock', position: [0, 3.26, -3.5] }, // on top of the climbing wall
+    { id: 'ball-1', type: 'bellBall', position: [1.0, 0.07, 0.7] },
+    { id: 'ball-2', type: 'bellBall', position: [-1.1, 0.07, 0.4] },
+  ],
+  targets: [
+    // Across the room from the spawn point, to carry toys to in flight.
+    { id: 'toy-box', kind: 'toyBox', position: [7, 0, 6], size: [1.0, 0.35, 0.8], color: 0x4fc7b5 },
+  ],
+  peckables: [
+    { id: 'bell-low', kind: 'bell', position: [-1.5, 0.8, 1.5], radius: 0.12, stringLength: 0.32 },
+    { id: 'bell-high', kind: 'bell', position: [3.5, 2.9, -1.5], radius: 0.12, stringLength: 0.32 },
+  ],
+};
 
 /** Upright poles: [colour, base centre x, z, height, radius]. */
 const POLES: readonly (readonly [number, number, number, number, number])[] = [
@@ -60,6 +90,7 @@ const testRoom: LobbyModule = {
   name: 'Test Room',
   skyColor: 0x8fd3ff,
   spawnPoints: [{ position: [0, 0, 0] }],
+  content: CONTENT,
 
   load({ physics }) {
     const root = new Group();

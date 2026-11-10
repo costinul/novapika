@@ -133,6 +133,18 @@ export const movementConfig = {
     value: 3, unit: 's', min: 0.5, max: 10, step: 0.5,
     comment: 'Time to refill stamina from empty while standing, perching or hanging.',
   },
+  biteReach: {
+    value: 0.5, unit: 'm', min: 0.1, max: 1, step: 0.05,
+    comment: 'How close a toy must be to the beak to be highlighted and bitten. The ground is about 0.5 m below the beak when standing.',
+  },
+  carryForward: {
+    value: 0.3, unit: 'm', min: 0.15, max: 0.6, step: 0.05,
+    comment: 'How far in front of the eyes a carried toy hangs.',
+  },
+  carryDown: {
+    value: 0.2, unit: 'm', min: 0.05, max: 0.5, step: 0.05,
+    comment: 'How far below the eyes a carried toy hangs. Raise it if the toy blocks the view.',
+  },
   staminaEnabled: {
     value: 1, unit: 'on/off', min: 0, max: 1, step: 1,
     comment: '1 = flapping drains stamina. 0 = unlimited flapping.',
