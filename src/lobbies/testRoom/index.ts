@@ -3,6 +3,7 @@ import {
   BackSide,
   CanvasTexture,
   CircleGeometry,
+  CylinderGeometry,
   DirectionalLight,
   Group,
   HemisphereLight,
@@ -15,8 +16,27 @@ import {
 import type { LobbyModule } from '../types';
 
 const SIZE = 10; // m, floor is SIZE x SIZE
-const WALL_HEIGHT = 4; // m
+const WALL_HEIGHT = 4; // m, visible wall
+const LID_HEIGHT = 6; // m, invisible ceiling so nobody climbs out
 const WALL_THICKNESS = 0.5; // m, physics only
+
+type Vec3 = readonly [number, number, number];
+
+/** Solid things to push off and climb: [colour, centre, size]. */
+const BLOCKS: readonly (readonly [number, Vec3, Vec3])[] = [
+  // Steps of rising height on the left.
+  [0xff7a70, [-2.5, 0.15, -1], [1, 0.3, 1]],
+  [0xffb24d, [-3.5, 0.3, -1], [1, 0.6, 1]],
+  [0x4fc7b5, [-3.5, 0.5, -2.2], [1, 1, 1]],
+  [0x9b7bea, [-3.5, 0.75, -3.4], [1, 1.5, 1]],
+  // Free-standing climbing wall straight ahead.
+  [0x5aa9f0, [0, 1.6, -3.5], [3, 3.2, 0.4]],
+];
+
+/** Upright poles: [colour, base centre x, z, height, radius]. */
+const POLES: readonly (readonly [number, number, number, number, number])[] = [
+  [0xc98a4b, 3, -1.5, 3.5, 0.12],
+];
 
 /** A square tile with a border line, so one tile reads as one metre. */
 function tileTexture(fill: string, line: string): CanvasTexture {
@@ -82,11 +102,34 @@ const testRoom: LobbyModule = {
 
     const half = SIZE / 2;
     const t = WALL_THICKNESS / 2;
+    const lid = LID_HEIGHT / 2;
     physics.addStaticBox([0, -t, 0], [half, t, half]);
-    physics.addStaticBox([half + t, WALL_HEIGHT / 2, 0], [t, WALL_HEIGHT / 2, half]);
-    physics.addStaticBox([-half - t, WALL_HEIGHT / 2, 0], [t, WALL_HEIGHT / 2, half]);
-    physics.addStaticBox([0, WALL_HEIGHT / 2, half + t], [half, WALL_HEIGHT / 2, t]);
-    physics.addStaticBox([0, WALL_HEIGHT / 2, -half - t], [half, WALL_HEIGHT / 2, t]);
+    physics.addStaticBox([0, LID_HEIGHT + t, 0], [half, t, half]);
+    physics.addStaticBox([half + t, lid, 0], [t, lid, half]);
+    physics.addStaticBox([-half - t, lid, 0], [t, lid, half]);
+    physics.addStaticBox([0, lid, half + t], [half, lid, t]);
+    physics.addStaticBox([0, lid, -half - t], [half, lid, t]);
+
+    // White tiles tinted by each block's colour, half a metre per tile.
+    const blockTex = tileTexture('#ffffff', '#d9d9d9');
+    for (const [color, center, size] of BLOCKS) {
+      const map = blockTex.clone();
+      map.repeat.set(Math.max(size[0], size[2]) * 2, size[1] * 2);
+      const mesh = new Mesh(new BoxGeometry(...size), new MeshLambertMaterial({ color, map }));
+      mesh.position.set(...center);
+      root.add(mesh);
+      physics.addStaticBox(center, [size[0] / 2, size[1] / 2, size[2] / 2]);
+    }
+
+    for (const [color, x, z, height, radius] of POLES) {
+      const mesh = new Mesh(
+        new CylinderGeometry(radius, radius, height, 12),
+        new MeshLambertMaterial({ color }),
+      );
+      mesh.position.set(x, height / 2, z);
+      root.add(mesh);
+      physics.addStaticCylinder([x, height / 2, z], height / 2, radius);
+    }
 
     return { root };
   },

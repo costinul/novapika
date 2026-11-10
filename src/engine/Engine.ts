@@ -14,8 +14,10 @@ import { DebugPanel } from '../debug/DebugPanel';
 import type { PanelPointer } from '../debug/DebugPanel';
 import { lobbyRegistry } from '../lobbies/registry';
 import type { LobbyInstance, LobbyModule } from '../lobbies/types';
+import { bodyCenter, clawCorrection, placeAt, stepMovement } from '../movement/step';
+import type { MoveInput } from '../movement/types';
 import { HANDS, Player } from '../player/Player';
-import type { InputSource } from '../player/Player';
+import type { InputSource, PlayerInput } from '../player/Player';
 import { PlayerView } from '../player/PlayerView';
 import { XRInput } from '../player/XRInput';
 import { FixedStepper } from './fixedStep';
@@ -24,6 +26,23 @@ import { PhysicsWorld } from './physics';
 /** Simulation rate. Movement and physics always advance in steps of 1/SIM_HZ. */
 const SIM_HZ = 120;
 const EYE_HEIGHT_DESKTOP = 1.6; // m, camera height when there is no headset
+const FALL_OUT_Y = -30; // m, below this the player is put back at the spawn point
+
+const newMoveInput = (): MoveInput => ({
+  head: new Vector3(),
+  hands: {
+    left: { position: new Vector3(), gripPressed: false },
+    right: { position: new Vector3(), gripPressed: false },
+  },
+});
+
+function toMoveInput(from: PlayerInput, to: MoveInput): void {
+  to.head.copy(from.head.position);
+  for (const h of HANDS) {
+    to.hands[h].position.copy(from.hands[h].grip.position);
+    to.hands[h].gripPressed = from.hands[h].gripPressed;
+  }
+}
 
 export class Engine {
   readonly renderer: WebGLRenderer;
@@ -39,6 +58,15 @@ export class Engine {
   private readonly stepper = new FixedStepper(1 / SIM_HZ);
 
   private lobby: { module: LobbyModule; instance: LobbyInstance } | null = null;
+  /** Movement input: this frame's, last frame's, and the blend fed to each step. */
+  private readonly moveNow = newMoveInput();
+  private readonly movePrev = newMoveInput();
+  private readonly moveStep = newMoveInput();
+  /** Where the player is drawn: the simulated position brought up to this instant. */
+  private readonly viewPosition = new Vector3();
+  private readonly scratch = new Vector3();
+  private readonly scratch2 = new Vector3();
+  private needsSpawn = false;
   private lastTimeMs = 0;
   private fps = 0;
   private menuWasPressed = false;
@@ -73,10 +101,14 @@ export class Engine {
 
     this.debugPanel = new DebugPanel(movementConfig, () => ({
       fps: this.fps,
-      movementState: this.localPlayer.movementState,
+      movementState: this.describeMovement(),
       lobbyId: this.lobby?.module.id ?? '-',
     }));
     this.scene.add(this.debugPanel.object);
+
+    // Head height changes when a session starts or ends, so re-seat the player.
+    this.renderer.xr.addEventListener('sessionstart', () => (this.needsSpawn = true));
+    this.renderer.xr.addEventListener('sessionend', () => (this.needsSpawn = true));
 
     this.listenToWindow(canvas);
   }
@@ -102,14 +134,20 @@ export class Engine {
     this.scene.background = new Color(module.skyColor);
     this.lobby = { module, instance };
 
+    this.needsSpawn = true;
+  }
+
+  /** Put the local player at rest on the lobby's spawn point. */
+  private respawn(): void {
+    if (!this.lobby) return;
     const player = this.localPlayer;
-    player.position.fromArray(module.spawnPoints[0].position);
-    player.velocity.set(0, 0, 0);
-    player.movementState = 'standing';
-    this.rig.position.copy(player.position);
-    this.input.read(player.input);
+    this.scratch.fromArray(this.lobby.module.spawnPoints[0].position);
+    placeAt(player, this.moveNow, movementConfig, this.scratch);
+    toMoveInput(player.input, this.movePrev);
     player.updateWorldPoses();
-    this.debugPanel.placeInFrontOf(player.head);
+    // Off to the right, so it does not hide the room.
+    this.debugPanel.placeInFrontOf(player.head, -0.7);
+    this.needsSpawn = false;
   }
 
   start(): void {
@@ -136,21 +174,77 @@ export class Engine {
 
     const player = this.localPlayer;
     this.input.read(player.input);
+    toMoveInput(player.input, this.moveNow);
 
+    // In VR, wait for the first real head pose before seating the player.
+    const poseReady = !this.renderer.xr.isPresenting || this.moveNow.head.y > 0.2;
+    if ((this.needsSpawn && poseReady) || player.position.y < FALL_OUT_Y) this.respawn();
+
+    // Each step gets the input as it was at that step's moment in time, so
+    // hand speed is measured evenly whatever the display's frame rate.
+    const step = this.stepper.stepSeconds;
+    const sinceLastStep = this.stepper.alpha * step;
     const steps = this.stepper.advance(dt);
-    for (let i = 0; i < steps; i++) this.simulate(this.stepper.stepSeconds);
+    for (let k = 1; k <= steps; k++) {
+      const t = dt > 0 ? Math.min(1, Math.max(0, (k * step - sinceLastStep) / dt)) : 1;
+      this.moveStep.head.lerpVectors(this.movePrev.head, this.moveNow.head, t);
+      for (const h of HANDS) {
+        this.moveStep.hands[h].position.lerpVectors(
+          this.movePrev.hands[h].position,
+          this.moveNow.hands[h].position,
+          t,
+        );
+        this.moveStep.hands[h].gripPressed = this.moveNow.hands[h].gripPressed;
+      }
+      this.simulate(step);
+    }
+    toMoveInput(player.input, this.movePrev);
 
-    player.updateWorldPoses();
-    this.rig.position.copy(player.position);
+    this.updateViewPosition();
+    player.updateWorldPoses(this.viewPosition);
+    this.rig.position.copy(this.viewPosition);
     this.playerView.update();
     this.updateDebugPanel(dt);
 
     this.renderer.render(this.scene, this.camera);
   };
 
-  /** One fixed simulation step. Player movement is added here in milestone 2. */
+  /** One fixed simulation step. */
   private simulate(dt: number): void {
     this.physics.step(dt);
+    stepMovement(this.localPlayer, this.moveStep, this.physics, movementConfig, dt);
+  }
+
+  /**
+   * The simulation is up to one step behind the headset. Close that gap for
+   * drawing, so a planted claw stays exactly on its surface and free flight
+   * is even from frame to frame.
+   */
+  private updateViewPosition(): void {
+    const player = this.localPlayer;
+    const view = this.viewPosition.copy(player.position);
+    const move = this.scratch;
+
+    if (clawCorrection(player, this.moveNow, movementConfig, move) > 0) {
+      view.add(move);
+      return;
+    }
+
+    // Free: carry on at the current velocity, stopping at anything solid.
+    move.copy(player.velocity).multiplyScalar(this.stepper.alpha * this.stepper.stepSeconds);
+    let length = move.length();
+    if (length < 1e-6) return;
+    move.multiplyScalar(1 / length);
+    const center = bodyCenter(player, this.moveNow, movementConfig, this.scratch2);
+    const hit = this.physics.castSphere(center, move, length, movementConfig.bodyRadius.value);
+    if (hit) length = hit.distance;
+    view.addScaledVector(move, length);
+  }
+
+  private describeMovement(): string {
+    const { movementState, claws } = this.localPlayer;
+    const mark = (planted: boolean): string => (planted ? '■' : '□');
+    return `${movementState}   L${mark(claws.left.planted)} R${mark(claws.right.planted)}`;
   }
 
   private updateDebugPanel(dt: number): void {

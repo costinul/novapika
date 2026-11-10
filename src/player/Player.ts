@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
+import type { ClawState, MoveState } from '../movement/types';
 
 export type Handedness = 'left' | 'right';
 export const HANDS: readonly Handedness[] = ['left', 'right'];
@@ -46,6 +47,12 @@ export interface InputSource {
 }
 
 const pose = (): Pose => ({ position: new Vector3(), quaternion: new Quaternion() });
+const claw = (): ClawState => ({
+  planted: false,
+  anchor: new Vector3(),
+  normal: new Vector3(0, 1, 0),
+  last: new Vector3(),
+});
 const handInput = (): HandInput => ({
   grip: pose(),
   aim: pose(),
@@ -61,7 +68,7 @@ export function createPlayerInput(): PlayerInput {
 /**
  * All state for one parrot in the world. Rendering reads only this.
  */
-export class Player {
+export class Player implements MoveState {
   /** World position of the player's origin (the floor point of their tracking space). */
   readonly position = new Vector3();
   readonly velocity = new Vector3();
@@ -69,6 +76,11 @@ export class Player {
   /** 0 = empty, 1 = full. */
   stamina = 1;
   carriedItemId: string | null = null;
+  /** The body is resting on a walkable surface. */
+  grounded = false;
+  /** At least one claw carried the body during the last simulation step. */
+  supported = false;
+  readonly claws: Record<Handedness, ClawState> = { left: claw(), right: claw() };
 
   readonly input = createPlayerInput();
   /** World-space poses, derived from `position` and `input`. */
@@ -83,12 +95,16 @@ export class Player {
     public characterId: string,
   ) {}
 
-  /** Recompute world poses. Call after `input` or `position` changes. */
-  updateWorldPoses(): void {
-    toWorld(this.input.head, this.position, this.head);
+  /**
+   * Recompute world poses from `input`. `origin` is where the player's
+   * tracking space sits in the world; the engine passes a smoothed position
+   * for drawing.
+   */
+  updateWorldPoses(origin: Vector3 = this.position): void {
+    toWorld(this.input.head, origin, this.head);
     for (const h of HANDS) {
-      toWorld(this.input.hands[h].grip, this.position, this.hands[h].grip);
-      toWorld(this.input.hands[h].aim, this.position, this.hands[h].aim);
+      toWorld(this.input.hands[h].grip, origin, this.hands[h].grip);
+      toWorld(this.input.hands[h].aim, origin, this.hands[h].aim);
     }
   }
 }

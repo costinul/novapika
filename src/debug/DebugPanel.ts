@@ -31,9 +31,9 @@ export interface PanelPointer {
 }
 
 const WIDTH_PX = 1024;
-const ROW_PX = 64;
+const ROW_PX = 56;
 const HEADER_ROWS = 3;
-const WIDTH_M = 0.8;
+const WIDTH_M = 0.7;
 const MINUS_X = [744, 864] as const;
 const PLUS_X = [884, 1004] as const;
 const REPEAT_DELAY = 0.4; // s held before a button starts repeating
@@ -99,13 +99,14 @@ export class DebugPanel {
     }
   }
 
-  placeInFrontOf(head: Pose): void {
+  /** `yaw` turns the spot away from straight ahead; negative is to the right. */
+  placeInFrontOf(head: Pose, yaw = 0): void {
     const forward = new Vector3(0, 0, -1).applyQuaternion(head.quaternion);
     forward.y = 0;
     if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
-    forward.normalize();
+    forward.normalize().applyAxisAngle(new Vector3(0, 1, 0), yaw);
     this.board.position.copy(head.position).addScaledVector(forward, 0.9);
-    this.board.position.y = Math.max(0.7, head.position.y - 0.15);
+    this.board.position.y = head.position.y;
     // Face back toward the player, upright.
     this.board.quaternion.copy(
       new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), forward.negate()),
@@ -256,7 +257,7 @@ export class DebugPanel {
     const g = this.g;
     g.fillStyle = hot ? '#ff8a3d' : '#3b5166';
     g.beginPath();
-    g.roundRect(x[0], y + 8, x[1] - x[0], ROW_PX - 16, 10);
+    g.roundRect(x[0], y + 6, x[1] - x[0], ROW_PX - 12, 10);
     g.fill();
     g.fillStyle = hot ? '#2b1500' : '#e9eef2';
     g.textAlign = 'center';

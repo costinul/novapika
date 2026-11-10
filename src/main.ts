@@ -14,6 +14,8 @@ const engine = await Engine.create(canvas);
 // ?lobby=<id> picks a lobby from the registry.
 await engine.loadLobby(new URLSearchParams(location.search).get('lobby') ?? DEFAULT_LOBBY_ID);
 engine.start();
+// Development only: lets the console and test scripts inspect the game.
+if (import.meta.env.DEV) (window as unknown as { engine: Engine }).engine = engine;
 
 if (await engine.isVRSupported()) {
   button.textContent = 'Enter VR';
