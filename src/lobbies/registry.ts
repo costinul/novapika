@@ -1,0 +1,11 @@
+import type { LobbyModule } from './types';
+
+/**
+ * Every lobby the game can load. To add a lobby: add one folder under
+ * src/lobbies/ and one line here. No engine changes.
+ */
+export const lobbyRegistry: Record<string, () => Promise<LobbyModule>> = {
+  'test-room': () => import('./testRoom').then((m) => m.default),
+};
+
+export const DEFAULT_LOBBY_ID = 'test-room';

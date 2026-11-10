@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nova Pika</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd3ff; }
+      canvas#game { display: block; width: 100%; height: 100%; touch-action: none; }
+      #enter-vr {
+        position: fixed; left: 50%; bottom: 8%; transform: translateX(-50%);
+        padding: 22px 56px; border: 0; border-radius: 999px;
+        font: 700 28px system-ui, sans-serif; color: #2b1500; background: #ff8a3d;
+        box-shadow: 0 8px 0 #c9601d; cursor: pointer;
+      }
+      #enter-vr:active { transform: translateX(-50%) translateY(4px); box-shadow: 0 4px 0 #c9601d; }
+      #enter-vr[disabled] { background: #9aa7b3; box-shadow: 0 8px 0 #6f7b86; cursor: default; }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <button id="enter-vr" disabled>Loading…</button>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
