@@ -33,6 +33,9 @@ export interface PanelPointer {
 const WIDTH_PX = 1024;
 const ROW_PX = 56;
 const HEADER_ROWS = 3;
+const ROWS_PER_PAGE = 12;
+/** Row number used for the previous/next page buttons in the header. */
+const PAGE_ROW = -1;
 const WIDTH_M = 0.7;
 const MINUS_X = [744, 864] as const;
 const PLUS_X = [884, 1004] as const;
@@ -41,6 +44,7 @@ const REPEAT_INTERVAL = 0.08; // s between repeats
 const STATUS_INTERVAL = 0.25; // s between fps/state redraws
 
 interface Hit {
+  /** Index into the config entries, or PAGE_ROW for the page buttons. */
   row: number;
   direction: 1 | -1;
 }
@@ -64,6 +68,8 @@ export class DebugPanel {
   private readonly raycaster = new Raycaster();
   private readonly held: { hit: Hit | null; time: number; wasPressed: boolean }[] = [];
   private hovered: Hit | null = null;
+  private page = 0;
+  private readonly pageCount: number;
   private statusTimer = 0;
 
   constructor(
@@ -72,7 +78,8 @@ export class DebugPanel {
   ) {
     this.entries = Object.entries(config);
     this.canvas.width = WIDTH_PX;
-    this.canvas.height = (HEADER_ROWS + this.entries.length) * ROW_PX;
+    this.pageCount = Math.max(1, Math.ceil(this.entries.length / ROWS_PER_PAGE));
+    this.canvas.height = (HEADER_ROWS + ROWS_PER_PAGE) * ROW_PX;
     this.texture.colorSpace = SRGBColorSpace;
     this.texture.anisotropy = 8;
 
@@ -157,6 +164,10 @@ export class DebugPanel {
   }
 
   private press(hit: Hit): boolean {
+    if (hit.row === PAGE_ROW) {
+      this.page = (this.page + hit.direction + this.pageCount) % this.pageCount;
+      return true;
+    }
     const tunable = this.entries[hit.row][1];
     const before = tunable.value;
     nudge(tunable, hit.direction);
@@ -165,8 +176,10 @@ export class DebugPanel {
 
   private hitAt(u: number, v: number): Hit | null {
     const x = u * WIDTH_PX;
-    const row = Math.floor(((1 - v) * this.canvas.height) / ROW_PX) - HEADER_ROWS;
-    if (row < 0 || row >= this.entries.length) return null;
+    const line = Math.floor(((1 - v) * this.canvas.height) / ROW_PX);
+    // The page buttons sit on the last header line, in the - and + columns.
+    const row = line === HEADER_ROWS - 1 ? PAGE_ROW : line - HEADER_ROWS + this.page * ROWS_PER_PAGE;
+    if (row !== PAGE_ROW && (line < HEADER_ROWS || row >= this.entries.length)) return null;
     if (x >= MINUS_X[0] && x <= MINUS_X[1]) return { row, direction: -1 };
     if (x >= PLUS_X[0] && x <= PLUS_X[1]) return { row, direction: 1 };
     return null;
@@ -226,11 +239,17 @@ export class DebugPanel {
     g.textAlign = 'left';
     g.fillStyle = '#9fb0bf';
     g.font = '400 24px system-ui, sans-serif';
-    g.fillText('Point and pull trigger on − / +.  B or Y hides this panel.', 24, ROW_PX * 2.5);
+    g.fillText('Trigger on − / +.  B or Y hides this panel.', 24, ROW_PX * 2.5);
+    g.textAlign = 'right';
+    g.fillText(`page ${this.page + 1} / ${this.pageCount}`, MINUS_X[0] - 20, ROW_PX * 2.5);
+    this.drawButton('◀', MINUS_X, (HEADER_ROWS - 1) * ROW_PX, this.isHovered(PAGE_ROW, -1));
+    this.drawButton('▶', PLUS_X, (HEADER_ROWS - 1) * ROW_PX, this.isHovered(PAGE_ROW, 1));
 
-    this.entries.forEach(([key, t], row) => {
-      const y = (HEADER_ROWS + row) * ROW_PX;
-      g.fillStyle = row % 2 ? '#1f2c38' : '#243342';
+    const first = this.page * ROWS_PER_PAGE;
+    this.entries.slice(first, first + ROWS_PER_PAGE).forEach(([key, t], i) => {
+      const row = first + i;
+      const y = (HEADER_ROWS + i) * ROW_PX;
+      g.fillStyle = i % 2 ? '#1f2c38' : '#243342';
       g.fillRect(0, y, WIDTH_PX, ROW_PX);
 
       g.textAlign = 'left';

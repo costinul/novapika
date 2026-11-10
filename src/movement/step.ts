@@ -3,6 +3,7 @@ import type { MovementConfig } from '../config/movement';
 import { HANDS } from '../player/Player';
 import type { Handedness } from '../player/Player';
 import type { MoveInput, MoveState, WorldQueries } from './types';
+import { applyAir, trackWings } from './wings';
 
 // Movement is a function of (state, input, world queries, config) only, so it
 // can be unit tested with synthetic hand traces. For speed it updates `state`
@@ -13,6 +14,8 @@ const SKIN = 0.001; // m
 /** Surfaces at least this upright count as ground to stand on. */
 const WALKABLE_NORMAL_Y = 0.7;
 const MAX_SLIDES = 3;
+/** Falling faster than this with wings folded is called a dive, m/s. */
+const DIVE_SPEED = -2;
 
 const move = new Vector3();
 const delta = new Vector3();
@@ -78,9 +81,15 @@ export function placeAt(state: MoveState, input: MoveInput, cfg: MovementConfig,
   state.velocity.set(0, 0, 0);
   state.grounded = false;
   state.supported = false;
+  state.catchVelocity.set(0, 0, 0);
+  state.wings.time = 0;
+  state.wings.tracked = false;
+  state.wings.flapping = false;
+  state.wings.glide = 0;
   for (const h of HANDS) {
     state.claws[h].planted = false;
     state.claws[h].last.copy(state.position).add(input.hands[h].position);
+    state.wings.sweepStart[h] = -1;
   }
 }
 
@@ -94,6 +103,8 @@ export function stepMovement(
 ): void {
   const bodyRadius = cfg.bodyRadius.value;
   const handRadius = cfg.handRadius.value;
+
+  trackWings(state, input, cfg, dt);
 
   // 1. Claws. Planted claws carry the body; otherwise it flies free.
   const carrying = clawCorrection(state, input, cfg, move, overStick) > 0;
@@ -109,7 +120,8 @@ export function stepMovement(
       // The claws just let go: keep the push speed, with a little extra.
       state.velocity.multiplyScalar(cfg.jumpMultiplier.value).clampLength(0, cfg.maxPushSpeed.value);
     }
-    state.velocity.y -= cfg.gravity.value * dt;
+    state.catchVelocity.set(0, 0, 0);
+    applyAir(state, input, cfg, dt);
     if (state.grounded) {
       const keep = Math.exp(-cfg.groundFriction.value * dt);
       state.velocity.x *= keep;
@@ -117,6 +129,16 @@ export function stepMovement(
     }
     state.velocity.clampLength(0, cfg.maxFlySpeed.value);
     move.copy(state.velocity).multiplyScalar(dt);
+  }
+  if (carrying) {
+    // Skid after catching a surface in flight: the claw slides along it
+    // while the leftover speed fades, so the stop is not a jolt.
+    const skid = state.catchVelocity.length();
+    if (skid > 0) {
+      move.addScaledVector(state.catchVelocity, dt);
+      state.catchVelocity.setLength(Math.max(0, skid - state.catchDecel * dt));
+    }
+    state.wings.glide = 0;
   }
   state.supported = carrying;
 
@@ -164,6 +186,7 @@ export function stepMovement(
   // 3. Claws again: slide planted claws along their surface, plant free ones
   // that have just touched something.
   let locked = false;
+  let caught = false;
   for (const h of HANDS) {
     const claw = state.claws[h];
     hand.copy(state.position).add(input.hands[h].position);
@@ -194,18 +217,33 @@ export function stepMovement(
       claw.planted = true;
       claw.anchor.copy(claw.last).addScaledVector(dir, Math.max(0, hit.distance - SKIN));
       claw.normal.copy(hit.normal);
+      // The hand may have carried on past the touch point this step: plant
+      // it where it ended up along the surface, not where it first touched.
+      const surface = world.nearestSurface(hand, handRadius + cfg.clawContactMargin.value);
+      if (surface) {
+        claw.anchor.copy(surface.point).addScaledVector(surface.normal, handRadius);
+        claw.normal.copy(surface.normal);
+      }
       claw.last.copy(claw.anchor);
+
+      if (!carrying && !state.grounded && !caught) {
+        // Catch: the first claw to touch in flight keeps only the speed
+        // along the surface, and that fades over the absorb time.
+        caught = true;
+        const into = state.velocity.dot(claw.normal);
+        state.catchVelocity.copy(state.velocity).addScaledVector(claw.normal, -into);
+        state.catchDecel = state.catchVelocity.length() / cfg.catchAbsorbTime.value;
+      }
     } else {
       claw.last.copy(hand);
     }
   }
 
   const holding = state.claws.left.planted || state.claws.right.planted;
-  state.movementState = state.grounded
-    ? 'standing'
-    : holding
-      ? locked
-        ? 'hanging'
-        : 'climbing'
-      : 'falling';
+  if (state.grounded) state.movementState = 'standing';
+  else if (holding) state.movementState = locked ? 'hanging' : 'climbing';
+  else if (state.wings.flapping) state.movementState = 'flapping';
+  else if (state.wings.glide > 0.5) state.movementState = 'gliding';
+  else if (state.velocity.y < DIVE_SPEED) state.movementState = 'diving';
+  else state.movementState = 'falling';
 }

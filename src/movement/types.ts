@@ -13,6 +13,24 @@ export interface ClawState {
   last: Vector3;
 }
 
+/** What the wing rules remember between steps. */
+export interface WingState {
+  /** Seconds since the player was last placed. */
+  time: number;
+  /** False until `prev` holds a real sample. */
+  tracked: boolean;
+  /** Tracking-space hand positions at the last step. */
+  prev: Record<Handedness, Vector3>;
+  /** Smoothed downward speed of each hand, m/s. Positive is downward. */
+  sinkSpeed: Record<Handedness, number>;
+  /** Time each hand's current down-sweep began, or -1 when not sweeping. */
+  sweepStart: Record<Handedness, number>;
+  /** Both hands are sweeping down together: lift is being applied. */
+  flapping: boolean;
+  /** 0 = wings folded or arms down, 1 = both arms out and level. */
+  glide: number;
+}
+
 /** The part of a player that movement reads and writes. `Player` is one. */
 export interface MoveState {
   /** World position of the player's tracking-space origin. */
@@ -24,11 +42,18 @@ export interface MoveState {
   /** At least one claw carried the body during the last step. */
   supported: boolean;
   claws: Record<Handedness, ClawState>;
+  wings: WingState;
+  /** Skid left over from catching a surface in flight; fades to zero. */
+  catchVelocity: Vector3;
+  /** How fast `catchVelocity` fades, m/s2. */
+  catchDecel: number;
 }
 
 /** What movement needs from one frame of input. Positions are tracking-space. */
 export interface MoveInput {
   head: Vector3;
+  /** Horizontal unit vector the head is facing. */
+  headForward: Vector3;
   hands: Record<Handedness, { position: Vector3; gripPressed: boolean }>;
 }
 

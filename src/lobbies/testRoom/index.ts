@@ -15,9 +15,9 @@ import {
 } from 'three';
 import type { LobbyModule } from '../types';
 
-const SIZE = 10; // m, floor is SIZE x SIZE
-const WALL_HEIGHT = 4; // m, visible wall
-const LID_HEIGHT = 6; // m, invisible ceiling so nobody climbs out
+const SIZE = 24; // m, floor is SIZE x SIZE: room to fly a circle
+const WALL_HEIGHT = 8; // m, visible wall
+const LID_HEIGHT = 12; // m, invisible ceiling so nobody flies out
 const WALL_THICKNESS = 0.5; // m, physics only
 
 type Vec3 = readonly [number, number, number];

@@ -38,6 +38,7 @@ function build(obstacle: 'none' | 'wall' | 'pole'): void {
   player = new Player('test', 'nova');
   input = {
     head: new Vector3(0, HEAD_Y, 0),
+    headForward: new Vector3(0, 0, -1),
     hands: {
       left: { position: new Vector3(-0.25, GROUND_Y + 0.3, -0.3), gripPressed: false },
       right: { position: new Vector3(0.25, GROUND_Y + 0.3, -0.3), gripPressed: false },

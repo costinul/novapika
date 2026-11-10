@@ -53,6 +53,58 @@ export const movementConfig = {
     value: 6, unit: '1/s', min: 0, max: 20, step: 0.5,
     comment: 'How quickly sliding along the ground stops. Higher stops sooner.',
   },
+  handSpeedSmoothing: {
+    value: 0.03, unit: 's', min: 0.01, max: 0.15, step: 0.01,
+    comment: 'Time over which hand speed is averaged before it is tested for a flap.',
+  },
+  flapPower: {
+    value: 13, unit: 'm/s per m', min: 2, max: 30, step: 1,
+    comment: 'Upward speed gained per metre of downstroke. The main "how strong is a flap" value.',
+  },
+  flapSpeedCap: {
+    value: 4, unit: 'm/s', min: 2, max: 8, step: 0.5,
+    comment: 'Hand speeds above this give no extra lift.',
+  },
+  flapForwardPush: {
+    value: 2, unit: 'm/s per m', min: 0, max: 8, step: 0.5,
+    comment: 'Forward speed gained per metre of downstroke, in the direction the head faces.',
+  },
+  glideSpeed: {
+    value: 5, unit: 'm/s', min: 1, max: 8, step: 0.5,
+    comment: 'Forward speed a glide settles at.',
+  },
+  glideAcceleration: {
+    value: 4, unit: 'm/s2', min: 0.5, max: 12, step: 0.5,
+    comment: 'How quickly a glide picks up forward speed.',
+  },
+  glideDrag: {
+    value: 0.2, unit: '1/s', min: 0, max: 2, step: 0.05,
+    comment: 'How quickly speed above glide speed (from a dive) bleeds away. Lower keeps swoop speed longer.',
+  },
+  glideLiftRate: {
+    value: 6, unit: '1/s', min: 1, max: 15, step: 0.5,
+    comment: 'How quickly spreading the arms stops a fall. Higher pulls out of a dive more sharply.',
+  },
+  diveSpeedKept: {
+    value: 0.8, unit: 'x', min: 0, max: 1, step: 0.05,
+    comment: 'Share of falling speed turned into forward speed when pulling out of a dive.',
+  },
+  glideTurnRate: {
+    value: 90, unit: 'deg/s', min: 20, max: 240, step: 10,
+    comment: 'Turn speed at full bank (hands tilted 45 degrees).',
+  },
+  wingSpreadDistance: {
+    value: 0.45, unit: 'm', min: 0.25, max: 0.8, step: 0.05,
+    comment: 'Hands this far out to the sides of the head count as wings fully spread. Lower suits shorter arms.',
+  },
+  wingTuckDistance: {
+    value: 0.2, unit: 'm', min: 0.05, max: 0.4, step: 0.05,
+    comment: 'Hands closer to the head than this count as wings tucked in.',
+  },
+  glideArmsDown: {
+    value: 0.55, unit: 'm', min: 0.2, max: 0.9, step: 0.05,
+    comment: 'Hands lower than this below the eyes count as arms down, which ends the glide.',
+  },
   flapSpeedThreshold: {
     value: 1.5, unit: 'm/s', min: 0.5, max: 4, step: 0.1,
     comment: 'Downward hand speed both hands must exceed for a sweep to count as a flap.',

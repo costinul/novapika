@@ -30,14 +30,20 @@ const FALL_OUT_Y = -30; // m, below this the player is put back at the spawn poi
 
 const newMoveInput = (): MoveInput => ({
   head: new Vector3(),
+  headForward: new Vector3(0, 0, -1),
   hands: {
     left: { position: new Vector3(), gripPressed: false },
     right: { position: new Vector3(), gripPressed: false },
   },
 });
 
+const forward = new Vector3();
+
 function toMoveInput(from: PlayerInput, to: MoveInput): void {
   to.head.copy(from.head.position);
+  // Looking straight up or down has no horizontal direction: keep the last one.
+  forward.set(0, 0, -1).applyQuaternion(from.head.quaternion).setY(0);
+  if (forward.lengthSq() > 0.01) to.headForward.copy(forward).normalize();
   for (const h of HANDS) {
     to.hands[h].position.copy(from.hands[h].grip.position);
     to.hands[h].gripPressed = from.hands[h].gripPressed;
@@ -188,6 +194,7 @@ export class Engine {
     for (let k = 1; k <= steps; k++) {
       const t = dt > 0 ? Math.min(1, Math.max(0, (k * step - sinceLastStep) / dt)) : 1;
       this.moveStep.head.lerpVectors(this.movePrev.head, this.moveNow.head, t);
+      this.moveStep.headForward.copy(this.moveNow.headForward);
       for (const h of HANDS) {
         this.moveStep.hands[h].position.lerpVectors(
           this.movePrev.hands[h].position,

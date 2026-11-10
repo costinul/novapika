@@ -3,8 +3,8 @@
 A browser VR game for Meta Quest where you are a parrot. Requirements:
 [Nova Pika — VR Game Requirements (v1).md](<Nova Pika — VR Game Requirements (v1).md>).
 
-Current state: **milestone 2 (claws)**: hand-push movement and climbing in a
-test room with blocks, a wall and a pole.
+Current state: **milestone 3 (wings)**: claws plus flapping, gliding, steering
+and diving, in a test room with blocks, a wall and a pole.
 
 ## Run
 
@@ -47,6 +47,12 @@ npm run build
 - **Hands on a surface are claws.** Push against the ground, a block, the
   wall or the pole and the body moves the other way. Push fast and let go to
   jump. Reach up, pull down, and repeat with the other hand to climb.
+- **Hands in open air are wings.**
+  - Flap: sweep both arms down together. A few flaps gain a lot of height.
+  - Glide: hold both arms out to the sides, roughly level.
+  - Steer: lower one hand and raise the other; you turn toward the lower hand.
+  - Dive: tuck the arms in or drop them to your sides. Spread them to pull out.
+  - Catch: reach a hand onto a wall while flying and you stick to it.
 - **Grip** (optional): locks a touching hand to the surface.
 - **B** or **Y**: show or hide the debug panel (desktop: **P**).
 - Point at a − / + button on the panel and pull the **trigger** to change a

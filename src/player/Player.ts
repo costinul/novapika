@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
-import type { ClawState, MoveState } from '../movement/types';
+import type { ClawState, MoveState, WingState } from '../movement/types';
 
 export type Handedness = 'left' | 'right';
 export const HANDS: readonly Handedness[] = ['left', 'right'];
@@ -81,6 +81,17 @@ export class Player implements MoveState {
   /** At least one claw carried the body during the last simulation step. */
   supported = false;
   readonly claws: Record<Handedness, ClawState> = { left: claw(), right: claw() };
+  readonly wings: WingState = {
+    time: 0,
+    tracked: false,
+    prev: { left: new Vector3(), right: new Vector3() },
+    sinkSpeed: { left: 0, right: 0 },
+    sweepStart: { left: -1, right: -1 },
+    flapping: false,
+    glide: 0,
+  };
+  readonly catchVelocity = new Vector3();
+  catchDecel = 0;
 
   readonly input = createPlayerInput();
   /** World-space poses, derived from `position` and `input`. */
