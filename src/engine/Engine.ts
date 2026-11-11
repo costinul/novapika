@@ -12,7 +12,9 @@ import type { Material, Mesh, Object3D, Texture } from 'three';
 import { Mimicry } from '../audio/Mimicry';
 import { Sounds } from '../audio/Sounds';
 import { FeatherBatch } from '../characters/FeatherBatch';
-import { character, DEFAULT_CHARACTER } from '../characters/roster';
+import { character, DEFAULT_CHARACTER, roster } from '../characters/roster';
+import { ReachMeter } from '../comfort/ReachMeter';
+import { Vignette } from '../comfort/Vignette';
 import { movementConfig } from '../config/movement';
 import { DebugPanel } from '../debug/DebugPanel';
 import { Flock } from '../flock/Flock';
@@ -39,6 +41,28 @@ import { PhysicsWorld } from './physics';
 const SIM_HZ = 120;
 const EYE_HEIGHT_DESKTOP = 1.6; // m, camera height when there is no headset
 const FALL_OUT_Y = -30; // m, below this the player is put back at the spawn point
+const MENU_HOLD = 0.8; // s to hold B or Y to open or close the debug panel
+const SHOW_DEBUG = new URLSearchParams(globalThis.location?.search ?? '').has('debug');
+const CHARACTER_KEY = 'novapika.character';
+
+/** The parrot chosen last time, kept on this device only. */
+function rememberedCharacter(): string {
+  try {
+    const id = globalThis.localStorage?.getItem(CHARACTER_KEY);
+    return id && id in roster ? id : DEFAULT_CHARACTER;
+  } catch {
+    return DEFAULT_CHARACTER; // Storage switched off: start as the default.
+  }
+}
+
+function rememberCharacter(id: string): void {
+  try {
+    globalThis.localStorage?.setItem(CHARACTER_KEY, id);
+  } catch {
+    // Storage switched off: the choice just lasts for this visit.
+  }
+}
+
 /** The lobby's parrots are simulated on every this-many-th step, to save time. */
 const FLOCK_EVERY = 2;
 
@@ -48,7 +72,7 @@ export class Engine {
   readonly camera = new PerspectiveCamera(70, 1, 0.05, 600);
   /** The local player's tracking space. Moving the player moves this. */
   private readonly rig = new Group();
-  readonly localPlayer = new Player('local', DEFAULT_CHARACTER);
+  readonly localPlayer = new Player('local', rememberedCharacter());
 
   private readonly input: InputSource;
   private readonly playerView: PlayerView;
@@ -74,6 +98,12 @@ export class Engine {
     passedRing: false,
   };
   private wasAirborne = false;
+  private wasFlapping = false;
+  private readonly wasPlanted = { left: false, right: false };
+  private readonly vignette = new Vignette();
+  private readonly reach = new ReachMeter();
+  /** How long the menu button has been held, s. */
+  private menuHeld = 0;
   /** The toy the local player's beak could bite right now. */
   private biteable: Toy | null = null;
   private biteWasPressed = false;
@@ -93,7 +123,6 @@ export class Engine {
   private needsSpawn = false;
   private lastTimeMs = 0;
   private fps = 0;
-  private menuWasPressed = false;
   private readonly pointers: PanelPointer[] = HANDS.map(() => ({
     origin: new Vector3(),
     direction: new Vector3(),
@@ -117,6 +146,7 @@ export class Engine {
 
     this.camera.position.set(0, EYE_HEIGHT_DESKTOP, 0);
     this.rig.add(this.camera);
+    this.camera.add(this.vignette.object);
     this.scene.add(this.rig);
 
     this.input = new XRInput(this.renderer, this.camera);
@@ -126,11 +156,12 @@ export class Engine {
     this.debugPanel = new DebugPanel(movementConfig, () => ({
       fps: this.fps,
       movementState: this.describeMovement(),
-      lobbyId: this.lobby?.module.id ?? '-',
+      lobbyId: `${this.lobby?.module.id ?? '-'}  reach ${this.reach.reach.toFixed(2)} m`,
       drawCalls: this.drawCalls,
       triangles: this.triangles,
     }));
     this.scene.add(this.debugPanel.object);
+    this.debugPanel.object.visible = false;
 
     this.world = new WorldState(this.physics);
     this.world.players.set(this.localPlayer.id, this.localPlayer);
@@ -140,7 +171,10 @@ export class Engine {
     this.sounds.setVoice(character(this.localPlayer.characterId).voice);
     this.actions.onApplied((action) => {
       const mine = 'playerId' in action && action.playerId === this.localPlayer.id;
-      if (action.type === 'chooseCharacter' && mine) this.sounds.setVoice(character(action.characterId).voice);
+      if (action.type === 'chooseCharacter' && mine) {
+        this.sounds.setVoice(character(action.characterId).voice);
+        rememberCharacter(action.characterId);
+      }
       if (action.type === 'passRing' && mine) this.stuntSample.passedRing = true;
       this.worldView.onAction(action);
       this.sounds.onAction(action);
@@ -195,7 +229,9 @@ export class Engine {
     toMoveInput(player.input, this.movePrev);
     player.updateWorldPoses();
     // Off to the right, so it does not hide the room.
-    this.debugPanel.placeInFrontOf(player.head, -0.7);
+    // The debug panel is for the grown-up tuning the game: shown at the start
+    // only when the address has ?debug, otherwise opened by holding B or Y.
+    if (SHOW_DEBUG) this.debugPanel.placeInFrontOf(player.head, -0.7);
     this.needsSpawn = false;
   }
 
@@ -228,6 +264,7 @@ export class Engine {
     const player = this.localPlayer;
     this.input.read(player.input);
     toMoveInput(player.input, this.moveNow);
+    this.measureReach(dt);
 
     // In VR, wait for the first real head pose before seating the player.
     const poseReady = !this.renderer.xr.isPresenting || this.moveNow.head.y > 0.2;
@@ -282,6 +319,20 @@ export class Engine {
     this.world.step(dt, this.actions);
   }
 
+  /** Learn the player's arm reach from how far out they hold their hands. */
+  private measureReach(dt: number): void {
+    const player = this.localPlayer;
+    if (!movementConfig.autoArmReach.value || !this.renderer.xr.isPresenting) {
+      player.reachScale = 1;
+      return;
+    }
+    const { head, hands } = this.moveNow;
+    const out = (h: 'left' | 'right'): number =>
+      Math.hypot(hands[h].position.x - head.x, hands[h].position.z - head.z);
+    this.reach.update(out('left'), out('right'), dt);
+    player.reachScale = this.reach.scale;
+  }
+
   /** Watch the local player for stunts, and make the sounds of flight. */
   private updateStunts(dt: number): void {
     const player = this.localPlayer;
@@ -307,11 +358,35 @@ export class Engine {
 
     const airborne = !player.grounded && !player.supported;
     if (airborne !== this.wasAirborne) {
-      if (airborne) this.sounds.takeOff();
-      else this.sounds.land();
+      if (airborne) {
+        this.sounds.takeOff();
+      } else {
+        this.sounds.land();
+        // A little dust where the feet come down.
+        this.scratch.copy(player.head.position);
+        this.scratch.y -= movementConfig.bodyHeight.value;
+        this.worldView.burst(this.scratch, 0xe8dcc0);
+      }
       this.wasAirborne = airborne;
     }
     this.sounds.setWind(airborne ? s.speed : 0);
+    this.vignette.update(airborne ? s.speed : 0, movementConfig, dt);
+
+    // Wing beats and claws are heard, and felt in the hands.
+    const flapping = player.wings.flapping;
+    if (flapping && !this.wasFlapping) {
+      this.sounds.flap(player.wings.flapStrength);
+      for (const h of HANDS) this.input.pulse?.(h, 0.25 * player.wings.flapStrength, 70);
+    }
+    this.wasFlapping = flapping;
+    for (const h of HANDS) {
+      const planted = player.claws[h].planted;
+      if (planted && !this.wasPlanted[h]) {
+        this.sounds.clawTap();
+        this.input.pulse?.(h, 0.35, 30);
+      }
+      this.wasPlanted[h] = planted;
+    }
   }
 
   /** Beak: carry, peck, and bite or drop on a trigger press. */
@@ -371,9 +446,11 @@ export class Engine {
 
   private updateDebugPanel(dt: number): void {
     const player = this.localPlayer;
+    // Hold B or Y for a moment: a child's stray press does not open it.
     const menuPressed = HANDS.some((h) => player.input.hands[h].menuPressed);
-    if (menuPressed && !this.menuWasPressed) this.debugPanel.toggle(player.head);
-    this.menuWasPressed = menuPressed;
+    const before = this.menuHeld;
+    this.menuHeld = menuPressed ? this.menuHeld + dt : 0;
+    if (before < MENU_HOLD && this.menuHeld >= MENU_HOLD) this.debugPanel.toggle(player.head);
 
     HANDS.forEach((h, i) => {
       const aim = player.hands[h].aim;

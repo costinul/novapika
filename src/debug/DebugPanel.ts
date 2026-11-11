@@ -248,7 +248,7 @@ export class DebugPanel {
     g.textAlign = 'left';
     g.fillStyle = '#9fb0bf';
     g.font = '400 24px system-ui, sans-serif';
-    g.fillText('Trigger on − / +.  B or Y hides this panel.', 24, ROW_PX * 2.5);
+    g.fillText('Trigger on − / +.  Hold B or Y to hide.', 24, ROW_PX * 2.5);
     g.textAlign = 'right';
     g.fillText(`page ${this.page + 1} / ${this.pageCount}`, MINUS_X[0] - 20, ROW_PX * 2.5);
     this.drawButton('◀', MINUS_X, (HEADER_ROWS - 1) * ROW_PX, this.isHovered(PAGE_ROW, -1));

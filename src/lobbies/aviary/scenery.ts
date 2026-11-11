@@ -11,6 +11,7 @@ import {
   HALF,
   HEIGHT,
   HOME_CROWN,
+  HOW_TO,
   HOME_LOW_BRANCHES,
   HOME_TRUNK,
   LOOKOUT,
@@ -105,6 +106,16 @@ export function buildScenery(b: StaticBuilder): void {
     const dx = Math.cos(yaw) * 0.17;
     const dz = -Math.sin(yaw) * 0.17;
     b.limb(paint, [x - dx, top, z - dz], [x + dx, top, z + dz], 0.03, 0.03, { sides: 6 });
+  }
+  // Wooden back and two posts for the picture board of the moves.
+  {
+    const [x, y, z] = HOW_TO.position;
+    b.box(WOOD, [x, y, z], [HOW_TO.width + 0.1, HOW_TO.height + 0.1, 0.06], { yaw: HOW_TO.yaw });
+    const dx = Math.cos(HOW_TO.yaw) * (HOW_TO.width / 2 - 0.1);
+    const dz = -Math.sin(HOW_TO.yaw) * (HOW_TO.width / 2 - 0.1);
+    for (const side of [-1, 1]) {
+      b.limb(WOOD, [x + side * dx, NEST_Y, z + side * dz], [x + side * dx, y, z + side * dz], 0.04, 0.04, { sides: 6 });
+    }
   }
   tree(b, HOME_CROWN, 0);
   for (const pad of PADS) b.drum(WOOD, [pad[0], pad[1] - 0.04, pad[2]], 0.35, 0.08, 8);

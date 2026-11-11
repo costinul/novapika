@@ -33,7 +33,8 @@ const saturate = (x: number): number => Math.min(1, Math.max(0, x));
 export function trackWings(state: MoveState, input: MoveInput, cfg: MovementConfig, dt: number): void {
   const w = state.wings;
   w.time += dt;
-  const threshold = cfg.flapSpeedThreshold.value;
+  // Shorter arms sweep more slowly, so the bar is lower for them.
+  const threshold = cfg.flapSpeedThreshold.value * state.reachScale;
   const blend = 1 - Math.exp(-dt / cfg.handSpeedSmoothing.value);
 
   for (const h of HANDS) {
@@ -84,6 +85,7 @@ export function trackWings(state: MoveState, input: MoveInput, cfg: MovementConf
 export function wingPose(
   input: MoveInput,
   cfg: MovementConfig,
+  reachScale = 1,
 ): { glide: number; bank: number; leftOut: number; rightOut: number } {
   const head = input.head;
   const l = input.hands.left.position;
@@ -95,8 +97,8 @@ export function wingPose(
   const lOut = Math.hypot(lx, lz);
   const rOut = Math.hypot(rx, rz);
 
-  const tuck = cfg.wingTuckDistance.value;
-  const range = Math.max(0.01, cfg.wingSpreadDistance.value - tuck);
+  const tuck = cfg.wingTuckDistance.value * reachScale;
+  const range = Math.max(0.01, cfg.wingSpreadDistance.value * reachScale - tuck);
   pose.leftOut = saturate((lOut - tuck) / range);
   pose.rightOut = saturate((rOut - tuck) / range);
   const spread = Math.min(pose.leftOut, pose.rightOut);
@@ -107,7 +109,7 @@ export function wingPose(
   const opposite = saturate(-cos / 0.5);
 
   const meanHeight = (l.y + r.y) / 2 - head.y;
-  const level = saturate((meanHeight + cfg.glideArmsDown.value) / ARMS_DOWN_BAND);
+  const level = saturate((meanHeight + cfg.glideArmsDown.value * reachScale) / (ARMS_DOWN_BAND * reachScale));
 
   pose.glide = spread * opposite * level;
   const spacing = Math.max(0.3, Math.hypot(rx - lx, rz - lz));
@@ -125,7 +127,9 @@ export function applyAir(state: MoveState, input: MoveInput, cfg: MovementConfig
   const w = state.wings;
 
   if (w.flapping) {
-    const speed = Math.min(cfg.flapSpeedCap.value, w.sinkSpeed.left, w.sinkSpeed.right);
+    // Lift and push are counted against the reach, so a child's shorter,
+    // slower stroke gives as much as an adult's full one.
+    const speed = Math.min(cfg.flapSpeedCap.value, w.sinkSpeed.left, w.sinkSpeed.right) / state.reachScale;
     v.y += cfg.flapPower.value * speed * w.flapStrength * dt;
     // The forward push can turn the flight and bring it up to glide speed,
     // but never makes it faster than it already was beyond that.
@@ -138,7 +142,7 @@ export function applyAir(state: MoveState, input: MoveInput, cfg: MovementConfig
     }
   }
 
-  const { glide, bank, leftOut, rightOut } = wingPose(input, cfg);
+  const { glide, bank, leftOut, rightOut } = wingPose(input, cfg, state.reachScale);
   w.glide = state.grounded ? 0 : glide;
 
   const before = v.y;

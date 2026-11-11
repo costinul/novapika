@@ -135,6 +135,17 @@ function perch(characterId: string, angleDeg: number, distance: number, height: 
   };
 }
 
+const [howToX, howToZ] = polar(18, 2.05);
+/** A picture board at the edge of the nest showing the moves. It faces the spawn point. */
+export const HOW_TO = {
+  /** Centre of the board. */
+  position: [howToX, NEST_Y + 1.05, howToZ] as Vec3,
+  /** Turn about the vertical axis so its face looks at the spawn point. */
+  yaw: Math.atan2(spawnX - howToX, spawnZ - howToZ),
+  width: 1.5,
+  height: 1.0,
+};
+
 /** Pick a parrot by touching it. Nova and Pika have the two middle perches. */
 export const CHARACTER_PERCHES: CharacterPerchDef[] = [
   ...PERCH_ORDER.map((id, i) => perch(id, PERCH_ARC + (1.5 - i) * 21, 2.0, PERCH_HEIGHT)),
@@ -270,7 +281,7 @@ const toys: ToyDef[] = [
   { id: 'block-3', type: 'woodBlock', position: ground(75, 15, 0.07) },
   { id: 'block-4', type: 'woodBlock', position: ground(5, 10, 0.07) },
   { id: 'block-5', type: 'woodBlock', position: [GYM[0] + 1, 0.07, GYM[2] - 1] },
-  { id: 'block-6', type: 'woodBlock', position: [1.2, NEST_Y + 0.07, 1.3] },
+  { id: 'block-6', type: 'woodBlock', position: [-1.0, NEST_Y + 0.07, 1.7] },
   // Bell balls.
   { id: 'ball-1', type: 'bellBall', position: ground(140, 9, 0.08) },
   { id: 'ball-2', type: 'bellBall', position: ground(290, 13, 0.08) },

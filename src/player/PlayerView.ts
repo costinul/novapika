@@ -164,8 +164,9 @@ export class PlayerView {
 
       // How far out the arm is, the same way the glide measures it.
       const out = Math.hypot(hand.x - head.position.x, hand.z - head.position.z);
-      const tuck = movementConfig.wingTuckDistance.value;
-      const spread = saturate((out - tuck) / Math.max(0.01, movementConfig.wingSpreadDistance.value - tuck));
+      const tuck = movementConfig.wingTuckDistance.value * player.reachScale;
+      const full = movementConfig.wingSpreadDistance.value * player.reachScale;
+      const spread = saturate((out - tuck) / Math.max(0.01, full - tuck));
 
       this.folded.copy(this.back).multiplyScalar(0.45).addScaledVector(UP, -1).addScaledVector(this.armDir, 0.1);
       for (let i = 0; i < FEATHERS_PER_WING; i++) {

@@ -42,6 +42,30 @@ export class Sounds {
     this.wind.filter.frequency.setTargetAtTime(350 + 900 * strength, ctx.currentTime, 0.15);
   }
 
+  /** The whoosh of a wing beat. `strength` is 0..1. */
+  flap(strength: number): void {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    const source = ctx.createBufferSource();
+    source.buffer = this.noise(ctx, 0.22);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 0.9;
+    filter.frequency.setValueAtTime(900, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.2);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.16 * Math.max(0.2, strength), ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+    source.connect(filter).connect(gain).connect(ctx.destination);
+    source.start();
+  }
+
+  /** A claw taking hold of something. */
+  clawTap(): void {
+    this.tone(520, 300, 0.035, 0.07, 'triangle');
+  }
+
   /** Leaving a perch or the ground. */
   takeOff(): void {
     this.tone(this.voice.pitch * 0.8, this.voice.pitch * 1.25, 0.12, 0.1, this.voice.wave);

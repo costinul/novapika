@@ -153,6 +153,22 @@ export const movementConfig = {
     value: 3, unit: 's', min: 0.5, max: 10, step: 0.5,
     comment: 'Time to refill stamina from empty while standing, perching or hanging.',
   },
+  autoArmReach: {
+    value: 1, unit: 'on/off', min: 0, max: 1, step: 1,
+    comment: '1 = wing distances and flap speed scale to how far the player can reach, so short arms work as well as long ones.',
+  },
+  comfortVignette: {
+    value: 1, unit: 'on/off', min: 0, max: 1, step: 1,
+    comment: '1 = the edges of the view darken at high speed, which eases motion sickness.',
+  },
+  vignetteStrength: {
+    value: 0.55, unit: 'x', min: 0.1, max: 1, step: 0.05,
+    comment: 'How dark the edges get at top speed.',
+  },
+  vignetteFromSpeed: {
+    value: 5.5, unit: 'm/s', min: 2, max: 8, step: 0.5,
+    comment: 'Speed at which the edges start to darken. Above normal glide speed by default, so only dives and swoops show it.',
+  },
   biteReach: {
     value: 0.5, unit: 'm', min: 0.1, max: 1, step: 0.05,
     comment: 'How close a toy must be to the beak to be highlighted and bitten. The ground is about 0.5 m below the beak when standing.',

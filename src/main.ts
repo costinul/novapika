@@ -8,7 +8,15 @@ if (import.meta.env.DEV && !nativeVR) {
 }
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
+const start = document.querySelector<HTMLElement>('#start')!;
 const button = document.querySelector<HTMLButtonElement>('#enter-vr')!;
+
+/** The start button shows its state as a picture; the label is for screen readers. */
+function show(state: 'loading' | 'ready' | 'none', label: string): void {
+  button.dataset.state = state;
+  button.disabled = state !== 'ready';
+  button.setAttribute('aria-label', label);
+}
 
 const engine = await Engine.create(canvas);
 // ?lobby=<id> picks a lobby from the registry.
@@ -18,16 +26,17 @@ engine.start();
 if (import.meta.env.DEV) (window as unknown as { engine: Engine }).engine = engine;
 
 if (await engine.isVRSupported()) {
-  button.textContent = 'Enter VR';
-  button.disabled = false;
+  show('ready', 'Play');
   button.addEventListener('click', () => {
     engine.enterVR().catch((err) => {
       console.error(err);
-      button.textContent = 'Could not start VR';
+      show('none', 'Could not start VR');
     });
   });
-  engine.renderer.xr.addEventListener('sessionstart', () => (button.hidden = true));
-  engine.renderer.xr.addEventListener('sessionend', () => (button.hidden = false));
+  engine.renderer.xr.addEventListener('sessionstart', () => (start.hidden = true));
+  engine.renderer.xr.addEventListener('sessionend', () => (start.hidden = false));
 } else {
-  button.textContent = 'VR not available';
+  // No headset here: the game can still be looked at on the flat screen.
+  show('none', 'VR is not available in this browser');
+  start.addEventListener('click', () => (start.hidden = true), { once: true });
 }

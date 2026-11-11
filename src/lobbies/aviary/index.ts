@@ -16,6 +16,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { StaticBuilder } from '../build';
+import { howToBoard } from './howTo';
 import type { LobbyModule } from '../types';
 import { CONTENT, HALF, HEIGHT, SPAWN } from './layout';
 import { buildScenery } from './scenery';
@@ -108,6 +109,7 @@ const aviary: LobbyModule = {
     buildScenery(builder);
     root.add(builder.mesh());
     root.add(netting());
+    root.add(howToBoard());
 
     return { root };
   },

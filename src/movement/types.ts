@@ -49,6 +49,8 @@ export interface MoveState {
   stamina: number;
   /** How tiring a flap is for this parrot: 1 is normal, less is fitter. */
   flapCost: number;
+  /** Arm length against a reference adult: 1 normal, less for a child's shorter reach. */
+  reachScale: number;
   /** At least one claw carried the body during the last step. */
   supported: boolean;
   claws: Record<Handedness, ClawState>;

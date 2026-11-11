@@ -431,7 +431,7 @@ export class WorldView {
   }
 
   /** A puff of sparkles flying up and out from a point. */
-  private burst(at: Vector3, color: number): void {
+  burst(at: Vector3, color: number): void {
     const position = this.sparkles.geometry.attributes.position;
     for (let i = 0; i < SPARKLE_COUNT; i++) {
       const angle = (i / SPARKLE_COUNT) * Math.PI * 2;

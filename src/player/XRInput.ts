@@ -89,6 +89,15 @@ export class XRInput implements InputSource {
     }
   }
 
+  /** A short buzz in one controller. `strength` is 0..1. Does nothing where unsupported. */
+  pulse(hand: Handedness, strength: number, milliseconds: number): void {
+    for (const source of this.renderer.xr.getSession()?.inputSources ?? []) {
+      if (source.handedness !== hand) continue;
+      const gamepad = source.gamepad as (Gamepad & { hapticActuators?: { pulse?(s: number, ms: number): unknown }[] }) | undefined;
+      void gamepad?.hapticActuators?.[0]?.pulse?.(strength, milliseconds);
+    }
+  }
+
   /** No headset: head is the screen camera, hands float in front of it. */
   private readDesktop(out: PlayerInput): void {
     copyPose(this.camera, out.head);

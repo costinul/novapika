@@ -45,6 +45,8 @@ export interface PlayerInput {
 
 export interface InputSource {
   read(out: PlayerInput): void;
+  /** A short buzz in one hand, where the hardware can. `strength` is 0..1. */
+  pulse?(hand: Handedness, strength: number, milliseconds: number): void;
 }
 
 const pose = (): Pose => ({ position: new Vector3(), quaternion: new Quaternion() });
@@ -78,6 +80,8 @@ export class Player implements MoveState {
   stamina = 1;
   /** How tiring a flap is for this parrot: 1 is normal, less is fitter. */
   flapCost = 1;
+  /** Arm length against a reference adult: 1 normal, less for a child's shorter reach. */
+  reachScale = 1;
   carriedItemId: string | null = null;
   /** The body is resting on a walkable surface. */
   grounded = false;

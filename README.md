@@ -3,11 +3,14 @@
 A browser VR game for Meta Quest where you are a parrot. Requirements:
 [Nova Pika — VR Game Requirements (v1).md](<Nova Pika — VR Game Requirements (v1).md>).
 
-Current state: **milestone 7 (lobby parrots)**. The Aviary now has seven
-parrots of its own that fly about, perch, preen and call, come for a seed you
-are holding, move toys, and follow you; two of them repeat what you say. You
-play as Nova, Pika, a budgie, a macaw or a cockatoo, with claws, wings, beak,
-stamina and stunts.
+Current state: **all eight v1 milestones are built.** You play as Nova, Pika,
+a budgie, a macaw or a cockatoo in the Aviary, with claws, wings, beak,
+stamina and stunts, among seven lobby parrots. The last milestone made it
+startable by a child: a picture-only start screen, a picture board of the
+moves, comfort settings and movement that fits short arms.
+
+Not yet checked on a real headset by the author of the code: every milestone
+was tested with unit tests and a desktop WebXR emulator only.
 
 ## Run
 
@@ -27,7 +30,7 @@ npm run dev
 
 Open the `Network:` HTTPS address it prints in the Quest Browser. The
 certificate is self-signed, so the browser warns once: choose
-Advanced → Proceed. Then press **Enter VR**.
+Advanced → Proceed. Then press the big round play button.
 
 On the desktop, with an emulated headset (no HTTPS needed):
 
@@ -67,6 +70,27 @@ npm run build
   - Place: drop a toy into the toy box for a chirp and a sparkle.
   - Peck: move your head (or a hand) into a bell to ring it. No button.
 - **Grip** (optional): locks a touching hand to the surface.
+
+## Starting, for a child
+
+- **Start screen:** pictures only. It shows a parrot with its arms spread
+  inside a clear ring, with the furniture pushed out, because flapping uses
+  the full arm span. Below it is one big play button.
+- **In the nest:** a board of six pictures shows the moves: flap, glide, turn,
+  dive, climb and bite. Orange arrows are what your arms do; green arrows are
+  what happens.
+- **Arm reach:** the game learns how far the player can reach the first time
+  they spread their arms, and scales the wing distances and flap speed to it,
+  so a child's arms work as well as an adult's. `autoArmReach` switches it off.
+- **Your parrot is remembered** on the device between visits. Nothing else is
+  kept, and nothing is sent anywhere.
+
+## Comfort
+
+- The view is never turned or tilted by the game.
+- Flying and falling speeds are capped.
+- Above normal glide speed the edges of the view darken slightly.
+  `comfortVignette` on the debug panel switches that off.
 
 ## Choosing a parrot
 
@@ -113,7 +137,7 @@ parrot less (40% of the cost), since it flaps far more than a child would.
 Two of the parrots copy you. When one is perched within a few metres it
 sometimes listens, and repeats what you said in a higher, squeaky voice.
 
-The game asks for the microphone once, when you press Enter VR. If you refuse,
+The game asks for the microphone once, when you press the play button. If you refuse,
 everything else works the same; there is just no mimicry. The microphone is
 used for nothing else. Sound is only looked at while a parrot is listening;
 one phrase of at most three seconds is held in memory, played back once and
@@ -128,7 +152,8 @@ dropped. Nothing is stored and nothing leaves the headset.
 - Ring every bell.
 - Find the four shiny bottle caps hidden in hard-to-reach places.
 - Splash in the bird bath.
-- **B** or **Y**: show or hide the debug panel (desktop: **P**).
+- Hold **B** or **Y** for a moment: show or hide the debug panel (desktop:
+  **P**). Add `?debug` to the address to have it open from the start.
 - Point at a − / + button on the panel and pull the **trigger** to change a
   movement value live (desktop: click with the mouse).
 
@@ -142,6 +167,7 @@ dropped. Nothing is stored and nothing leaves the headset.
 | `src/movement/` | Movement rules as pure functions of state, input and world queries |
 | `src/characters/` | The roster of parrots as data, and the code that builds their models |
 | `src/stunts/` | One small recogniser per stunt |
+| `src/comfort/` | Speed vignette and arm-reach measuring |
 | `src/flock/` | The lobby's own parrots: the pilot that flies them and their behaviour |
 | `src/world/` | Toys, target places and bells; the action layer every world change goes through |
 | `src/audio/` | Sounds, synthesized in code; mimicry |
