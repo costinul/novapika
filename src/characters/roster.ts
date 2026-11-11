@@ -137,6 +137,25 @@ export const roster: Record<string, CharacterDef> = {
   },
 };
 
+/** Parrots seen only in the lobby's flock, not offered on a perch. */
+export const flockOnly: Record<string, CharacterDef> = {
+  skyBudgie: {
+    ...roster.budgie,
+    id: 'skyBudgie',
+    name: 'Sky budgie',
+    colors: {
+      ...roster.budgie.colors,
+      head: 0xf7f6ee,
+      back: 0x8fc4ee,
+      chest: 0x5aa9f0,
+      belly: 0x5aa9f0,
+      wing: 0xcfe3f2,
+      tail: 0x2a4fa8,
+    },
+    voice: { ...roster.budgie.voice, pitch: 3700 },
+  },
+};
+
 /** Order of the perches in the nest. Nova and Pika take the middle two. */
 export const PERCH_ORDER = ['budgie', 'nova', 'pika', 'cockatoo'] as const;
 /** The macaw, the biggest, has a tall perch behind them. */
@@ -145,5 +164,5 @@ export const BACK_PERCH = 'macaw';
 export const DEFAULT_CHARACTER = 'nova';
 
 export function character(id: string): CharacterDef {
-  return roster[id] ?? roster[DEFAULT_CHARACTER];
+  return roster[id] ?? flockOnly[id] ?? roster[DEFAULT_CHARACTER];
 }

@@ -91,6 +91,25 @@ export interface CharacterPerchDef {
   yaw: number;
 }
 
+/** One of the lobby's own parrots, which live there and are run by a script. */
+export interface FlockParrotDef {
+  id: string;
+  /** Key into the character roster. */
+  characterId: string;
+  /** Index of the perching spot it starts on and is returned to if it gets stuck. */
+  home: number;
+  /** Likes to follow the player about for a while. */
+  follows?: boolean;
+  /** Sometimes repeats what the player says. */
+  mimics?: boolean;
+}
+
+export interface FlockDef {
+  parrots: readonly FlockParrotDef[];
+  /** Places to perch: where a parrot's feet go. */
+  spots: readonly Vec3[];
+}
+
 export interface LobbyContent {
   toyTypes: Record<string, ToyTypeDef>;
   toys: readonly ToyDef[];
@@ -99,6 +118,7 @@ export interface LobbyContent {
   rings: readonly RingDef[];
   water: readonly WaterDef[];
   characterPerches?: readonly CharacterPerchDef[];
+  flock?: FlockDef;
 }
 
 /** Collision shape of a toy: a ball of radius half[0], or a box of half extents. */

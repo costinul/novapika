@@ -9,18 +9,20 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { Material, Mesh, Object3D, Texture } from 'three';
+import { Mimicry } from '../audio/Mimicry';
 import { Sounds } from '../audio/Sounds';
 import { FeatherBatch } from '../characters/FeatherBatch';
 import { character, DEFAULT_CHARACTER } from '../characters/roster';
 import { movementConfig } from '../config/movement';
 import { DebugPanel } from '../debug/DebugPanel';
+import { Flock } from '../flock/Flock';
 import type { PanelPointer } from '../debug/DebugPanel';
 import { lobbyRegistry } from '../lobbies/registry';
 import type { LobbyInstance, LobbyModule } from '../lobbies/types';
+import { newMoveInput, toMoveInput } from '../movement/input';
 import { bodyCenter, clawCorrection, placeAt, stepMovement } from '../movement/step';
-import type { MoveInput } from '../movement/types';
 import { HANDS, Player } from '../player/Player';
-import type { InputSource, PlayerInput } from '../player/Player';
+import type { InputSource } from '../player/Player';
 import { PlayerView } from '../player/PlayerView';
 import { XRInput } from '../player/XRInput';
 import { createRecognisers } from '../stunts/recognisers';
@@ -37,28 +39,8 @@ import { PhysicsWorld } from './physics';
 const SIM_HZ = 120;
 const EYE_HEIGHT_DESKTOP = 1.6; // m, camera height when there is no headset
 const FALL_OUT_Y = -30; // m, below this the player is put back at the spawn point
-
-const newMoveInput = (): MoveInput => ({
-  head: new Vector3(),
-  headForward: new Vector3(0, 0, -1),
-  hands: {
-    left: { position: new Vector3(), gripPressed: false },
-    right: { position: new Vector3(), gripPressed: false },
-  },
-});
-
-const forward = new Vector3();
-
-function toMoveInput(from: PlayerInput, to: MoveInput): void {
-  to.head.copy(from.head.position);
-  // Looking straight up or down has no horizontal direction: keep the last one.
-  forward.set(0, 0, -1).applyQuaternion(from.head.quaternion).setY(0);
-  if (forward.lengthSq() > 0.01) to.headForward.copy(forward).normalize();
-  for (const h of HANDS) {
-    to.hands[h].position.copy(from.hands[h].grip.position);
-    to.hands[h].gripPressed = from.hands[h].gripPressed;
-  }
-}
+/** The lobby's parrots are simulated on every this-many-th step, to save time. */
+const FLOCK_EVERY = 2;
 
 export class Engine {
   readonly renderer: WebGLRenderer;
@@ -77,6 +59,10 @@ export class Engine {
   private readonly worldView: WorldView;
   private readonly sounds = new Sounds();
   private readonly feathers = new FeatherBatch();
+  private readonly mimicry = new Mimicry();
+  private readonly flock: Flock;
+  /** Simulation steps run so far. The flock is stepped on every second one. */
+  private simSteps = 0;
   private readonly stunts = createRecognisers();
   private readonly stuntSample: StuntSample = {
     state: 'standing',
@@ -160,6 +146,8 @@ export class Engine {
       this.sounds.onAction(action);
     });
     this.world.onJingle = (_toy, strength) => this.sounds.jingle(strength);
+    this.flock = new Flock(this.world, this.actions, this.physics, this.feathers, this.sounds, this.mimicry);
+    this.scene.add(this.flock.object);
 
     // Head height changes when a session starts or ends, so re-seat the player.
     this.renderer.xr.addEventListener('sessionstart', () => (this.needsSpawn = true));
@@ -181,12 +169,14 @@ export class Engine {
     if (this.lobby) {
       this.scene.remove(this.lobby.instance.root);
       disposeTree(this.lobby.instance.root);
+      this.flock.clear();
       this.world.clear();
       this.physics.clear();
     }
 
     const instance = module.load({ physics: this.physics });
     if (module.content) this.world.load(module.content);
+    this.flock.load(module.content?.flock);
     this.worldView.rebuild();
     this.sounds.setAmbience(module.ambience ?? null);
     this.scene.add(instance.root);
@@ -220,6 +210,9 @@ export class Engine {
   /** Must be called from a user gesture such as a button click. */
   async enterVR(): Promise<void> {
     this.sounds.unlock();
+    // Asks for the microphone once, for the parrots that copy what you say.
+    // The game is the same without it.
+    if (this.sounds.context) void this.mimicry.enable(this.sounds.context);
     if (this.renderer.xr.isPresenting) return;
     const session = await navigator.xr!.requestSession('immersive-vr', {
       requiredFeatures: ['local-floor'],
@@ -266,6 +259,8 @@ export class Engine {
     this.rig.position.copy(this.viewPosition);
     this.feathers.begin();
     this.playerView.update(dt);
+    // The flock is simulated at half rate; draw it part way between its steps.
+    this.flock.frame(dt, ((this.simSteps % FLOCK_EVERY) + this.stepper.alpha) / FLOCK_EVERY);
     this.feathers.end();
     this.updateBeak(dt);
     this.updateStunts(dt);
@@ -283,6 +278,7 @@ export class Engine {
   private simulate(dt: number): void {
     this.physics.step(dt);
     stepMovement(this.localPlayer, this.moveStep, this.physics, movementConfig, dt);
+    if (++this.simSteps % FLOCK_EVERY === 0) this.flock.step(dt * FLOCK_EVERY);
     this.world.step(dt, this.actions);
   }
 

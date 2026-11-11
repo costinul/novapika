@@ -210,5 +210,5 @@ export function buildStatue(def: CharacterDef): BufferGeometry {
 
 /** One wing feather: a flat leaf from its root at the origin to its tip at +Y. */
 export function featherGeometry(): BufferGeometry {
-  return new ConeGeometry(0.2, 1, 4).translate(0, 0.5, 0).scale(1, 1, 0.12);
+  return new ConeGeometry(0.32, 1, 4).translate(0, 0.5, 0).scale(1, 1, 0.1);
 }

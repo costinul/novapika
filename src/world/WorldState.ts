@@ -207,6 +207,13 @@ export class WorldState {
       }
       case 'drop':
         return !!this.players.get(action.playerId)?.carriedItemId;
+      case 'take': {
+        const taker = this.players.get(action.playerId);
+        const toy = this.toys.get(action.toyId);
+        return (
+          !!taker && !!toy && taker.carriedItemId === null && toy.holderId !== null && toy.holderId !== taker.id
+        );
+      }
       case 'place': {
         const toy = this.toys.get(action.toyId);
         const target = this.targets.get(action.targetId);
@@ -253,6 +260,16 @@ export class WorldState {
         toy.holderId = null;
         toy.strayTime = 0;
         player.carriedItemId = null;
+        break;
+      }
+      case 'take': {
+        const taker = this.players.get(action.playerId)!;
+        const toy = this.toys.get(action.toyId)!;
+        const loser = this.players.get(toy.holderId!);
+        if (loser) loser.carriedItemId = null;
+        toy.holderId = taker.id;
+        toy.lastVelocity.set(0, 0, 0);
+        taker.carriedItemId = toy.id;
         break;
       }
       case 'place':
@@ -333,6 +350,11 @@ export class WorldState {
         }
       }
 
+      // The ring course and choosing a character are for people, not lobby parrots.
+      if (!player.human) {
+        this.splash(player, actions);
+        continue;
+      }
       // Touching the parrot on a perch, with beak or hand, makes you that parrot.
       for (const perch of this.perches.values()) {
         const touching =

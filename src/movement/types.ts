@@ -47,6 +47,8 @@ export interface MoveState {
   grounded: boolean;
   /** 0 = empty, 1 = full. Flapping spends it; resting refills it. */
   stamina: number;
+  /** How tiring a flap is for this parrot: 1 is normal, less is fitter. */
+  flapCost: number;
   /** At least one claw carried the body during the last step. */
   supported: boolean;
   claws: Record<Handedness, ClawState>;

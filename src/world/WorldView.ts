@@ -45,7 +45,7 @@ const BELL_AT_REST = 60; // s since a ring after which a bell hangs still
 const RING_TODO = new Color(0xff9a3d);
 const RING_DONE = new Color(0x6fdc6f);
 const SHADOW_MAX_DROP = 30; // m, no shadow for things higher than this above ground
-const SHADOW_SPARE = 8; // shadows kept for players, beyond one per toy
+const SHADOW_SPARE = 14; // shadows kept for players and lobby parrots, beyond one per toy
 const ONE = new Vector3(1, 1, 1);
 /** Size of the parrot models on the choosing perches, against a live parrot. */
 const PERCH_MODEL_SCALE = 0.8;

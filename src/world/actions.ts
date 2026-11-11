@@ -11,6 +11,8 @@ export type Action =
   | { type: 'ring'; objectId: string; playerId: string }
   | { type: 'passRing'; ringId: string; playerId: string }
   | { type: 'splash'; waterId: string; playerId: string }
+  /** Take a toy out of another parrot's beak. */
+  | { type: 'take'; playerId: string; toyId: string }
   | { type: 'chooseCharacter'; playerId: string; characterId: string }
   /** A stunt was recognised. Changes nothing; it is cheered with a chirp. */
   | { type: 'stunt'; playerId: string; name: string }

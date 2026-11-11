@@ -66,7 +66,7 @@ export function trackWings(state: MoveState, input: MoveInput, cfg: MovementConf
     // A new flap begins: it costs stamina, and is weak if there is none left.
     if (cfg.staminaEnabled.value) {
       w.flapStrength = state.stamina > 0 ? 1 : cfg.staminaEmptyLift.value;
-      state.stamina = Math.max(0, state.stamina - 1 / cfg.flapsPerFullStamina.value);
+      state.stamina = Math.max(0, state.stamina - state.flapCost / cfg.flapsPerFullStamina.value);
     } else {
       w.flapStrength = 1;
     }

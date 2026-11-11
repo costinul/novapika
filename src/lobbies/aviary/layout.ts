@@ -1,6 +1,7 @@
 import { BACK_PERCH, PERCH_ORDER } from '../../characters/roster';
 import type {
   CharacterPerchDef,
+  FlockDef,
   LobbyContent,
   PeckableDef,
   RingDef,
@@ -299,6 +300,51 @@ const toys: ToyDef[] = [
   { id: 'feather-3', type: 'feather', position: ground(230, 11, 0.05) },
 ];
 
+// --- The lobby's own parrots -------------------------------------------------
+
+/** Places for the flock to perch: on every tree branch, and a few other spots. */
+const flockSpots: Vec3[] = [
+  // A little over half way out along each branch, on top of it.
+  ...TREES.flatMap((tree) =>
+    tree.branches.map(({ a, b, radiusA, radiusB }): Vec3 => {
+      const t = 0.55;
+      return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t + (radiusA + radiusB) / 2 + 0.02,
+        a[2] + (b[2] - a[2]) * t,
+      ];
+    }),
+  ),
+  [GYM[0], GYM_HEIGHT + 0.13, GYM[2]], // middle of the gym's top beam
+  [-1.4, NEST_Y, 1.3], // in the nest, away from the character perches
+  [PORTAL[0] + 1.6, 0.4, PORTAL[2] + 0.6], // on the portal's step
+  [LOOKOUT[0], LOOKOUT[1], LOOKOUT[2]],
+  // On the grass.
+  ground(10, 7, 0),
+  ground(95, 10, 0),
+  ground(170, 14, 0),
+  ground(255, 8, 0),
+  ground(280, 19, 0),
+  ground(345, 12, 0),
+];
+
+/** Index of the first spot in a tree, to give each parrot a home. */
+const treeSpot = (tree: number, branch: number): number =>
+  TREES.slice(0, tree).reduce((n, t) => n + t.branches.length, 0) + branch;
+
+const FLOCK: FlockDef = {
+  spots: flockSpots,
+  parrots: [
+    { id: 'flock-budgie-1', characterId: 'budgie', home: treeSpot(0, 1), follows: true },
+    { id: 'flock-budgie-2', characterId: 'skyBudgie', home: treeSpot(2, 0), mimics: true },
+    { id: 'flock-budgie-3', characterId: 'budgie', home: treeSpot(5, 1) },
+    { id: 'flock-cockatoo-1', characterId: 'cockatoo', home: treeSpot(1, 2), follows: true },
+    { id: 'flock-cockatoo-2', characterId: 'cockatoo', home: treeSpot(4, 1), mimics: true },
+    { id: 'flock-macaw-1', characterId: 'macaw', home: treeSpot(3, 3) },
+    { id: 'flock-macaw-2', characterId: 'macaw', home: treeSpot(6, 2) },
+  ],
+};
+
 export const CONTENT: LobbyContent = {
   toyTypes: {
     woodBlock: { shape: 'box', size: 0.13, color: 0xe8b06a, density: 300, bounce: 0.2 },
@@ -315,4 +361,5 @@ export const CONTENT: LobbyContent = {
   rings,
   water: [{ id: 'bird-bath', position: POND, radius: POND_RADIUS }],
   characterPerches: CHARACTER_PERCHES,
+  flock: FLOCK,
 };

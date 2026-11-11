@@ -137,6 +137,10 @@ export class Sounds {
       case 'stunt':
         this.chirp();
         break;
+      case 'take':
+        this.tone(1300, 2100, 0.07, 0.13, 'triangle');
+        this.tone(1700, 2600, 0.07, 0.13, 'triangle', 0.08);
+        break;
       case 'celebrate':
         // A rising run of whistles.
         [1760, 2217, 2637, 3520].forEach((f, i) => this.tone(f, f * 1.1, 0.16, 0.13, 'sine', 0.25 + i * 0.13));
@@ -170,13 +174,23 @@ export class Sounds {
 
   /** A happy call in the current parrot's voice. */
   chirp(): void {
-    const { pitch, wave, notes, slide } = this.voice;
+    this.call(this.voice, 1);
+  }
+
+  /** A call in any parrot's voice. `loudness` is 0..1, for one further away. */
+  call(voice: VoiceDef, loudness: number): void {
+    const { pitch, wave, notes, slide } = voice;
     // Harsh waves sound louder than a whistle at the same level.
-    const gain = wave === 'sine' ? 0.14 : 0.07;
+    const gain = (wave === 'sine' ? 0.14 : 0.07) * loudness;
     for (let i = 0; i < notes; i++) {
       const note = pitch * (1 + 0.15 * i);
       this.tone(note, note * slide, 0.1, gain, wave, i * 0.11);
     }
+  }
+
+  /** The audio clock and output, once sound has been unlocked. */
+  get context(): AudioContext | null {
+    return this.ctx;
   }
 
   /** The little bell inside a bell ball. `strength` is 0..1. */

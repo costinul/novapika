@@ -76,6 +76,8 @@ export class Player implements MoveState {
   movementState: MovementState = 'standing';
   /** 0 = empty, 1 = full. */
   stamina = 1;
+  /** How tiring a flap is for this parrot: 1 is normal, less is fitter. */
+  flapCost = 1;
   carriedItemId: string | null = null;
   /** The body is resting on a walkable surface. */
   grounded = false;
@@ -96,6 +98,8 @@ export class Player implements MoveState {
   };
   /** 0..1, raised for a moment by a stunt; lifts the crest. */
   excitement = 0;
+  /** False for the lobby's own parrots, which a behaviour script drives. */
+  human = true;
   readonly catchVelocity = new Vector3();
   catchDecel = 0;
 

@@ -3,10 +3,11 @@
 A browser VR game for Meta Quest where you are a parrot. Requirements:
 [Nova Pika — VR Game Requirements (v1).md](<Nova Pika — VR Game Requirements (v1).md>).
 
-Current state: **milestone 6 (stunts, stamina and characters)**. The Aviary
-lobby, with claws, wings and beak, now has stamina, the one-wing roll and other
-stunts, and five parrots to play as: Nova and Pika the cockatiels, a budgie, a
-macaw and a cockatoo.
+Current state: **milestone 7 (lobby parrots)**. The Aviary now has seven
+parrots of its own that fly about, perch, preen and call, come for a seed you
+are holding, move toys, and follow you; two of them repeat what you say. You
+play as Nova, Pika, a budgie, a macaw or a cockatoo, with claws, wings, beak,
+stamina and stunts.
 
 ## Run
 
@@ -91,6 +92,33 @@ plain grey hen) until her colours are known. To change either, edit
   roll, swoop, ring pass and perch landing. Each earns a chirp and a puff of
   feathers. There are no scores.
 
+## The lobby's own parrots
+
+Seven parrots live in the Aviary: three budgies, two cockatoos and two macaws.
+
+- They fly between perches, sit, look about, preen, hop and call to each other.
+- Hold a seed or millet in your beak and one or two will come and may take it,
+  then carry it to the feeder.
+- Now and then one picks up a loose toy and carries it somewhere else.
+- Two of them like to follow you for a while, then lose interest.
+- They land to your side and steer round your head, to stay out of your view.
+
+Each is the same kind of `Player` as you, fed by a script instead of a
+headset, and it moves by the same claw and wing rules: it really flaps to
+climb and glides to travel. The one difference is that a flap tires a lobby
+parrot less (40% of the cost), since it flaps far more than a child would.
+
+### Mimicry and the microphone
+
+Two of the parrots copy you. When one is perched within a few metres it
+sometimes listens, and repeats what you said in a higher, squeaky voice.
+
+The game asks for the microphone once, when you press Enter VR. If you refuse,
+everything else works the same; there is just no mimicry. The microphone is
+used for nothing else. Sound is only looked at while a parrot is listening;
+one phrase of at most three seconds is held in memory, played back once and
+dropped. Nothing is stored and nothing leaves the headset.
+
 ## Things to do in the Aviary
 
 - Fly the ring course round the home tree. Rings turn green as you pass.
@@ -114,8 +142,9 @@ plain grey hen) until her colours are known. To change either, edit
 | `src/movement/` | Movement rules as pure functions of state, input and world queries |
 | `src/characters/` | The roster of parrots as data, and the code that builds their models |
 | `src/stunts/` | One small recogniser per stunt |
+| `src/flock/` | The lobby's own parrots: the pilot that flies them and their behaviour |
 | `src/world/` | Toys, target places and bells; the action layer every world change goes through |
-| `src/audio/` | Sounds, synthesized in code |
+| `src/audio/` | Sounds, synthesized in code; mimicry |
 | `src/lobbies/` | Lobby registry and one folder per lobby |
 | `src/debug/` | In-headset debug panel |
 | `src/dev/` | Desktop WebXR emulator (development builds only) |
