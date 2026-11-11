@@ -1,6 +1,7 @@
 # net (reserved, empty in v1)
 
-Multiplayer goes here later: a WebSocket client for the Go game server.
+Multiplayer goes here later: a WebSocket client for a lobby server on
+Cloudflare Durable Objects, signed in with the same token as `src/account/`.
 
 How it plugs in without a rewrite:
 

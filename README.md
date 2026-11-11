@@ -15,10 +15,50 @@ was tested with unit tests and a desktop WebXR emulator only.
 ## Pets (being built)
 
 Design: [docs/plans/2026-11-11-pets-design.md](docs/plans/2026-11-11-pets-design.md).
-Step 1 of 4 is built: pet DNA, tiers, breeding rules and the pet models. Pets
-are not in the game yet. Add `?lobby=pet-show` to the address to look at them:
-the eight fixed pets stand on the front bar, and eight babies bred from pairs
-of them on the bar behind.
+Steps 1 and 2 of 4 are built. Pets are not in the game itself yet.
+
+- **Pet DNA, tiers, breeding rules and models.** Add `?lobby=pet-show` to the
+  address to look at them: the eight fixed pets stand on the front bar, and
+  eight babies bred from pairs of them on the bar behind.
+- **A small server** that keeps players and their pets.
+- **Sign-in.** The key button in the corner of the start screen opens a number
+  pad for a player's 6-digit code. It is typed once; the headset then stays
+  signed in. The game plays the same signed out, without pets.
+- **The admin page**, at `/admin` (`/admin.html` on the dev server). It asks
+  for the admin password, then lets you add players, see and replace their
+  codes, and give or remove pets. A code is shown once, when it is made.
+
+### Running the server on this PC
+
+Copy `.dev.vars.example` to `.dev.vars` once; it holds a password for the
+local admin page only. Then run the server beside the game:
+
+```bash
+npm run dev:api
+```
+
+It keeps its own test database under `.wrangler/`, apart from the real one.
+
+### Putting the server on Cloudflare
+
+Do these once, in this order. The first asks you to type the admin password;
+choose a long one and keep it somewhere safe.
+
+```bash
+npx wrangler@4.160.0 secret put ADMIN_PASSWORD
+```
+
+```bash
+npm run deploy
+```
+
+```bash
+npm run db:remote
+```
+
+The first deploy creates the database and writes its id into
+`wrangler.jsonc`; commit that change. After that, `npm run deploy` is enough,
+followed by `npm run db:remote` whenever `server/migrations` has a new file.
 
 ## Run
 
@@ -90,8 +130,10 @@ npm run build
 - **Arm reach:** the game learns how far the player can reach the first time
   they spread their arms, and scales the wing distances and flap speed to it,
   so a child's arms work as well as an adult's. `autoArmReach` switches it off.
-- **Your parrot is remembered** on the device between visits. Nothing else is
-  kept, and nothing is sent anywhere.
+- **Your parrot is remembered** on the device between visits. If a player has
+  signed in, so is their sign-in. Nothing else is kept on the device, and
+  nothing is sent anywhere except to the game's own server, for sign-in and
+  pets.
 
 ## Comfort
 
@@ -183,7 +225,10 @@ dropped. Nothing is stored and nothing leaves the headset.
 | `src/debug/` | In-headset debug panel |
 | `src/dev/` | Desktop WebXR emulator (development builds only) |
 | `src/net/`, `src/voice/` | Reserved for multiplayer and voice; empty in v1 |
-| `shared/` | Pet DNA, tiers, breeding rules and the fixed pets; for the game and, later, the server |
+| `src/account/` | Signing in: the number pad on the start screen and the token the device keeps |
+| `src/admin/`, `admin.html` | The owner's admin page |
+| `shared/` | Pet DNA, tiers, breeding rules, the fixed pets, and what the server sends; used by game and server |
+| `server/` | The API on Cloudflare: rules, database layer and migrations |
 | `tests/` | Vitest unit tests |
 
 ## Art and audio sources

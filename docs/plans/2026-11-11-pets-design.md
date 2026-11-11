@@ -51,8 +51,12 @@ code is written now. This replaces the "Go with WebSockets" plan.
 - The server swaps the code for a long random token, which the headset keeps.
   The server stores only hashes of the code and the token.
 - Resetting a code on the admin page signs that headset out.
-- Login is limited to a few tries per minute.
-- A new player starts with one random common pet.
+- Sign-in is limited to 5 tries a minute from one address, and admin calls to
+  60. Cloudflare counts these per location, so the limits are approximate.
+- A code has only 6 digits, so its hash would not hide it from someone who
+  had a copy of the database. The tokens are long and random, and safe.
+- A new player starts with one random common pet, which follows them from the
+  start.
 - With no code, or with the server unreachable, the game plays as it does
   today, without pets.
 
@@ -197,13 +201,16 @@ it.
 ## 10. Admin page
 
 A plain page at `/admin`, protected by one admin password held as a Worker
-secret. The owner sets it; it is never in the repo.
+secret. The owner sets it; it is never in the repo. The page keeps the
+password only in memory, so it is asked for again after a reload. A deploy
+fails if the password has not been set.
 
 - Players: list, add by nickname (shows the code), reset code.
 - Per player: their pets with picture, tier and traits. Give a fixed pet,
   remove a pet, restore a freed pet.
 - Pictures use the same parrot builder as the game.
 - No DNA editor.
+- Restoring a freed pet arrives with step 4, when pets can first be freed.
 
 ## 11. Data and API
 
@@ -254,7 +261,7 @@ that a seed was dropped in the cup.
 
 ## 12. Changes to the v1 requirements
 
-To be edited in the requirements document when the backend is built:
+Made in the requirements document with build step 2:
 
 - Section 1, "no accounts or data collection" becomes: sign-in by code, no
   personal data.

@@ -1,10 +1,45 @@
-// Hosts the built game (dist/) as static files on Cloudflare, at
-// https://novapika.<account>.workers.dev. There is no server code.
-// Deploy with `npm run deploy`.
+// Hosts the game on Cloudflare, at https://novapika.<account>.workers.dev:
+// the built game (dist/) as static files, and the small API in server/ that
+// keeps players and their pets. Deploy with `npm run deploy`.
 {
   "name": "novapika",
+  "main": "server/index.ts",
   "compatibility_date": "2026-11-11",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    // Only the API runs server code. Everything else is a static file.
+    "run_worker_first": ["/api/*"]
+  },
+  // Players and pets. With no database_id, the first deploy creates the
+  // database and writes its id back into this file.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "novapika",
+      "migrations_dir": "server/migrations"
+    }
+  ],
+  // Requests allowed per address per minute, so that sign-in codes and the
+  // admin password cannot be guessed. Counted per Cloudflare location, so
+  // the limits are approximate.
+  "ratelimits": [
+    {
+      "name": "LOGIN_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 5, "period": 60 }
+    },
+    {
+      "name": "ADMIN_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 60, "period": 60 }
+    }
+  ],
+  // Set with `wrangler secret put ADMIN_PASSWORD`; for local work it is read
+  // from .dev.vars. Never written here.
+  "secrets": { "required": ["ADMIN_PASSWORD"] },
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true },
+    "traces": { "enabled": true }
   }
 }

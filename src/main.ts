@@ -1,3 +1,4 @@
+import { setUpSignIn } from './account/signInPad';
 import { Engine } from './engine/Engine';
 import { DEFAULT_LOBBY_ID } from './lobbies/registry';
 
@@ -17,6 +18,10 @@ function show(state: 'loading' | 'ready' | 'none', label: string): void {
   button.disabled = state !== 'ready';
   button.setAttribute('aria-label', label);
 }
+
+// Signing in is for pets only, and never holds the game up. Nothing in the
+// game uses the player yet.
+setUpSignIn(() => {});
 
 const engine = await Engine.create(canvas);
 // ?lobby=<id> picks a lobby from the registry.

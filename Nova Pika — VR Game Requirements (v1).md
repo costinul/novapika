@@ -14,7 +14,7 @@ The game is for the owner's son. It is named after the family's two cockatiels, 
 
 - **Button-free movement.** Arms and head do the moving. Buttons only add supporting actions.
 - **One body, three tools.** Hands are wings in open air and claws on a surface. The head is the beak.
-- **Built for a child.** Easy to learn, generous physics, no reading needed to play, no accounts or data collection.
+- **Built for a child.** Easy to learn, generous physics, no reading needed to play. Sign-in is a 6-digit code from the owner, needed only for pets, and no personal data is collected.
 - **Built to grow.** More lobbies, more parrot species and multiplayer with voice must be addable later without a rewrite.
 
 **Originality:** only the movement style is inspired by Gorilla Tag. Do not copy its name, art, maps, sounds or code.
@@ -32,8 +32,8 @@ These choices are fixed. Do not substitute alternatives without asking the owner
 | Build | Vite | Dev server must serve HTTPS so the headset can connect over the local network |
 | Tests | Vitest | Movement maths tested with synthetic hand traces, no headset needed |
 | Desktop testing | A WebXR emulator in the desktop browser | So the agent can run and check the game without a headset |
-| Hosting | Static files on any HTTPS host | No backend in v1 |
-| Later: game server | Go with WebSockets | Not in v1 |
+| Hosting | Cloudflare: static files, plus a Worker API with a D1 database | The API keeps players and pets only; the game plays without it. See `docs/plans/2026-11-11-pets-design.md` |
+| Later: multiplayer | Cloudflare Durable Objects with WebSockets | Not built yet |
 | Later: voice | WebRTC | Not in v1 |
 | Later: store | Packaged as a PWA for the Meta Horizon Store | Not in v1 |
 
@@ -301,7 +301,7 @@ The lobby has 6 to 8 parrots of mixed species that live there on their own, so i
 **Safety**
 
 - On start, show a picture-based reminder to clear space around the player, because flapping uses the full arm span.
-- No accounts, no data collection, no ads, no network calls in v1. The microphone is used only for mimicry, on the headset.
+- No ads and no personal data. The game's only network calls are to its own server, for sign-in and pets; that server keeps a nickname, pets, eggs and DNA requests. The microphone is used only for mimicry, on the headset.
 
 **Performance**
 
@@ -319,7 +319,7 @@ Do not build these yet. The architecture in section 3 keeps the door open for ea
 - Additional lobbies
 - Different abilities per species
 - Talking parrots driven by a language model
-- Store packaging, accounts, purchases
+- Store packaging, purchases
 - Controller-free hand tracking
 - Scores, leaderboards and progression
 

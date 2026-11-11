@@ -33,9 +33,60 @@
       #enter-vr[data-state='none'] { background: #b7c2cc; box-shadow: 0 10px 0 #8794a0; cursor: default; }
       #enter-vr[data-state='none'] .none { display: block; }
       @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* Sign in, to have pets: a button in the corner that opens a number pad. */
+      #sign-in {
+        position: absolute; top: 3vh; right: 3vh; width: min(15vw, 11vh); aspect-ratio: 1;
+        border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0.8vh 0 #b9c7d2;
+        cursor: pointer; display: grid; place-items: center; padding: 0;
+      }
+      #sign-in:focus-visible, #pad-keys button:focus-visible { outline: 0.6vh solid #2b1500; outline-offset: 0.5vh; }
+      #sign-in svg { width: 64%; height: 64%; display: none; }
+      #sign-in[data-state='out'] .out, #sign-in[data-state='in'] .in { display: block; }
+      #sign-in[data-state='in'] { background: #d8f5c8; box-shadow: 0 0.8vh 0 #8fc97a; }
+
+      #pad {
+        position: absolute; inset: 0; display: grid; place-items: center;
+        background: rgba(32, 48, 64, 0.5);
+      }
+      #pad[hidden] { display: none; }
+      #pad-card {
+        background: #fff; border-radius: 4vh; padding: 3vh; display: grid; gap: 2vh;
+        justify-items: center;
+      }
+      #pad-slots { display: flex; gap: 1.6vh; }
+      #pad-slots span {
+        width: 3.4vh; height: 3.4vh; border-radius: 50%; border: 0.5vh solid #39424e;
+        box-sizing: border-box;
+      }
+      #pad-slots span.filled { background: #39424e; }
+      #pad-note { height: 4.5vh; }
+      #pad-note svg { height: 100%; display: none; }
+      #pad-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6vh; }
+      #pad-keys button {
+        width: min(18vw, 11.5vh); aspect-ratio: 1; border: 0; border-radius: 28%;
+        background: #ffe08a; box-shadow: 0 0.8vh 0 #d9b24a; color: #2b1500; cursor: pointer;
+        font: 700 min(9vw, 5.6vh) / 1 system-ui, sans-serif;
+        display: grid; place-items: center; padding: 0;
+      }
+      #pad-keys button:active { transform: translateY(0.5vh); box-shadow: 0 0.3vh 0 #d9b24a; }
+      #pad-keys button[data-key='back'], #pad-keys button[data-key='close'] {
+        background: #e3e9ee; box-shadow: 0 0.8vh 0 #b9c7d2;
+      }
+      #pad-keys svg { width: 52%; height: 52%; }
+      /* A wrong code shakes the pad and turns the dots red. */
+      #pad[data-problem] #pad-card { animation: shake 0.4s; }
+      #pad[data-problem='bad-code'] #pad-slots span { border-color: #e0352b; background: #e0352b; }
+      #pad[data-problem='slow-down'] .slow, #pad[data-problem='offline'] .offline { display: block; }
+      @keyframes shake {
+        20% { transform: translateX(-1.5vh); } 40% { transform: translateX(1.5vh); }
+        60% { transform: translateX(-1vh); } 80% { transform: translateX(1vh); }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         #enter-vr[data-state='loading'] .loading { animation: none; }
         #enter-vr { transition: none; }
+        #pad[data-problem] #pad-card { animation: none; }
       }
     </style>
   </head>
@@ -102,6 +153,64 @@
           <line x1="8" y1="40" x2="40" y2="8" stroke="#2b3640" stroke-width="5" stroke-linecap="round" />
         </svg>
       </button>
+
+      <!-- Sign in: a key when nobody is signed in, a parrot with a tick when somebody is. -->
+      <button id="sign-in" data-state="out" aria-label="Sign in">
+        <svg class="out" viewBox="0 0 48 48" aria-hidden="true">
+          <circle cx="16" cy="24" r="9" fill="none" stroke="#39424e" stroke-width="6" />
+          <path d="M25 24 H43 M36 24 V33 M43 24 V31" fill="none" stroke="#39424e" stroke-width="6" stroke-linecap="round" />
+        </svg>
+        <svg class="in" viewBox="0 0 48 48" aria-hidden="true">
+          <path d="M20 12 L25 1 L29 12 Z" fill="#f8dc48" />
+          <circle cx="24" cy="24" r="14" fill="#f8dc48" />
+          <circle cx="17" cy="21" r="2.4" fill="#16121a" />
+          <circle cx="31" cy="21" r="2.4" fill="#16121a" />
+          <circle cx="13" cy="28" r="3.6" fill="#e9601a" />
+          <circle cx="35" cy="28" r="3.6" fill="#e9601a" />
+          <path d="M20 25 Q24 22 28 25 L24 33 Z" fill="#cdb3b6" />
+          <circle cx="38" cy="38" r="9" fill="#2fae4a" />
+          <path d="M33.5 38 L37 41.5 L43 35" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <!-- The number pad for the 6-digit code. The sixth digit sends it. -->
+      <div id="pad" role="dialog" aria-label="Type your 6-digit code" hidden>
+        <div id="pad-card">
+          <div id="pad-slots" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div id="pad-note" aria-hidden="true">
+            <!-- Too many tries: wait a little. -->
+            <svg class="slow" viewBox="0 0 48 48">
+              <path d="M12 6 H36 M12 42 H36 M15 6 C15 28 33 28 33 6 M15 42 C15 20 33 20 33 42"
+                    fill="none" stroke="#39424e" stroke-width="5" stroke-linecap="round" />
+            </svg>
+            <!-- No connection. -->
+            <svg class="offline" viewBox="0 0 48 48">
+              <path d="M14 34 H34 A8 8 0 0 0 35 18 A11 11 0 0 0 14 20 A7 7 0 0 0 14 34 Z"
+                    fill="none" stroke="#39424e" stroke-width="5" stroke-linejoin="round" />
+              <path d="M8 42 L40 8" stroke="#e0352b" stroke-width="5" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div id="pad-keys">
+            <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+            <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+            <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+            <button data-key="back" aria-label="Rub out">
+              <svg viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M18 10 H42 V38 H18 L6 24 Z" fill="none" stroke="#39424e" stroke-width="5" stroke-linejoin="round" />
+                <path d="M24 18 L34 30 M34 18 L24 30" stroke="#39424e" stroke-width="5" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button data-key="0">0</button>
+            <button data-key="close" aria-label="Close">
+              <svg viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M12 12 L36 36 M36 12 L12 36" stroke="#39424e" stroke-width="6" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>
