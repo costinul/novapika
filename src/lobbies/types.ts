@@ -29,5 +29,7 @@ export interface LobbyModule {
   spawnPoints: readonly SpawnPoint[];
   /** Toys, places to put them, and things to peck. */
   content?: LobbyContent;
+  /** Gentle background sounds. */
+  ambience?: { leaves: boolean; birds: boolean };
   load(ctx: LobbyContext): LobbyInstance;
 }

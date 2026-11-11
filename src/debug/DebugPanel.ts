@@ -21,6 +21,8 @@ export interface PanelStatus {
   fps: number;
   movementState: string;
   lobbyId: string;
+  drawCalls: number;
+  triangles: number;
 }
 
 /** Something that can point at the panel and click: a hand, or the mouse. */
@@ -221,7 +223,7 @@ export class DebugPanel {
 
   private draw(): void {
     const g = this.g;
-    const { fps, movementState, lobbyId } = this.getStatus();
+    const { fps, movementState, lobbyId, drawCalls, triangles } = this.getStatus();
     g.fillStyle = '#17212b';
     g.fillRect(0, 0, WIDTH_PX, this.canvas.height);
 
@@ -233,6 +235,9 @@ export class DebugPanel {
     g.textAlign = 'right';
     g.fillStyle = fps >= 71 ? '#8ce99a' : '#ff8787';
     g.fillText(`${fps.toFixed(0)} fps`, WIDTH_PX - 24, ROW_PX * 0.5);
+    g.font = '500 26px system-ui, sans-serif';
+    g.fillStyle = '#9fb0bf';
+    g.fillText(`${drawCalls} draws  ${(triangles / 1000).toFixed(0)}k tris`, WIDTH_PX - 170, ROW_PX * 0.5);
 
     g.font = '500 30px system-ui, sans-serif';
     g.textAlign = 'left';

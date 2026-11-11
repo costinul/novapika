@@ -8,7 +8,11 @@ export type Action =
   | { type: 'pickUp'; playerId: string; toyId: string }
   | { type: 'drop'; playerId: string }
   | { type: 'place'; toyId: string; targetId: string }
-  | { type: 'ring'; objectId: string; playerId: string };
+  | { type: 'ring'; objectId: string; playerId: string }
+  | { type: 'passRing'; ringId: string; playerId: string }
+  | { type: 'splash'; waterId: string; playerId: string }
+  /** An activity was finished: every bell rung, or every ring flown. */
+  | { type: 'celebrate'; what: 'bells' | 'rings' };
 
 export type ActionListener = (action: Action) => void;
 

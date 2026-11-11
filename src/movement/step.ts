@@ -127,6 +127,15 @@ export function stepMovement(
       state.velocity.x *= keep;
       state.velocity.z *= keep;
     }
+    // Perch: a slow body on a walkable surface stops dead, so it can rest on
+    // slopes and round branches instead of creeping off them.
+    if (
+      state.grounded &&
+      state.velocity.y <= 0 &&
+      Math.hypot(state.velocity.x, state.velocity.z) < cfg.perchStickSpeed.value
+    ) {
+      state.velocity.set(0, 0, 0);
+    }
     state.velocity.clampLength(0, cfg.maxFlySpeed.value);
     move.copy(state.velocity).multiplyScalar(dt);
   }

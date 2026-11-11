@@ -1,6 +1,5 @@
 import RAPIER from '@dimforge/rapier3d-compat';
-import { Vector3 } from 'three';
-import type { Quaternion } from 'three';
+import { Quaternion, Vector3 } from 'three';
 import type { CastHit, SurfaceHit, WorldQueries } from '../movement/types';
 
 type Vec3 = readonly [number, number, number];
@@ -8,6 +7,8 @@ type Vec3 = readonly [number, number, number];
 const NO_ROTATION = { x: 0, y: 0, z: 0, w: 1 };
 // Players only touch the fixed world. Toys never block or carry a player.
 const FIXED_ONLY = RAPIER.QueryFilterFlags.ONLY_FIXED;
+
+const UP = new Vector3(0, 1, 0);
 
 /** A toy's physics body. Only valid until the world is cleared. */
 export type BodyRef = RAPIER.RigidBody;
@@ -20,6 +21,9 @@ export class PhysicsWorld implements WorldQueries {
   private world: RAPIER.World;
   private readonly castHit: CastHit = { distance: 0, normal: new Vector3() };
   private readonly surfaceHit: SurfaceHit = { point: new Vector3(), normal: new Vector3(), distance: 0 };
+  private readonly v = new Vector3();
+  private readonly q = new Quaternion();
+  private readonly down = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
 
   private constructor() {
     this.world = PhysicsWorld.newWorld();
@@ -34,9 +38,24 @@ export class PhysicsWorld implements WorldQueries {
     return new RAPIER.World({ x: 0, y: -9.81, z: 0 });
   }
 
-  addStaticBox(center: Vec3, halfExtents: Vec3): void {
+  /** A box, optionally turned about the vertical axis by `yaw` radians. */
+  addStaticBox(center: Vec3, halfExtents: Vec3, yaw = 0): void {
     this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(...halfExtents).setTranslation(...center),
+      RAPIER.ColliderDesc.cuboid(...halfExtents)
+        .setTranslation(...center)
+        .setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }),
+    );
+  }
+
+  /** A round bar with flat ends between two points: trunks, branches, ropes, rungs. */
+  addStaticBar(a: Vec3, b: Vec3, radius: number): void {
+    const axis = this.v.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const length = axis.length();
+    this.q.setFromUnitVectors(UP, axis.normalize());
+    this.world.createCollider(
+      RAPIER.ColliderDesc.cylinder(length / 2, radius)
+        .setTranslation((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2)
+        .setRotation(this.q),
     );
   }
 
@@ -47,15 +66,47 @@ export class PhysicsWorld implements WorldQueries {
     );
   }
 
-  /** A light, movable body for a toy. `size` is the edge length or diameter. */
-  addToyBody(shape: 'box' | 'ball', size: number, position: Vec3, density: number, bounce: number): BodyRef {
+  /**
+   * A light, movable body for a toy: a ball of radius `half[0]`, or a box
+   * with the given half extents. `floatiness` 0 falls normally; towards 1 it
+   * drifts down slowly like a feather.
+   */
+  addToyBody(
+    collider: 'box' | 'ball',
+    half: Vec3,
+    position: Vec3,
+    density: number,
+    bounce: number,
+    floatiness = 0,
+  ): BodyRef {
     const body = this.world.createRigidBody(
-      RAPIER.RigidBodyDesc.dynamic().setTranslation(...position).setCcdEnabled(true),
+      RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(...position)
+        .setCcdEnabled(true)
+        .setGravityScale(1 - 0.9 * floatiness)
+        .setLinearDamping(4 * floatiness)
+        .setAngularDamping(0.5 + 4 * floatiness),
     );
-    const half = size / 2;
-    const collider = shape === 'box' ? RAPIER.ColliderDesc.cuboid(half, half, half) : RAPIER.ColliderDesc.ball(half);
-    this.world.createCollider(collider.setDensity(density).setRestitution(bounce).setFriction(0.8), body);
+    const desc = collider === 'box' ? RAPIER.ColliderDesc.cuboid(...half) : RAPIER.ColliderDesc.ball(half[0]);
+    this.world.createCollider(desc.setDensity(density).setRestitution(bounce).setFriction(0.8), body);
     return body;
+  }
+
+  isAsleep(body: BodyRef): boolean {
+    return body.isSleeping();
+  }
+
+  /** Height of the fixed surface straight below a point, or null if none within `maxDrop`. */
+  groundBelow(point: Vector3, maxDrop: number): number | null {
+    const hit = this.world.castRay(this.ray(point), maxDrop, true, FIXED_ONLY);
+    return hit ? point.y - hit.timeOfImpact : null;
+  }
+
+  private ray(origin: Vector3): RAPIER.Ray {
+    this.down.origin.x = origin.x;
+    this.down.origin.y = origin.y;
+    this.down.origin.z = origin.z;
+    return this.down;
   }
 
   readBody(body: BodyRef, position: Vector3, quaternion: Quaternion): void {

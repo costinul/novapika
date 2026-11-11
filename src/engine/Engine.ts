@@ -59,7 +59,7 @@ function toMoveInput(from: PlayerInput, to: MoveInput): void {
 export class Engine {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
-  readonly camera = new PerspectiveCamera(70, 1, 0.05, 200);
+  readonly camera = new PerspectiveCamera(70, 1, 0.05, 600);
   /** The local player's tracking space. Moving the player moves this. */
   private readonly rig = new Group();
   readonly localPlayer = new Player('local', 'nova');
@@ -75,6 +75,8 @@ export class Engine {
   /** The toy the local player's beak could bite right now. */
   private biteable: Toy | null = null;
   private biteWasPressed = false;
+  private drawCalls = 0;
+  private triangles = 0;
   private desktopBite = false;
 
   private lobby: { module: LobbyModule; instance: LobbyInstance } | null = null;
@@ -123,13 +125,15 @@ export class Engine {
       fps: this.fps,
       movementState: this.describeMovement(),
       lobbyId: this.lobby?.module.id ?? '-',
+      drawCalls: this.drawCalls,
+      triangles: this.triangles,
     }));
     this.scene.add(this.debugPanel.object);
 
     this.world = new WorldState(this.physics);
     this.world.players.set(this.localPlayer.id, this.localPlayer);
     this.actions = new ActionLayer(this.world);
-    this.worldView = new WorldView(this.world);
+    this.worldView = new WorldView(this.world, this.physics);
     this.scene.add(this.worldView.object);
     this.actions.onApplied((action) => {
       this.worldView.onAction(action);
@@ -164,6 +168,7 @@ export class Engine {
     const instance = module.load({ physics: this.physics });
     if (module.content) this.world.load(module.content);
     this.worldView.rebuild();
+    this.sounds.setAmbience(module.ambience ?? null);
     this.scene.add(instance.root);
     this.scene.background = new Color(module.skyColor);
     this.lobby = { module, instance };
@@ -240,11 +245,15 @@ export class Engine {
     player.updateWorldPoses(this.viewPosition);
     this.rig.position.copy(this.viewPosition);
     this.playerView.update();
-    this.updateBeak();
+    this.updateBeak(dt);
     this.worldView.update(dt, this.biteable);
+    this.sounds.update(dt);
     this.updateDebugPanel(dt);
 
     this.renderer.render(this.scene, this.camera);
+    // In VR this counts both eyes, so it reads about double the scene's own total.
+    this.drawCalls = this.renderer.info.render.calls;
+    this.triangles = this.renderer.info.render.triangles;
   };
 
   /** One fixed simulation step. */
@@ -255,9 +264,9 @@ export class Engine {
   }
 
   /** Beak: carry, peck, and bite or drop on a trigger press. */
-  private updateBeak(): void {
+  private updateBeak(dt: number): void {
     const player = this.localPlayer;
-    this.world.updateInteractions(this.actions);
+    this.world.updateInteractions(this.actions, dt);
 
     this.biteable = player.carriedItemId
       ? null

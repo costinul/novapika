@@ -61,6 +61,8 @@ const CONTENT: LobbyContent = {
     { id: 'bell-low', kind: 'bell', position: [-1.5, 0.8, 1.5], radius: 0.12, stringLength: 0.32 },
     { id: 'bell-high', kind: 'bell', position: [3.5, 2.9, -1.5], radius: 0.12, stringLength: 0.32 },
   ],
+  rings: [],
+  water: [],
 };
 
 /** Upright poles: [colour, base centre x, z, height, radius]. */

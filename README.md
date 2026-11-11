@@ -3,8 +3,10 @@
 A browser VR game for Meta Quest where you are a parrot. Requirements:
 [Nova Pika — VR Game Requirements (v1).md](<Nova Pika — VR Game Requirements (v1).md>).
 
-Current state: **milestone 4 (beak and toys)**: claws, wings, and a beak that
-bites, carries, drops and pecks, in a test room with toys, a toy box and bells.
+Current state: **milestone 5 (The Aviary)**: the full first lobby, a 60 m
+outdoor bird enclosure with a home tree and nest, eight climbing trees, a play
+gym, a ring course, bells, a bird bath, a feeder, a toy box, nest shelves, a
+closed portal and 28 toys. Movement is claws, wings and beak.
 
 ## Run
 
@@ -31,6 +33,10 @@ On the desktop, with an emulated headset (no HTTPS needed):
 ```bash
 npm run dev:local
 ```
+
+The game opens in the Aviary. Add `?lobby=test-room` to the address to load
+the small test room instead; lobbies are picked by id from
+`src/lobbies/registry.ts`.
 
 Tests and checks:
 
@@ -60,6 +66,16 @@ npm run build
   - Place: drop a toy into the toy box for a chirp and a sparkle.
   - Peck: move your head (or a hand) into a bell to ring it. No button.
 - **Grip** (optional): locks a touching hand to the surface.
+
+## Things to do in the Aviary
+
+- Fly the ring course round the home tree. Rings turn green as you pass.
+- Tidy up: carry blocks, balls, knots and feathers to the toy box, or put them
+  on the shelves above the nest.
+- Feed: carry seeds and millet to the feeder.
+- Ring every bell.
+- Find the four shiny bottle caps hidden in hard-to-reach places.
+- Splash in the bird bath.
 - **B** or **Y**: show or hide the debug panel (desktop: **P**).
 - Point at a − / + button on the panel and pull the **trigger** to change a
   movement value live (desktop: click with the mouse).

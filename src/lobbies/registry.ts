@@ -5,7 +5,8 @@ import type { LobbyModule } from './types';
  * src/lobbies/ and one line here. No engine changes.
  */
 export const lobbyRegistry: Record<string, () => Promise<LobbyModule>> = {
+  aviary: () => import('./aviary').then((m) => m.default),
   'test-room': () => import('./testRoom').then((m) => m.default),
 };
 
-export const DEFAULT_LOBBY_ID = 'test-room';
+export const DEFAULT_LOBBY_ID = 'aviary';

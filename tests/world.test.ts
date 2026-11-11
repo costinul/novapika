@@ -24,6 +24,8 @@ const CONTENT: LobbyContent = {
   ],
   targets: [{ id: 'toy-box', kind: 'toyBox', position: [5, 0, 0], size: [1, 0.35, 0.8], color: 0 }],
   peckables: [{ id: 'bell', kind: 'bell', position: [0, 2, 3], radius: 0.12, stringLength: 0.3 }],
+  rings: [],
+  water: [],
 };
 
 let physics: PhysicsWorld;
@@ -61,7 +63,7 @@ function run(seconds: number): void {
   for (let t = 0; t < seconds; t += DT) {
     physics.step(DT);
     world.step(DT, actions);
-    world.updateInteractions(actions);
+    world.updateInteractions(actions, DT);
   }
 }
 

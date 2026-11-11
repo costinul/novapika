@@ -22,8 +22,8 @@ export const movementConfig = {
     comment: 'Distance from the eyes down to the bottom of the body. Smaller puts the ground higher, so hands reach it more easily.',
   },
   bodyRadius: {
-    value: 0.3, unit: 'm', min: 0.15, max: 0.5, step: 0.05,
-    comment: 'Radius of the body sphere. Keeps the face this far from walls.',
+    value: 0.35, unit: 'm', min: 0.15, max: 0.5, step: 0.05,
+    comment: 'Radius of the body sphere. Keeps the eyes clear of walls and ceilings.',
   },
   gravity: {
     value: 9.8, unit: 'm/s2', min: 2, max: 15, step: 0.2,
@@ -52,6 +52,10 @@ export const movementConfig = {
   groundFriction: {
     value: 6, unit: '1/s', min: 0, max: 20, step: 0.5,
     comment: 'How quickly sliding along the ground stops. Higher stops sooner.',
+  },
+  perchStickSpeed: {
+    value: 0.6, unit: 'm/s', min: 0, max: 2, step: 0.1,
+    comment: 'A body slower than this on a walkable surface stops dead, so it can perch on slopes and round branches.',
   },
   handSpeedSmoothing: {
     value: 0.03, unit: 's', min: 0.01, max: 0.15, step: 0.01,
