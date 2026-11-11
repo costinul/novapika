@@ -13,7 +13,7 @@ import { Player } from '../src/player/Player';
 import { ActionLayer } from '../src/world/actions';
 import type { Action } from '../src/world/actions';
 import { WorldState } from '../src/world/WorldState';
-import { cfg } from './harness';
+import { flockConfig as cfg } from '../src/flock/config';
 
 // The lobby's own parrots, flying about the real Aviary by the same movement
 // rules as a player. The flock is simulated at 60 steps a second, as in the game.

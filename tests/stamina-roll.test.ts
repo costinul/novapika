@@ -88,9 +88,10 @@ describe('stamina', () => {
     const sim = new Sim(physics);
     sim.lift(500);
     sim.hands(ARM, HEAD_Y + 0.3, 0);
-    const gains = flap(sim, cfg.flapsPerFullStamina.value + 4);
+    flap(sim, cfg.flapsPerFullStamina.value + 4);
     expect(sim.player.stamina).toBe(1);
-    expect(gains[gains.length - 1]).toBeGreaterThan(gains[0] * 0.8);
+    // Every flap, however many, still has full strength.
+    expect(sim.player.wings.flapStrength).toBe(1);
   });
 });
 

@@ -62,7 +62,7 @@ export const movementConfig = {
     comment: 'Time over which hand speed is averaged before it is tested for a flap.',
   },
   flapPower: {
-    value: 13, unit: 'm/s per m', min: 2, max: 30, step: 1,
+    value: 17, unit: 'm/s per m', min: 2, max: 30, step: 1,
     comment: 'Upward speed gained per metre of downstroke. The main "how strong is a flap" value.',
   },
   flapSpeedCap: {
@@ -126,11 +126,11 @@ export const movementConfig = {
     comment: 'One-wing roll: sideways speed kept while spiralling, which gives the spiral its width.',
   },
   flapSpeedThreshold: {
-    value: 1.5, unit: 'm/s', min: 0.5, max: 4, step: 0.1,
+    value: 1.0, unit: 'm/s', min: 0.5, max: 4, step: 0.1,
     comment: 'Downward hand speed both hands must exceed for a sweep to count as a flap.',
   },
   flapSyncWindow: {
-    value: 150, unit: 'ms', min: 50, max: 400, step: 10,
+    value: 220, unit: 'ms', min: 50, max: 400, step: 10,
     comment: 'Both hands must start their down-sweep within this time of each other.',
   },
   maxFlySpeed: {
@@ -138,7 +138,7 @@ export const movementConfig = {
     comment: 'Comfort cap on flying and falling speed.',
   },
   glideSinkRate: {
-    value: 1, unit: 'm/s', min: 0.2, max: 4, step: 0.1,
+    value: 0.8, unit: 'm/s', min: 0.2, max: 4, step: 0.1,
     comment: 'How fast the player sinks while gliding with arms out and level.',
   },
   catchAbsorbTime: {
@@ -146,7 +146,7 @@ export const movementConfig = {
     comment: 'Time over which incoming speed is absorbed when a hand catches a surface.',
   },
   flapsPerFullStamina: {
-    value: 12, unit: 'flaps', min: 3, max: 40, step: 1,
+    value: 20, unit: 'flaps', min: 3, max: 40, step: 1,
     comment: 'Number of full-strength flaps a full stamina bar pays for.',
   },
   staminaRefillTime: {

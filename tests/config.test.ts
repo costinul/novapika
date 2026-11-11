@@ -13,13 +13,17 @@ describe('movement config', () => {
     }
   });
 
-  it('starts at the values in the requirements', () => {
-    expect(movementConfig.flapSpeedThreshold.value).toBe(1.5);
-    expect(movementConfig.flapSyncWindow.value).toBe(150);
+  it("starts at the requirements, as tuned from the owner's first headset test", () => {
+    // Flapping was too hard: lower threshold, wider window, stronger and
+    // cheaper flaps, and a gentler glide than the requirements' first values.
+    expect(movementConfig.flapSpeedThreshold.value).toBe(1.0); // was 1.5
+    expect(movementConfig.flapSyncWindow.value).toBe(220); // was 150
+    expect(movementConfig.flapPower.value).toBe(17); // was 13
+    expect(movementConfig.glideSinkRate.value).toBe(0.8); // was 1
+    expect(movementConfig.flapsPerFullStamina.value).toBe(20); // was 12
+    // Unchanged.
     expect(movementConfig.maxFlySpeed.value).toBe(8);
-    expect(movementConfig.glideSinkRate.value).toBe(1);
     expect(movementConfig.catchAbsorbTime.value).toBe(0.2);
-    expect(movementConfig.flapsPerFullStamina.value).toBe(12);
     expect(movementConfig.staminaRefillTime.value).toBe(3);
   });
 });

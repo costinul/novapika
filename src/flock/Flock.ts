@@ -3,7 +3,7 @@ import type { Mimicry } from '../audio/Mimicry';
 import type { FeatherBatch } from '../characters/FeatherBatch';
 import { character } from '../characters/roster';
 import type { VoiceDef } from '../characters/types';
-import { movementConfig } from '../config/movement';
+import { flockConfig } from './config';
 import type { PhysicsWorld } from '../engine/physics';
 import { newMoveInput, toMoveInput } from '../movement/input';
 import { placeAt, stepMovement } from '../movement/step';
@@ -138,7 +138,7 @@ export class Flock implements FlockView {
       // A parrot settled on its perch is left alone until it next moves.
       if (brain.settled) continue;
       toMoveInput(player.input, member.move);
-      stepMovement(player, member.move, this.physics, movementConfig, dt);
+      stepMovement(player, member.move, this.physics, flockConfig, dt);
     }
   }
 
@@ -249,7 +249,7 @@ export class Flock implements FlockView {
     const { brain, player } = member;
     brain.pilot.rest(player, 0);
     toMoveInput(player.input, member.move);
-    placeAt(player, member.move, movementConfig, spot);
+    placeAt(player, member.move, flockConfig, spot);
     member.previous.copy(player.position);
     member.drawnAt.copy(player.position);
     player.updateWorldPoses();

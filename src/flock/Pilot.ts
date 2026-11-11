@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
-import { movementConfig } from '../config/movement';
+import { flockConfig } from './config';
 import { HANDS } from '../player/Player';
 import type { Player } from '../player/Player';
 
@@ -58,7 +58,7 @@ export class Pilot {
 
   /** Height of the parrot's head above its feet in its own tracking space. */
   private get headHeight(): number {
-    return movementConfig.bodyHeight.value;
+    return flockConfig.bodyHeight.value;
   }
 
   /** Fold the wings and stand still. */
@@ -87,7 +87,7 @@ export class Pilot {
     this.toTarget.y = 0;
     const distance = this.toTarget.length();
     const speed = Math.hypot(v.x, v.z);
-    const rise = v.y > 0 ? (v.y * v.y) / (2 * movementConfig.gravity.value) : 0;
+    const rise = v.y > 0 ? (v.y * v.y) / (2 * flockConfig.gravity.value) : 0;
 
     // --- On something solid. --------------------------------------------------
     if (player.grounded) {

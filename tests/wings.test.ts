@@ -59,7 +59,9 @@ describe('flap', () => {
   });
 
   it('gives lift only when both sweeps start within the sync window', () => {
+    let flapped = false;
     const gain = (offset: number): number => {
+      flapped = false;
       const sim = new Sim(physics);
       sim.lift(50);
       tuck(sim);
@@ -73,11 +75,16 @@ describe('flap', () => {
         sim.input.hands.left.position.set(-ARM, y(t - t0), 0);
         sim.input.hands.right.position.set(ARM, y(t - t0 - offset), 0);
         best = Math.max(best, sim.player.velocity.y);
+        flapped ||= sim.player.wings.flapping;
       });
       return best - before;
     };
     expect(gain(0.1)).toBeGreaterThan(2);
-    expect(gain(0.25)).toBeLessThanOrEqual(0);
+    expect(flapped).toBe(true);
+    // Well outside the window: no flap. Spread arms still slow the fall a
+    // little, as a glide does, but give no real lift.
+    expect(gain(cfg.flapSyncWindow.value / 1000 + 0.15)).toBeLessThan(0.5);
+    expect(flapped).toBe(false);
   });
 
   it.each([
