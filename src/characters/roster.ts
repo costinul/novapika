@@ -38,9 +38,8 @@ export const roster: Record<string, CharacterDef> = {
     voice: COCKATIEL_VOICE,
   },
 
-  // Placeholder until the owner sends Pika's colours: a normal grey hen, so
-  // the two are easy to tell apart. Grey all over, a soft yellow-grey face,
-  // duller cheeks and a white bar on the wing.
+  // Pika looks much the same as Nova, as the owner describes her. The way to
+  // tell them apart is the beak: Pika's is greyer and has a dark stain on it.
   pika: {
     id: 'pika',
     name: 'Pika',
@@ -49,21 +48,23 @@ export const roster: Record<string, CharacterDef> = {
     scale: 0.85,
     tail: 0.62,
     colors: {
-      head: 0xa9a48f,
-      back: 0x7d7a80,
-      chest: 0x8a868c,
-      belly: 0x8f8b90,
-      wing: 0x6f6c73,
-      wingPatch: 0xf2f0ea,
-      wingTip: 0x5b585f,
-      tail: 0x6c6970,
-      beak: 0x7f7a80,
-      feet: 0xb0898a,
+      head: 0xf8dc48,
+      back: 0x6e6a73,
+      chest: 0x77727b,
+      belly: 0xf1dc6a,
+      wing: 0x67636c,
+      wingPatch: 0xf4eedb,
+      wingTip: 0x5a565f,
+      tail: 0x7a7680,
+      beak: 0x9d979c,
+      beakStain: 0x4a444c,
+      feet: 0xd9a6a0,
       eye: 0x16121a,
-      eyeRing: 0xbdb8bb,
-      cheek: 0xd9793a,
+      eyeRing: 0xd8d2d6,
+      cheek: 0xe9601a,
+      neckSmudge: 0x8c8790,
     },
-    crest: { color: 0x8f8b83, length: 0.38, feathers: 6, width: 0.05 },
+    crest: { color: 0xf7e25c, length: 0.44, feathers: 7, width: 0.06 },
     voice: { ...COCKATIEL_VOICE, pitch: 2550 },
   },
 

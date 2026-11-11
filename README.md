@@ -99,9 +99,9 @@ parrot on it: touch one with a hand or your beak to become that parrot. Nova
 and Pika have the two golden perches in the middle. Species differ in looks,
 size and voice only; all move by the same rules.
 
-Nova's model is matched to the owner's photo of her. Pika is a placeholder (a
-plain grey hen) until her colours are known. To change either, edit
-`src/characters/roster.ts`.
+Nova's model is matched to the owner's photo of her. Pika looks much the same;
+you tell her by her beak, which is greyer and has a dark stain on it. To change
+either, edit `src/characters/roster.ts`.
 
 ## Stamina and stunts
 

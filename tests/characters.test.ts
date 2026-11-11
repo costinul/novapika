@@ -24,15 +24,23 @@ describe('roster', () => {
     expect(character('nobody').id).toBe(DEFAULT_CHARACTER);
   });
 
-  it('makes Nova and Pika clearly different to look at', () => {
+  it('makes Pika much the same as Nova, told apart by a greyer, stained beak', () => {
     const { nova, pika } = roster;
-    const far = (a: number, b: number): boolean => {
-      const d = [16, 8, 0].map((shift) => ((a >> shift) & 255) - ((b >> shift) & 255));
-      return Math.hypot(...d) > 60;
-    };
-    expect(far(nova.colors.head, pika.colors.head)).toBe(true);
-    expect(far(nova.colors.belly, pika.colors.belly)).toBe(true);
-    expect(far(nova.crest!.color, pika.crest!.color)).toBe(true);
+    // The owner's description: the two are very alike.
+    const { beak: novaBeak, beakStain: novaStain, ...novaRest } = nova.colors;
+    const { beak: pikaBeak, beakStain: pikaStain, ...pikaRest } = pika.colors;
+    expect(pikaRest).toEqual(novaRest);
+    expect(pika.crest).toEqual(nova.crest);
+
+    expect(novaStain).toBeUndefined();
+    expect(pikaStain).toBeDefined();
+    const rgb = (hex: number): number[] => [hex >> 16, (hex >> 8) & 255, hex & 255];
+    const spread = (hex: number): number => Math.max(...rgb(hex)) - Math.min(...rgb(hex));
+    // Greyer: less colour in it than Nova's pinkish beak, and a little darker.
+    expect(spread(pikaBeak)).toBeLessThan(spread(novaBeak));
+    expect(rgb(pikaBeak)[0]).toBeLessThan(rgb(novaBeak)[0]);
+    // The stain is clearly darker than the beak it sits on.
+    expect(rgb(pikaStain!)[0]).toBeLessThan(rgb(pikaBeak)[0] - 50);
   });
 
   it('gives Nova the colours in her photo', () => {

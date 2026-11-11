@@ -18,6 +18,8 @@ export interface ParrotColors {
   wingTip: number;
   tail: number;
   beak: number;
+  /** A small dark mark on the front of the beak. */
+  beakStain?: number;
   feet: number;
   eye: number;
   /** A pale ring of skin round the eye. */

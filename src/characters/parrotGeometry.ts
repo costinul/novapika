@@ -132,6 +132,10 @@ function headParts(def: CharacterDef): BufferGeometry[] {
   parts.push(shape(ball(8, 6), [0, -0.03, -0.155], [0.05, 0.05, 0.055], [0, 0, 0], col.beak));
   parts.push(shape(new ConeGeometry(0.035, 0.07, 6), [0, -0.075, -0.185], [1, 1, 1], [Math.PI - 0.25, 0, 0], col.beak));
   parts.push(shape(ball(6, 4), [0, -0.085, -0.13], [0.035, 0.022, 0.035], [0, 0, 0], col.beak));
+  if (col.beakStain !== undefined) {
+    // A blotch on the front of the upper beak, a little to one side.
+    parts.push(shape(ball(6, 5), [0.016, -0.018, -0.2], [0.024, 0.026, 0.014], [0, 0, 0], col.beakStain));
+  }
 
   for (const side of [-1, 1]) {
     if (col.facePatch !== undefined) {
