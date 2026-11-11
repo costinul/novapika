@@ -1,3 +1,4 @@
+import type { VoiceDef } from '../characters/types';
 import type { Action } from '../world/actions';
 
 /**
@@ -9,8 +10,48 @@ export class Sounds {
   private ctx: AudioContext | null = null;
   private ambience: { leaves: boolean; birds: boolean } | null = null;
   private leaves: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
+  private wind: { filter: BiquadFilterNode; gain: GainNode } | null = null;
+  private voice: VoiceDef = { pitch: 2300, wave: 'sine', notes: 2, slide: 1.45 };
   private nextBird = 3;
   private time = 0;
+
+  /** The voice of the parrot the player is, used for every chirp. */
+  setVoice(voice: VoiceDef): void {
+    this.voice = voice;
+  }
+
+  /** Wind in the ears, louder and higher the faster the parrot flies. */
+  setWind(speed: number): void {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    if (!this.wind) {
+      const source = ctx.createBufferSource();
+      source.buffer = this.noise(ctx, 2);
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.Q.value = 0.8;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      source.connect(filter).connect(gain).connect(ctx.destination);
+      source.start();
+      this.wind = { filter, gain };
+    }
+    const strength = Math.min(1, speed / 8);
+    this.wind.gain.gain.setTargetAtTime(0.14 * strength * strength, ctx.currentTime, 0.15);
+    this.wind.filter.frequency.setTargetAtTime(350 + 900 * strength, ctx.currentTime, 0.15);
+  }
+
+  /** Leaving a perch or the ground. */
+  takeOff(): void {
+    this.tone(this.voice.pitch * 0.8, this.voice.pitch * 1.25, 0.12, 0.1, this.voice.wave);
+  }
+
+  /** Coming to rest. */
+  land(): void {
+    this.tone(260, 150, 0.08, 0.12, 'triangle');
+    this.tone(this.voice.pitch, this.voice.pitch * 0.85, 0.08, 0.07, this.voice.wave, 0.06);
+  }
 
   /** Call from a user gesture (the Enter VR button). */
   unlock(): void {
@@ -92,6 +133,10 @@ export class Sounds {
       case 'splash':
         this.splash();
         break;
+      case 'chooseCharacter':
+      case 'stunt':
+        this.chirp();
+        break;
       case 'celebrate':
         // A rising run of whistles.
         [1760, 2217, 2637, 3520].forEach((f, i) => this.tone(f, f * 1.1, 0.16, 0.13, 'sine', 0.25 + i * 0.13));
@@ -123,10 +168,15 @@ export class Sounds {
     }
   }
 
-  /** A happy two-note whistle. */
+  /** A happy call in the current parrot's voice. */
   chirp(): void {
-    this.tone(2200, 3300, 0.09, 0.14, 'sine');
-    this.tone(2600, 3900, 0.12, 0.14, 'sine', 0.11);
+    const { pitch, wave, notes, slide } = this.voice;
+    // Harsh waves sound louder than a whistle at the same level.
+    const gain = wave === 'sine' ? 0.14 : 0.07;
+    for (let i = 0; i < notes; i++) {
+      const note = pitch * (1 + 0.15 * i);
+      this.tone(note, note * slide, 0.1, gain, wave, i * 0.11);
+    }
   }
 
   /** The little bell inside a bell ball. `strength` is 0..1. */

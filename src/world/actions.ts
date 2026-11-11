@@ -11,6 +11,9 @@ export type Action =
   | { type: 'ring'; objectId: string; playerId: string }
   | { type: 'passRing'; ringId: string; playerId: string }
   | { type: 'splash'; waterId: string; playerId: string }
+  | { type: 'chooseCharacter'; playerId: string; characterId: string }
+  /** A stunt was recognised. Changes nothing; it is cheered with a chirp. */
+  | { type: 'stunt'; playerId: string; name: string }
   /** An activity was finished: every bell rung, or every ring flown. */
   | { type: 'celebrate'; what: 'bells' | 'rings' };
 

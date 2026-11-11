@@ -1,4 +1,13 @@
-import type { LobbyContent, PeckableDef, RingDef, TargetDef, ToyDef, Vec3 } from '../../world/types';
+import { BACK_PERCH, PERCH_ORDER } from '../../characters/roster';
+import type {
+  CharacterPerchDef,
+  LobbyContent,
+  PeckableDef,
+  RingDef,
+  TargetDef,
+  ToyDef,
+  Vec3,
+} from '../../world/types';
 
 // Where everything in the Aviary is. Plain numbers only, no drawing, so the
 // same layout drives the scenery, the colliders, the toys and the tests.
@@ -104,7 +113,32 @@ export const HOME_LOW_BRANCHES: Limb[] = [40, 160, 280].map((deg, i) => {
   return { a: [0, y, 0], b: [x, y + 1, z], radiusA: 0.4, radiusB: 0.28 };
 });
 
-export const SPAWN: Vec3 = [1.6, NEST_Y, 0];
+/** The middle of the arc of character perches, as an angle round the nest. */
+const PERCH_ARC = -62.5;
+const [spawnX, spawnZ] = polar(PERCH_ARC, 1.2);
+/** In the nest, between the trunk and the perches. */
+export const SPAWN: Vec3 = [spawnX, NEST_Y, spawnZ];
+
+/** Height of a perch's bar above the nest floor: the row in front, and the tall one behind. */
+export const PERCH_HEIGHT = 0.4;
+export const BACK_PERCH_HEIGHT = 0.95;
+
+function perch(characterId: string, angleDeg: number, distance: number, height: number): CharacterPerchDef {
+  const [x, z] = polar(angleDeg, distance);
+  // Face the spawn point, so each parrot looks at the player.
+  return {
+    id: `perch-${characterId}`,
+    characterId,
+    position: [x, NEST_Y + height + 0.03, z],
+    yaw: Math.atan2(x - spawnX, z - spawnZ),
+  };
+}
+
+/** Pick a parrot by touching it. Nova and Pika have the two middle perches. */
+export const CHARACTER_PERCHES: CharacterPerchDef[] = [
+  ...PERCH_ORDER.map((id, i) => perch(id, PERCH_ARC + (1.5 - i) * 21, 2.0, PERCH_HEIGHT)),
+  perch(BACK_PERCH, PERCH_ARC, 2.25, BACK_PERCH_HEIGHT),
+];
 
 // --- Climbing trees ---------------------------------------------------------
 
@@ -202,7 +236,7 @@ const FOOD = ['seed', 'millet'];
 const shelves: TargetDef[] = [
   [90, 0.3],
   [200, 0.3],
-  [300, 1.2],
+  [150, 1.2],
 ].map(([deg, up], i) => {
   const [x, z] = polar(deg, UPPER_TRUNK_RADIUS + 0.35);
   return {
@@ -260,7 +294,7 @@ const toys: ToyDef[] = [
   { id: 'millet-2', type: 'millet', position: ground(305, 18, 0.05) },
   { id: 'millet-3', type: 'millet', position: above(PADS[2], 0.06) },
   // Feathers.
-  { id: 'feather-1', type: 'feather', position: [0.4, NEST_Y + 0.05, -1.6] },
+  { id: 'feather-1', type: 'feather', position: [-0.3, NEST_Y + 0.05, 1.7] },
   { id: 'feather-2', type: 'feather', position: ground(20, 16, 0.05) },
   { id: 'feather-3', type: 'feather', position: ground(230, 11, 0.05) },
 ];
@@ -280,4 +314,5 @@ export const CONTENT: LobbyContent = {
   peckables,
   rings,
   water: [{ id: 'bird-bath', position: POND, radius: POND_RADIUS }],
+  characterPerches: CHARACTER_PERCHES,
 };

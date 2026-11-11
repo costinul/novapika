@@ -1,59 +1,205 @@
-import { ConeGeometry, Group, Mesh, MeshLambertMaterial, SphereGeometry } from 'three';
+import { Color, ConeGeometry, Group, Mesh, MeshLambertMaterial, Quaternion, Vector3 } from 'three';
+import type { BufferGeometry } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { FeatherBatch } from '../characters/FeatherBatch';
+import {
+  buildParrotParts,
+  CREST_FLAT,
+  CREST_RAISED,
+  CREST_ROOT,
+  HEAD_CENTER,
+  SHOULDER,
+} from '../characters/parrotGeometry';
+import { character } from '../characters/roster';
+import type { CharacterDef } from '../characters/types';
 import { movementConfig } from '../config/movement';
 import { BEAK_OFFSET } from '../world/beak';
 import { HANDS } from './Player';
-import type { Handedness, Player } from './Player';
+import type { Player } from './Player';
 
-const COLOR_WING = 0xffc83d; // hand in open air
-const COLOR_CLAW = 0xff5a36; // hand planted on a surface
+/** Height of a parrot of scale 1, feet to crown, in metres. */
+export const PARROT_HEIGHT = 0.72;
+const FEATHERS_PER_WING = 7;
+const STAMINA_EMPTY = new Color(0xff3b30); // wing tips when out of puff
+const UP = new Vector3(0, 1, 0);
+const AIRBORNE = new Set(['flapping', 'gliding', 'diving', 'falling', 'rolling']);
+
+const saturate = (x: number): number => Math.min(1, Math.max(0, x));
+
+/** Toes spread on a surface: three forward and one back, lying in the XZ plane. */
+function clawGeometry(): BufferGeometry {
+  const toes = [-0.5, 0, 0.5, Math.PI].map((angle) =>
+    new ConeGeometry(0.014, 0.085, 4).translate(0, 0.0425, 0).rotateX(-Math.PI / 2).rotateY(angle),
+  );
+  const merged = mergeGeometries(toes);
+  for (const toe of toes) toe.dispose();
+  return merged;
+}
 
 /**
- * Draws a player. Reads only Player state, never the headset, so the same
- * view works for remote players and lobby parrots later.
- * So far this draws the hands and beak tip; the parrot body arrives with characters.
+ * Draws one parrot from its Player state. It never reads the headset, so the
+ * same view serves the local player, lobby parrots and, later, remote players.
+ *
+ * The wings are feathers strung from each shoulder to each hand, so they
+ * follow the arms and spread as the arms go out. For the local player the
+ * head and body are left out (the camera is inside them); they see their
+ * wings, their claws on a surface and the tip of their beak.
  */
 export class PlayerView {
   readonly object = new Group();
-  private readonly hands: Record<Handedness, { group: Group; material: MeshLambertMaterial }>;
-  private readonly head = new Group();
+  private readonly material = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  private readonly body = new Mesh(undefined, this.material);
+  private readonly headPivot = new Group();
+  private readonly head = new Mesh(undefined, this.material);
+  private readonly crest = new Mesh(undefined, this.material);
+  private readonly beakTip: Mesh;
+  private readonly claws: Mesh[];
+  private readonly clawMaterial = new MeshLambertMaterial();
+  private def: CharacterDef | null = null;
+  private crestRaise = 0.2;
+  private lean = 0;
 
-  constructor(private readonly player: Player) {
-    const tip = new MeshLambertMaterial({ color: 0xff8a3d });
-    const ball = new SphereGeometry(1, 16, 12); // scaled to the claw radius
-    const nub = new ConeGeometry(0.5, 1.2, 10).rotateX(-Math.PI / 2).translate(0, 0, -1.2);
+  private readonly forward = new Vector3(0, 0, -1);
+  private readonly yaw = new Quaternion();
+  private readonly bodyTurn = new Quaternion();
+  private readonly q = new Quaternion();
+  private readonly shoulder = new Vector3();
+  private readonly arm = new Vector3();
+  private readonly armDir = new Vector3();
+  private readonly back = new Vector3();
+  private readonly root = new Vector3();
+  private readonly dir = new Vector3();
+  private readonly folded = new Vector3();
+  private readonly normal = new Vector3();
+  private readonly tip = new Color();
 
-    const makeHand = (): { group: Group; material: MeshLambertMaterial } => {
-      const group = new Group();
-      const material = new MeshLambertMaterial({ color: COLOR_WING });
-      group.add(new Mesh(ball, material), new Mesh(nub, tip));
-      this.object.add(group);
-      return { group, material };
-    };
-    this.hands = { left: makeHand(), right: makeHand() };
+  constructor(
+    private readonly player: Player,
+    private readonly feathers: FeatherBatch,
+    local: boolean,
+  ) {
+    this.headPivot.add(this.head, this.crest);
+    this.crest.position.copy(CREST_ROOT);
 
-    // Beak tip, seen at the bottom of the player's own view.
-    const beak = new Mesh(
-      new ConeGeometry(0.02, 0.07, 8).rotateX(-Math.PI / 2),
-      new MeshLambertMaterial({ color: 0x77778a }),
-    );
-    beak.position.copy(BEAK_OFFSET);
-    beak.rotation.x = -0.4; // hooked slightly downward
-    this.head.add(beak);
-    this.object.add(this.head);
+    this.beakTip = new Mesh(new ConeGeometry(0.02, 0.07, 8).rotateX(-Math.PI / 2), new MeshLambertMaterial());
+    const clawShape = clawGeometry();
+    this.claws = HANDS.map(() => new Mesh(clawShape, this.clawMaterial));
+
+    this.object.add(this.body, this.headPivot, this.beakTip, ...this.claws);
+    this.body.visible = this.headPivot.visible = !local;
+    this.beakTip.visible = local;
   }
 
-  update(): void {
-    this.head.position.copy(this.player.head.position);
-    this.head.quaternion.copy(this.player.head.quaternion);
+  /** Swap in the models for a character. */
+  private setCharacter(def: CharacterDef): void {
+    this.def = def;
+    this.body.geometry.dispose();
+    this.head.geometry.dispose();
+    this.crest.geometry.dispose();
+    const parts = buildParrotParts(def);
+    this.body.geometry = parts.body;
+    this.head.geometry = parts.head;
+    this.crest.visible = !!parts.crest;
+    if (parts.crest) this.crest.geometry = parts.crest;
+    (this.beakTip.material as MeshLambertMaterial).color.set(def.colors.beak);
+    this.clawMaterial.color.set(def.colors.feet);
+  }
 
-    const r = movementConfig.handRadius.value;
-    for (const h of HANDS) {
-      const pose = this.player.hands[h].grip;
-      const { group, material } = this.hands[h];
-      group.position.copy(pose.position);
-      group.quaternion.copy(pose.quaternion);
-      group.scale.setScalar(r);
-      material.color.setHex(this.player.claws[h].planted ? COLOR_CLAW : COLOR_WING);
-    }
+  update(dt: number): void {
+    const player = this.player;
+    if (this.def?.id !== player.characterId) this.setCharacter(character(player.characterId));
+    const def = this.def!;
+    const height = PARROT_HEIGHT * def.scale;
+    const head = player.head;
+    const airborne = AIRBORNE.has(player.movementState);
+
+    // Which way the bird faces: where the head looks, flattened.
+    this.dir.set(0, 0, -1).applyQuaternion(head.quaternion).setY(0);
+    if (this.dir.lengthSq() > 0.01) this.forward.copy(this.dir).normalize();
+    this.yaw.setFromUnitVectors(this.dir.set(0, 0, -1), this.forward);
+
+    // Head, with the crest up when flying fast or showing off, down at rest.
+    this.headPivot.position.copy(head.position);
+    this.headPivot.quaternion.copy(head.quaternion);
+    this.headPivot.scale.setScalar(height);
+    const excited = airborne ? Math.max(0.25, player.velocity.length() / 6) : 0.15;
+    const raise = saturate(Math.max(excited, player.excitement));
+    this.crestRaise += (raise - this.crestRaise) * (1 - Math.exp(-6 * dt));
+    this.crest.rotation.x = CREST_FLAT + (CREST_RAISED - CREST_FLAT) * this.crestRaise;
+
+    // Body: hangs from the head, leans forward in flight and shows the roll.
+    this.lean += ((airborne ? 1.05 : 0) - this.lean) * (1 - Math.exp(-5 * dt));
+    this.bodyTurn
+      .copy(this.yaw)
+      .multiply(this.q.setFromAxisAngle(this.dir.set(0, 0, -1), player.wings.roll))
+      .multiply(this.q.setFromAxisAngle(this.dir.set(1, 0, 0), -this.lean));
+    this.body.quaternion.copy(this.bodyTurn);
+    this.body.scale.setScalar(height);
+    this.body.position
+      .copy(HEAD_CENTER)
+      .multiplyScalar(-height)
+      .applyQuaternion(this.bodyTurn)
+      .add(head.position);
+
+    this.beakTip.position.copy(BEAK_OFFSET).applyQuaternion(head.quaternion).add(head.position);
+    this.beakTip.quaternion.copy(head.quaternion);
+    this.beakTip.rotateX(-0.4); // hooked slightly downward
+
+    // Wing tips fade from the bird's own colour to red as stamina runs out.
+    const stamina = movementConfig.staminaEnabled.value ? player.stamina : 1;
+    this.tip.set(def.colors.wingTip).lerp(STAMINA_EMPTY, 1 - saturate(stamina));
+    const tipColor = this.tip.getHex();
+
+    this.back.copy(this.forward).negate();
+    HANDS.forEach((h, index) => {
+      const side = h === 'left' ? -1 : 1;
+      const hand = player.hands[h].grip.position;
+      this.shoulder
+        .set(side * SHOULDER.x, SHOULDER.y, SHOULDER.z)
+        .multiplyScalar(height)
+        .applyQuaternion(this.yaw)
+        .add(head.position);
+      this.arm.copy(hand).sub(this.shoulder);
+      this.armDir.copy(this.arm).normalize();
+
+      // How far out the arm is, the same way the glide measures it.
+      const out = Math.hypot(hand.x - head.position.x, hand.z - head.position.z);
+      const tuck = movementConfig.wingTuckDistance.value;
+      const spread = saturate((out - tuck) / Math.max(0.01, movementConfig.wingSpreadDistance.value - tuck));
+
+      this.folded.copy(this.back).multiplyScalar(0.45).addScaledVector(UP, -1).addScaledVector(this.armDir, 0.1);
+      for (let i = 0; i < FEATHERS_PER_WING; i++) {
+        const t = (i + 0.5) / FEATHERS_PER_WING; // 0 at the shoulder, 1 at the hand
+        this.root.copy(this.shoulder).addScaledVector(this.arm, t);
+        // Spread: inner feathers trail behind, outer ones fan out along the arm.
+        this.dir
+          .copy(this.back)
+          .multiplyScalar(1 - 0.75 * t * t)
+          .addScaledVector(this.armDir, 1.1 * t * t)
+          .addScaledVector(UP, -0.1)
+          .lerp(this.folded, 1 - spread)
+          .normalize();
+        this.normal.crossVectors(this.armDir, this.dir);
+        if (this.normal.y < 0) this.normal.negate();
+        const length = height * (0.2 + 0.22 * t) * (0.7 + 0.3 * spread);
+        const color =
+          i >= FEATHERS_PER_WING - 2
+            ? tipColor
+            : def.colors.wingPatch !== undefined && t < 0.42
+              ? def.colors.wingPatch
+              : def.colors.wing;
+        this.feathers.add(this.root, this.dir, this.normal, length, color);
+      }
+
+      // Claws show on a hand that is gripping a surface.
+      const claw = player.claws[h];
+      const mesh = this.claws[index];
+      mesh.visible = claw.planted;
+      if (claw.planted) {
+        mesh.position.copy(hand).addScaledVector(claw.normal, -movementConfig.handRadius.value * 0.9);
+        mesh.quaternion.setFromUnitVectors(UP, claw.normal);
+        mesh.scale.setScalar(def.scale * 1.4);
+      }
+    });
   }
 }

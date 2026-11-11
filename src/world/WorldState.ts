@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
+import { roster } from '../characters/roster';
 import { movementConfig } from '../config/movement';
 import type { BodyRef, PhysicsWorld } from '../engine/physics';
 import { HANDS } from '../player/Player';
@@ -6,7 +7,15 @@ import type { Player } from '../player/Player';
 import type { Action, ActionLayer } from './actions';
 import { BEAK_RADIUS, beakPosition, carryPosition } from './beak';
 import { toyCollider } from './types';
-import type { LobbyContent, PeckableDef, RingDef, TargetDef, ToyTypeDef, WaterDef } from './types';
+import type {
+  CharacterPerchDef,
+  LobbyContent,
+  PeckableDef,
+  RingDef,
+  TargetDef,
+  ToyTypeDef,
+  WaterDef,
+} from './types';
 
 const TRAY_WALL = 0.03; // m, thickness of a tray's walls and floor
 const SHELF_BOARD = 0.04; // m, thickness of a shelf
@@ -18,6 +27,8 @@ const STRAY_DISTANCE = 0.5; // m from its start before a toy counts as moved
 const RETURN_AFTER = 180; // s a moved, unplaced toy lies untouched before going home
 const RING_PASS = 0.9; // share of a ring's radius the head must pass within
 const WATER_DEPTH = 0.08; // m above the surface at which a hand or body splashes
+const PERCH_TOUCH = 0.26; // m from the middle of a perch's parrot that counts as touching it
+const PERCH_MODEL_HEIGHT = 0.5; // m, about how tall the parrot on a perch is
 const DANGLE_DROP = 0.1; // m a dangling toy hangs below the carry point
 const DANGLE_STIFFNESS = 90; // 1/s2
 const DANGLE_DAMPING = 5; // 1/s
@@ -65,6 +76,12 @@ export interface Ring {
   passed: boolean;
 }
 
+export interface CharacterPerch {
+  readonly def: CharacterPerchDef;
+  /** Middle of the parrot standing on it. */
+  readonly center: Vector3;
+}
+
 export interface Water {
   readonly def: WaterDef;
   readonly position: Vector3;
@@ -81,6 +98,7 @@ export class WorldState {
   readonly peckables = new Map<string, Peckable>();
   readonly rings = new Map<string, Ring>();
   readonly water = new Map<string, Water>();
+  readonly perches = new Map<string, CharacterPerch>();
   readonly players = new Map<string, Player>();
   /** Bells rung since every bell was last rung. */
   readonly bellsRung = new Set<string>();
@@ -140,6 +158,11 @@ export class WorldState {
       this.water.set(def.id, { def, position: new Vector3(...def.position), touching: new Set() });
     }
 
+    for (const def of content.characterPerches ?? []) {
+      const [x, y, z] = def.position;
+      this.perches.set(def.id, { def, center: new Vector3(x, y + PERCH_MODEL_HEIGHT / 2, z) });
+    }
+
     for (const { id, type, position } of content.toys) {
       const def = content.toyTypes[type];
       if (!def) throw new Error(`Toy "${id}" has unknown type "${type}"`);
@@ -168,6 +191,7 @@ export class WorldState {
     this.peckables.clear();
     this.rings.clear();
     this.water.clear();
+    this.perches.clear();
     this.bellsRung.clear();
     this.lastHead.clear();
     for (const player of this.players.values()) player.carriedItemId = null;
@@ -196,6 +220,12 @@ export class WorldState {
         return this.water.has(action.waterId);
       case 'celebrate':
         return true;
+      case 'chooseCharacter': {
+        const player = this.players.get(action.playerId);
+        return !!player && player.characterId !== action.characterId && action.characterId in roster;
+      }
+      case 'stunt':
+        return this.players.has(action.playerId);
     }
   }
 
@@ -237,6 +267,12 @@ export class WorldState {
       case 'celebrate':
         if (action.what === 'bells') this.bellsRung.clear();
         else for (const ring of this.rings.values()) ring.passed = false;
+        break;
+      case 'chooseCharacter':
+        this.players.get(action.playerId)!.characterId = action.characterId;
+        break;
+      case 'stunt':
+        this.players.get(action.playerId)!.excitement = 1;
         break;
       case 'splash':
         break; // Only heard and seen.
@@ -294,6 +330,16 @@ export class WorldState {
         }
         if (rang && this.bellsRung.size === this.peckables.size) {
           actions.dispatch({ type: 'celebrate', what: 'bells' });
+        }
+      }
+
+      // Touching the parrot on a perch, with beak or hand, makes you that parrot.
+      for (const perch of this.perches.values()) {
+        const touching =
+          this.beak.distanceTo(perch.center) < PERCH_TOUCH ||
+          HANDS.some((h) => player.hands[h].grip.position.distanceTo(perch.center) < PERCH_TOUCH);
+        if (touching) {
+          actions.dispatch({ type: 'chooseCharacter', playerId: player.id, characterId: perch.def.characterId });
         }
       }
 

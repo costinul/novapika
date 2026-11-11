@@ -27,7 +27,10 @@ import {
 } from 'three';
 import type { Material, Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildStatue } from '../characters/parrotGeometry';
+import { character } from '../characters/roster';
 import { movementConfig } from '../config/movement';
+import { PARROT_HEIGHT } from '../player/PlayerView';
 import type { PhysicsWorld } from '../engine/physics';
 import type { Action } from './actions';
 import type { ToyTypeDef } from './types';
@@ -44,6 +47,8 @@ const RING_DONE = new Color(0x6fdc6f);
 const SHADOW_MAX_DROP = 30; // m, no shadow for things higher than this above ground
 const SHADOW_SPARE = 8; // shadows kept for players, beyond one per toy
 const ONE = new Vector3(1, 1, 1);
+/** Size of the parrot models on the choosing perches, against a live parrot. */
+const PERCH_MODEL_SCALE = 0.8;
 
 interface BellView {
   pivot: Group;
@@ -129,6 +134,7 @@ export class WorldView {
   private readonly point = new Vector3();
   private readonly scale = new Vector3();
   private shadowCapacity = 0;
+  private readonly heading = new Vector3();
 
   constructor(
     private readonly world: WorldState,
@@ -168,6 +174,7 @@ export class WorldView {
     this.buildTargets();
     this.buildBells();
     this.buildRings();
+    this.buildPerches();
 
     if (this.world.toys.size > 0) {
       this.shadowCapacity = this.world.toys.size + SHADOW_SPARE;
@@ -288,8 +295,28 @@ export class WorldView {
     this.content.add(mesh);
   }
 
+  /** A model of each parrot, standing on its perch. */
+  private buildPerches(): void {
+    const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+    for (const { def } of this.world.perches.values()) {
+      const who = character(def.characterId);
+      const statue = new Mesh(buildStatue(who), material);
+      statue.position.set(...def.position);
+      statue.rotation.y = def.yaw;
+      statue.scale.setScalar(PARROT_HEIGHT * who.scale * PERCH_MODEL_SCALE);
+      this.content.add(statue);
+    }
+  }
+
   onAction(action: Action): void {
     switch (action.type) {
+      case 'chooseCharacter':
+      case 'stunt': {
+        // A puff of feathers round the parrot.
+        const player = this.world.players.get(action.playerId);
+        if (player) this.burst(player.head.position, action.type === 'stunt' ? 0xffffff : 0xfff27a);
+        break;
+      }
       case 'ring': {
         const bell = this.bells.get(action.objectId);
         if (bell) bell.age = 0;
@@ -372,7 +399,18 @@ export class WorldView {
     for (const player of this.world.players.values()) {
       this.point.copy(player.head.position);
       this.point.y -= movementConfig.bodyHeight.value - 0.05;
+      const index = count;
       cast(this.point, 0.45);
+      if (count === index) continue;
+      // A parrot's shadow is wider than long, turns with it, and spins in a roll.
+      shadows.getMatrixAt(index, this.m);
+      this.m.decompose(this.v, this.q, this.scale);
+      this.heading.set(0, 0, -1).applyQuaternion(player.head.quaternion);
+      const turn = Math.atan2(-this.heading.x, -this.heading.z) + player.wings.roll;
+      this.q.setFromAxisAngle(this.heading.set(0, 1, 0), turn).multiply(this.flat);
+      this.scale.x *= 1.7;
+      this.scale.y *= 0.8;
+      shadows.setMatrixAt(index, this.m.compose(this.v, this.q, this.scale));
     }
     shadows.count = count;
     shadows.instanceMatrix.needsUpdate = true;

@@ -86,6 +86,9 @@ export function placeAt(state: MoveState, input: MoveInput, cfg: MovementConfig,
   state.wings.tracked = false;
   state.wings.flapping = false;
   state.wings.glide = 0;
+  state.wings.rolling = 0;
+  state.wings.roll = 0;
+  state.stamina = 1;
   for (const h of HANDS) {
     state.claws[h].planted = false;
     state.claws[h].last.copy(state.position).add(input.hands[h].position);
@@ -148,6 +151,11 @@ export function stepMovement(
       state.catchVelocity.setLength(Math.max(0, skid - state.catchDecel * dt));
     }
     state.wings.glide = 0;
+    state.wings.rolling = 0;
+  }
+  // Standing, perching or hanging gets the breath back quickly.
+  if (carrying || state.grounded) {
+    state.stamina = Math.min(1, state.stamina + dt / cfg.staminaRefillTime.value);
   }
   state.supported = carrying;
 
@@ -252,6 +260,7 @@ export function stepMovement(
   if (state.grounded) state.movementState = 'standing';
   else if (holding) state.movementState = locked ? 'hanging' : 'climbing';
   else if (state.wings.flapping) state.movementState = 'flapping';
+  else if (state.wings.rolling !== 0) state.movementState = 'rolling';
   else if (state.wings.glide > 0.5) state.movementState = 'gliding';
   else if (state.velocity.y < DIVE_SPEED) state.movementState = 'diving';
   else state.movementState = 'falling';

@@ -80,6 +80,17 @@ export interface WaterDef {
   radius: number;
 }
 
+/** A perch with a model of a parrot on it. Touching it makes you that parrot. */
+export interface CharacterPerchDef {
+  id: string;
+  /** Key into the character roster. */
+  characterId: string;
+  /** Where the model's feet stand. */
+  position: Vec3;
+  /** Way the model faces, as a turn about the vertical axis in radians. */
+  yaw: number;
+}
+
 export interface LobbyContent {
   toyTypes: Record<string, ToyTypeDef>;
   toys: readonly ToyDef[];
@@ -87,6 +98,7 @@ export interface LobbyContent {
   peckables: readonly PeckableDef[];
   rings: readonly RingDef[];
   water: readonly WaterDef[];
+  characterPerches?: readonly CharacterPerchDef[];
 }
 
 /** Collision shape of a toy: a ball of radius half[0], or a box of half extents. */

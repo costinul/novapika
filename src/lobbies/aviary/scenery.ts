@@ -1,5 +1,6 @@
 import type { Vec3 } from '../../world/types';
 import type { StaticBuilder } from '../build';
+import { roster } from '../../characters/roster';
 import {
   BELL_HOOKS,
   CONTENT,
@@ -93,6 +94,17 @@ export function buildScenery(b: StaticBuilder): void {
       0.13,
       { sides: 5 },
     );
+  }
+  // Character perches: a post and a bar. Nova's and Pika's are golden.
+  for (const { characterId, position, yaw } of CONTENT.characterPerches ?? []) {
+    const [x, y, z] = position;
+    const top = y - 0.03;
+    const paint = roster[characterId]?.star ? 0xf2c14e : WOOD;
+    b.limb(paint, [x, NEST_Y, z], [x, top, z], 0.035, 0.035, { sides: 6 });
+    // The bar runs across the way the parrot faces.
+    const dx = Math.cos(yaw) * 0.17;
+    const dz = -Math.sin(yaw) * 0.17;
+    b.limb(paint, [x - dx, top, z - dz], [x + dx, top, z + dz], 0.03, 0.03, { sides: 6 });
   }
   tree(b, HOME_CROWN, 0);
   for (const pad of PADS) b.drum(WOOD, [pad[0], pad[1] - 0.04, pad[2]], 0.35, 0.08, 8);

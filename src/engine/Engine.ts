@@ -10,6 +10,8 @@ import {
 } from 'three';
 import type { Material, Mesh, Object3D, Texture } from 'three';
 import { Sounds } from '../audio/Sounds';
+import { FeatherBatch } from '../characters/FeatherBatch';
+import { character, DEFAULT_CHARACTER } from '../characters/roster';
 import { movementConfig } from '../config/movement';
 import { DebugPanel } from '../debug/DebugPanel';
 import type { PanelPointer } from '../debug/DebugPanel';
@@ -21,6 +23,8 @@ import { HANDS, Player } from '../player/Player';
 import type { InputSource, PlayerInput } from '../player/Player';
 import { PlayerView } from '../player/PlayerView';
 import { XRInput } from '../player/XRInput';
+import { createRecognisers } from '../stunts/recognisers';
+import type { StuntSample } from '../stunts/recognisers';
 import { ActionLayer } from '../world/actions';
 import { beakPosition } from '../world/beak';
 import { WorldState } from '../world/WorldState';
@@ -62,7 +66,7 @@ export class Engine {
   readonly camera = new PerspectiveCamera(70, 1, 0.05, 600);
   /** The local player's tracking space. Moving the player moves this. */
   private readonly rig = new Group();
-  readonly localPlayer = new Player('local', 'nova');
+  readonly localPlayer = new Player('local', DEFAULT_CHARACTER);
 
   private readonly input: InputSource;
   private readonly playerView: PlayerView;
@@ -72,6 +76,18 @@ export class Engine {
   private readonly actions: ActionLayer;
   private readonly worldView: WorldView;
   private readonly sounds = new Sounds();
+  private readonly feathers = new FeatherBatch();
+  private readonly stunts = createRecognisers();
+  private readonly stuntSample: StuntSample = {
+    state: 'standing',
+    speed: 0,
+    verticalSpeed: 0,
+    rolling: 0,
+    clearance: 0,
+    height: 0,
+    passedRing: false,
+  };
+  private wasAirborne = false;
   /** The toy the local player's beak could bite right now. */
   private biteable: Toy | null = null;
   private biteWasPressed = false;
@@ -118,8 +134,8 @@ export class Engine {
     this.scene.add(this.rig);
 
     this.input = new XRInput(this.renderer, this.camera);
-    this.playerView = new PlayerView(this.localPlayer);
-    this.scene.add(this.playerView.object);
+    this.playerView = new PlayerView(this.localPlayer, this.feathers, true);
+    this.scene.add(this.playerView.object, this.feathers.mesh);
 
     this.debugPanel = new DebugPanel(movementConfig, () => ({
       fps: this.fps,
@@ -135,7 +151,11 @@ export class Engine {
     this.actions = new ActionLayer(this.world);
     this.worldView = new WorldView(this.world, this.physics);
     this.scene.add(this.worldView.object);
+    this.sounds.setVoice(character(this.localPlayer.characterId).voice);
     this.actions.onApplied((action) => {
+      const mine = 'playerId' in action && action.playerId === this.localPlayer.id;
+      if (action.type === 'chooseCharacter' && mine) this.sounds.setVoice(character(action.characterId).voice);
+      if (action.type === 'passRing' && mine) this.stuntSample.passedRing = true;
       this.worldView.onAction(action);
       this.sounds.onAction(action);
     });
@@ -244,8 +264,11 @@ export class Engine {
     this.updateViewPosition();
     player.updateWorldPoses(this.viewPosition);
     this.rig.position.copy(this.viewPosition);
-    this.playerView.update();
+    this.feathers.begin();
+    this.playerView.update(dt);
+    this.feathers.end();
     this.updateBeak(dt);
+    this.updateStunts(dt);
     this.worldView.update(dt, this.biteable);
     this.sounds.update(dt);
     this.updateDebugPanel(dt);
@@ -261,6 +284,38 @@ export class Engine {
     this.physics.step(dt);
     stepMovement(this.localPlayer, this.moveStep, this.physics, movementConfig, dt);
     this.world.step(dt, this.actions);
+  }
+
+  /** Watch the local player for stunts, and make the sounds of flight. */
+  private updateStunts(dt: number): void {
+    const player = this.localPlayer;
+    const s = this.stuntSample;
+    s.state = player.movementState;
+    s.speed = player.velocity.length();
+    s.verticalSpeed = player.velocity.y;
+    s.rolling = player.wings.rolling;
+    // Underside of the body, a little up so the ray starts above what it rests on.
+    this.scratch.copy(player.head.position);
+    this.scratch.y -= movementConfig.bodyHeight.value - 0.1;
+    s.height = this.scratch.y;
+    const ground = this.physics.groundBelow(this.scratch, 60);
+    s.clearance = ground === null ? 60 : this.scratch.y - ground;
+
+    for (const stunt of this.stunts) {
+      if (stunt.update(s, dt)) {
+        this.actions.dispatch({ type: 'stunt', playerId: player.id, name: stunt.name });
+      }
+    }
+    s.passedRing = false;
+    player.excitement = Math.max(0, player.excitement - dt / 1.5);
+
+    const airborne = !player.grounded && !player.supported;
+    if (airborne !== this.wasAirborne) {
+      if (airborne) this.sounds.takeOff();
+      else this.sounds.land();
+      this.wasAirborne = airborne;
+    }
+    this.sounds.setWind(airborne ? s.speed : 0);
   }
 
   /** Beak: carry, peck, and bite or drop on a trigger press. */

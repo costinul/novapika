@@ -3,10 +3,10 @@
 A browser VR game for Meta Quest where you are a parrot. Requirements:
 [Nova Pika — VR Game Requirements (v1).md](<Nova Pika — VR Game Requirements (v1).md>).
 
-Current state: **milestone 5 (The Aviary)**: the full first lobby, a 60 m
-outdoor bird enclosure with a home tree and nest, eight climbing trees, a play
-gym, a ring course, bells, a bird bath, a feeder, a toy box, nest shelves, a
-closed portal and 28 toys. Movement is claws, wings and beak.
+Current state: **milestone 6 (stunts, stamina and characters)**. The Aviary
+lobby, with claws, wings and beak, now has stamina, the one-wing roll and other
+stunts, and five parrots to play as: Nova and Pika the cockatiels, a budgie, a
+macaw and a cockatoo.
 
 ## Run
 
@@ -67,6 +67,30 @@ npm run build
   - Peck: move your head (or a hand) into a bell to ring it. No button.
 - **Grip** (optional): locks a touching hand to the surface.
 
+## Choosing a parrot
+
+You start in the nest as Nova. In front of you are five perches, each with a
+parrot on it: touch one with a hand or your beak to become that parrot. Nova
+and Pika have the two golden perches in the middle. Species differ in looks,
+size and voice only; all move by the same rules.
+
+Nova's model is matched to the owner's photo of her. Pika is a placeholder (a
+plain grey hen) until her colours are known. To change either, edit
+`src/characters/roster.ts`.
+
+## Stamina and stunts
+
+- **Stamina:** each flap spends some; gliding spends none. Standing, perching
+  or hanging refills it in about three seconds. Your wing tips turn red as it
+  runs out, and with none left a flap only softens a fall. `staminaEnabled` on
+  the debug panel switches it off.
+- **One-wing roll:** in the air, keep one arm out and tuck the other in. The
+  parrot rolls toward the tucked wing and falls in a spiral; spread both arms
+  to level out. Your view stays level throughout.
+- **Other stunts** are found by moving, not by buttons: dive bomb, barrel
+  roll, swoop, ring pass and perch landing. Each earns a chirp and a puff of
+  feathers. There are no scores.
+
 ## Things to do in the Aviary
 
 - Fly the ring course round the home tree. Rings turn green as you pass.
@@ -88,6 +112,8 @@ npm run build
 | `src/engine/` | Renderer, fixed-timestep loop, physics wrapper |
 | `src/player/` | `Player` state, headset input, player rendering |
 | `src/movement/` | Movement rules as pure functions of state, input and world queries |
+| `src/characters/` | The roster of parrots as data, and the code that builds their models |
+| `src/stunts/` | One small recogniser per stunt |
 | `src/world/` | Toys, target places and bells; the action layer every world change goes through |
 | `src/audio/` | Sounds, synthesized in code |
 | `src/lobbies/` | Lobby registry and one folder per lobby |

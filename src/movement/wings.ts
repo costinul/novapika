@@ -14,6 +14,12 @@ const MIN_HEADING_SPEED = 0.5;
 /** Hand height difference over hand spacing that counts as full bank (45 degrees). */
 const FULL_BANK = 1;
 
+/** One-wing roll: the spread arm must be at least this far out, the other no more than this. */
+const ROLL_WING_OUT = 0.6;
+const ROLL_WING_IN = 0.25;
+/** How quickly the body levels out after a roll, 1/s. */
+const ROLL_RECOVER_RATE = 8;
+
 const saturate = (x: number): number => Math.min(1, Math.max(0, x));
 
 /**
@@ -49,22 +55,36 @@ export function trackWings(state: MoveState, input: MoveInput, cfg: MovementConf
   w.tracked = true;
 
   const { left, right } = w.sweepStart;
-  w.flapping =
+  const flapping =
     left >= 0 &&
     right >= 0 &&
     Math.abs(left - right) <= cfg.flapSyncWindow.value / 1000 &&
     !state.claws.left.planted &&
     !state.claws.right.planted;
+
+  if (flapping && !w.flapping) {
+    // A new flap begins: it costs stamina, and is weak if there is none left.
+    if (cfg.staminaEnabled.value) {
+      w.flapStrength = state.stamina > 0 ? 1 : cfg.staminaEmptyLift.value;
+      state.stamina = Math.max(0, state.stamina - 1 / cfg.flapsPerFullStamina.value);
+    } else {
+      w.flapStrength = 1;
+    }
+  }
+  w.flapping = flapping;
 }
 
 /**
- * How much the arms are acting as spread wings (0..1), and the bank between
- * them (-1..1, positive when the left hand is lower).
+ * How much the arms are acting as spread wings (0..1), the bank between them
+ * (-1..1, positive when the left hand is lower), and how far out each arm is.
  *
  * Measured from the head but not from where it looks, so the player can
  * look around freely while gliding.
  */
-export function wingPose(input: MoveInput, cfg: MovementConfig): { glide: number; bank: number } {
+export function wingPose(
+  input: MoveInput,
+  cfg: MovementConfig,
+): { glide: number; bank: number; leftOut: number; rightOut: number } {
   const head = input.head;
   const l = input.hands.left.position;
   const r = input.hands.right.position;
@@ -77,7 +97,9 @@ export function wingPose(input: MoveInput, cfg: MovementConfig): { glide: number
 
   const tuck = cfg.wingTuckDistance.value;
   const range = Math.max(0.01, cfg.wingSpreadDistance.value - tuck);
-  const spread = Math.min(saturate((lOut - tuck) / range), saturate((rOut - tuck) / range));
+  pose.leftOut = saturate((lOut - tuck) / range);
+  pose.rightOut = saturate((rOut - tuck) / range);
+  const spread = Math.min(pose.leftOut, pose.rightOut);
 
   // The hands must be on opposite sides of the head: full at 120 degrees
   // apart or more, nothing at 90 degrees or less.
@@ -92,7 +114,7 @@ export function wingPose(input: MoveInput, cfg: MovementConfig): { glide: number
   pose.bank = Math.min(1, Math.max(-1, (r.y - l.y) / spacing / FULL_BANK));
   return pose;
 }
-const pose = { glide: 0, bank: 0 };
+const pose = { glide: 0, bank: 0, leftOut: 0, rightOut: 0 };
 
 /**
  * Change the velocity of a player that no claw is holding, for one step:
@@ -104,7 +126,7 @@ export function applyAir(state: MoveState, input: MoveInput, cfg: MovementConfig
 
   if (w.flapping) {
     const speed = Math.min(cfg.flapSpeedCap.value, w.sinkSpeed.left, w.sinkSpeed.right);
-    v.y += cfg.flapPower.value * speed * dt;
+    v.y += cfg.flapPower.value * speed * w.flapStrength * dt;
     // The forward push can turn the flight and bring it up to glide speed,
     // but never makes it faster than it already was beyond that.
     const limit = Math.max(Math.hypot(v.x, v.z), cfg.glideSpeed.value);
@@ -116,11 +138,25 @@ export function applyAir(state: MoveState, input: MoveInput, cfg: MovementConfig
     }
   }
 
-  const { glide, bank } = wingPose(input, cfg);
+  const { glide, bank, leftOut, rightOut } = wingPose(input, cfg);
   w.glide = state.grounded ? 0 : glide;
 
   const before = v.y;
   v.y -= cfg.gravity.value * dt;
+
+  // One-wing roll: one arm out, the other tucked or stopped. The parrot
+  // rolls toward the tucked wing and falls in a spiral until both spread.
+  const oneWing = Math.max(leftOut, rightOut) > ROLL_WING_OUT && Math.min(leftOut, rightOut) < ROLL_WING_IN;
+  w.rolling = !state.grounded && !w.flapping && oneWing ? (leftOut < rightOut ? 1 : -1) : 0;
+  if (w.rolling !== 0) {
+    w.roll += w.rolling * ((cfg.rollSpinRate.value * Math.PI) / 180) * dt;
+    spiral(state, input, cfg, dt);
+    return;
+  }
+  // Level out: unwind to the nearest whole turn.
+  const turn = Math.PI * 2;
+  w.roll -= (w.roll - Math.round(w.roll / turn) * turn) * (1 - Math.exp(-ROLL_RECOVER_RATE * dt));
+
   if (w.glide <= 0) return;
 
   // Spread wings hold the fall to the glide sink rate. Gravity cannot push
@@ -161,4 +197,25 @@ export function applyAir(state: MoveState, input: MoveInput, cfg: MovementConfig
 
   v.x = dx * speed;
   v.z = dz * speed;
+}
+
+/** The falling spiral of a one-wing roll: no lift, a curving path, a capped fall. */
+function spiral(state: MoveState, input: MoveInput, cfg: MovementConfig, dt: number): void {
+  const v = state.velocity;
+  v.y = Math.max(v.y, -cfg.rollFallSpeed.value);
+
+  let speed = Math.hypot(v.x, v.z);
+  let dx = input.headForward.x;
+  let dz = input.headForward.z;
+  if (speed > MIN_HEADING_SPEED) {
+    dx = v.x / speed;
+    dz = v.z / speed;
+  }
+  const angle = state.wings.rolling * ((cfg.rollTurnRate.value * Math.PI) / 180) * dt;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const keep = cfg.rollForwardSpeed.value;
+  if (speed < keep) speed = Math.min(keep, speed + cfg.glideAcceleration.value * dt);
+  v.x = (dx * cos + dz * sin) * speed;
+  v.z = (-dx * sin + dz * cos) * speed;
 }

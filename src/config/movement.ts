@@ -109,6 +109,22 @@ export const movementConfig = {
     value: 0.55, unit: 'm', min: 0.2, max: 0.9, step: 0.05,
     comment: 'Hands lower than this below the eyes count as arms down, which ends the glide.',
   },
+  rollTurnRate: {
+    value: 150, unit: 'deg/s', min: 30, max: 360, step: 10,
+    comment: 'One-wing roll: how fast the falling path curves toward the tucked wing.',
+  },
+  rollSpinRate: {
+    value: 360, unit: 'deg/s', min: 90, max: 720, step: 30,
+    comment: "One-wing roll: how fast the parrot's body spins. The view itself never rolls.",
+  },
+  rollFallSpeed: {
+    value: 5, unit: 'm/s', min: 2, max: 8, step: 0.5,
+    comment: 'One-wing roll: fastest fall while spiralling. Lower is gentler and easier to recover.',
+  },
+  rollForwardSpeed: {
+    value: 2.5, unit: 'm/s', min: 0, max: 6, step: 0.5,
+    comment: 'One-wing roll: sideways speed kept while spiralling, which gives the spiral its width.',
+  },
   flapSpeedThreshold: {
     value: 1.5, unit: 'm/s', min: 0.5, max: 4, step: 0.1,
     comment: 'Downward hand speed both hands must exceed for a sweep to count as a flap.',
@@ -148,6 +164,10 @@ export const movementConfig = {
   carryDown: {
     value: 0.2, unit: 'm', min: 0.05, max: 0.5, step: 0.05,
     comment: 'How far below the eyes a carried toy hangs. Raise it if the toy blocks the view.',
+  },
+  staminaEmptyLift: {
+    value: 0.25, unit: 'x', min: 0, max: 1, step: 0.05,
+    comment: 'Share of normal lift a flap gives with no stamina left: enough to soften a fall.',
   },
   staminaEnabled: {
     value: 1, unit: 'on/off', min: 0, max: 1, step: 1,

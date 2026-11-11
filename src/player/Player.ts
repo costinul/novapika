@@ -11,6 +11,7 @@ export type MovementState =
   | 'flapping'
   | 'gliding'
   | 'diving'
+  | 'rolling'
   | 'falling';
 
 export interface Pose {
@@ -89,7 +90,12 @@ export class Player implements MoveState {
     sweepStart: { left: -1, right: -1 },
     flapping: false,
     glide: 0,
+    flapStrength: 1,
+    rolling: 0,
+    roll: 0,
   };
+  /** 0..1, raised for a moment by a stunt; lifts the crest. */
+  excitement = 0;
   readonly catchVelocity = new Vector3();
   catchDecel = 0;
 

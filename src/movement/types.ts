@@ -29,6 +29,12 @@ export interface WingState {
   flapping: boolean;
   /** 0 = wings folded or arms down, 1 = both arms out and level. */
   glide: number;
+  /** Lift of the current flap: 1 normally, less when it began with no stamina. */
+  flapStrength: number;
+  /** One-wing roll under way: +1 rolling to the left, -1 to the right, 0 none. */
+  rolling: -1 | 0 | 1;
+  /** How far the body has rolled, radians. Shown on the parrot, never on the view. */
+  roll: number;
 }
 
 /** The part of a player that movement reads and writes. `Player` is one. */
@@ -39,6 +45,8 @@ export interface MoveState {
   movementState: MovementState;
   /** The body is resting on a walkable surface. */
   grounded: boolean;
+  /** 0 = empty, 1 = full. Flapping spends it; resting refills it. */
+  stamina: number;
   /** At least one claw carried the body during the last step. */
   supported: boolean;
   claws: Record<Handedness, ClawState>;
