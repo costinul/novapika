@@ -11,7 +11,9 @@ export default defineConfig(({ mode }) => {
       ? { key: readFileSync('.cert/key.pem'), cert: readFileSync('.cert/cert.pem') }
       : undefined;
   return {
-    server: { https },
+    // The tunnel hosts let the dev server be reached through cloudflared or
+    // ngrok, for when the headset cannot reach this PC over the local network.
+    server: { https, allowedHosts: ['.trycloudflare.com', '.ngrok-free.app', '.ngrok.app'] },
     preview: { https },
     build: { target: 'es2022' },
     test: { environment: 'node', include: ['tests/**/*.test.ts'] },

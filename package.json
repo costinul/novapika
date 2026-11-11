@@ -10,7 +10,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "deploy": "npm run build && npx --yes wrangler@4.160.0 deploy"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

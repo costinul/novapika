@@ -1,0 +1,10 @@
+// Hosts the built game (dist/) as static files on Cloudflare, at
+// https://novapika.<account>.workers.dev. There is no server code.
+// Deploy with `npm run deploy`.
+{
+  "name": "novapika",
+  "compatibility_date": "2026-11-11",
+  "assets": {
+    "directory": "./dist"
+  }
+}
