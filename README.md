@@ -12,6 +12,14 @@ moves, comfort settings and movement that fits short arms.
 Not yet checked on a real headset by the author of the code: every milestone
 was tested with unit tests and a desktop WebXR emulator only.
 
+## Pets (being built)
+
+Design: [docs/plans/2026-11-11-pets-design.md](docs/plans/2026-11-11-pets-design.md).
+Step 1 of 4 is built: pet DNA, tiers, breeding rules and the pet models. Pets
+are not in the game yet. Add `?lobby=pet-show` to the address to look at them:
+the eight fixed pets stand on the front bar, and eight babies bred from pairs
+of them on the bar behind.
+
 ## Run
 
 ```bash
@@ -175,6 +183,7 @@ dropped. Nothing is stored and nothing leaves the headset.
 | `src/debug/` | In-headset debug panel |
 | `src/dev/` | Desktop WebXR emulator (development builds only) |
 | `src/net/`, `src/voice/` | Reserved for multiplayer and voice; empty in v1 |
+| `shared/` | Pet DNA, tiers, breeding rules and the fixed pets; for the game and, later, the server |
 | `tests/` | Vitest unit tests |
 
 ## Art and audio sources

@@ -1,7 +1,10 @@
 // A character is data: looks, size and voice on one shared parrot shape.
 // A new species or a new named bird is a new entry in the roster, nothing more.
 
-export type Species = 'cockatiel' | 'budgie' | 'macaw' | 'cockatoo';
+import type { Dna, SpecialGene } from '../../shared/dna';
+
+/** A pet is a mix, bred from DNA, so it has a species of its own. */
+export type Species = 'cockatiel' | 'budgie' | 'macaw' | 'cockatoo' | 'pet';
 
 export interface ParrotColors {
   head: number;
@@ -67,4 +70,6 @@ export interface CharacterDef {
   colors: ParrotColors;
   crest?: CrestDef;
   voice: VoiceDef;
+  /** Extras only a pet can have: glow, rainbow, more heads, more tails, two-dot eyes. */
+  specials?: Pick<Dna, SpecialGene>;
 }

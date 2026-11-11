@@ -12,6 +12,7 @@ import type { Material, Mesh, Object3D, Texture } from 'three';
 import { Mimicry } from '../audio/Mimicry';
 import { Sounds } from '../audio/Sounds';
 import { FeatherBatch } from '../characters/FeatherBatch';
+import { tickParrotMaterials } from '../characters/parrotMaterial';
 import { character, DEFAULT_CHARACTER, roster } from '../characters/roster';
 import { ReachMeter } from '../comfort/ReachMeter';
 import { Vignette } from '../comfort/Vignette';
@@ -302,6 +303,7 @@ export class Engine {
     this.updateBeak(dt);
     this.updateStunts(dt);
     this.worldView.update(dt, this.biteable);
+    tickParrotMaterials(dt);
     this.sounds.update(dt);
     this.updateDebugPanel(dt);
 
