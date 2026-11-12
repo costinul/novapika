@@ -70,6 +70,8 @@ export interface CharacterDef {
   colors: ParrotColors;
   crest?: CrestDef;
   voice: VoiceDef;
+  /** A letter worn on a round badge on the chest, to tell this bird from every other. */
+  emblem?: string;
   /** Extras only a pet can have: glow, rainbow, more heads, more tails, two-dot eyes. */
   specials?: Pick<Dna, SpecialGene>;
 }

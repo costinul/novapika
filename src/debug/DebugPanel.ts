@@ -21,6 +21,8 @@ export interface PanelStatus {
   fps: number;
   movementState: string;
   lobbyId: string;
+  /** One more line of whatever the grown-up should see, such as what the helper parrot's ear is doing. */
+  note: string;
   drawCalls: number;
   triangles: number;
 }
@@ -34,7 +36,7 @@ export interface PanelPointer {
 
 const WIDTH_PX = 1024;
 const ROW_PX = 56;
-const HEADER_ROWS = 3;
+const HEADER_ROWS = 4;
 const ROWS_PER_PAGE = 12;
 /** Row number used for the previous/next page buttons in the header. */
 const PAGE_ROW = -1;
@@ -223,7 +225,7 @@ export class DebugPanel {
 
   private draw(): void {
     const g = this.g;
-    const { fps, movementState, lobbyId, drawCalls, triangles } = this.getStatus();
+    const { fps, movementState, lobbyId, note, drawCalls, triangles } = this.getStatus();
     g.fillStyle = '#17212b';
     g.fillRect(0, 0, WIDTH_PX, this.canvas.height);
 
@@ -246,11 +248,12 @@ export class DebugPanel {
     g.textAlign = 'right';
     g.fillText(`lobby: ${lobbyId}`, WIDTH_PX - 24, ROW_PX * 1.5);
     g.textAlign = 'left';
+    g.fillText(note, 24, ROW_PX * 2.5);
     g.fillStyle = '#9fb0bf';
     g.font = '400 24px system-ui, sans-serif';
-    g.fillText('Trigger on − / +.  Hold B or Y to hide.', 24, ROW_PX * 2.5);
+    g.fillText('Trigger on − / +.  Hold B or Y to hide.', 24, ROW_PX * (HEADER_ROWS - 0.5));
     g.textAlign = 'right';
-    g.fillText(`page ${this.page + 1} / ${this.pageCount}`, MINUS_X[0] - 20, ROW_PX * 2.5);
+    g.fillText(`page ${this.page + 1} / ${this.pageCount}`, MINUS_X[0] - 20, ROW_PX * (HEADER_ROWS - 0.5));
     this.drawButton('◀', MINUS_X, (HEADER_ROWS - 1) * ROW_PX, this.isHovered(PAGE_ROW, -1));
     this.drawButton('▶', PLUS_X, (HEADER_ROWS - 1) * ROW_PX, this.isHovered(PAGE_ROW, 1));
 

@@ -336,6 +336,13 @@ describe('a phrase on its way', () => {
     expect(Math.abs(crossings - 880)).toBeLessThanOrEqual(2);
   });
 
+  it('is never longer than the lobby takes, however long the ear ran on', () => {
+    const tooLong = new Float32Array(48000 * 8 + 128);
+    const out = toHeard(tooLong, 48000);
+    expect(SOUND_HEAD + out.byteLength).toBeLessThanOrEqual(MAX_HEARD_BYTES);
+    expect(out).toHaveLength(HEARD_RATE * 8);
+  });
+
   it('never overflows on the loudest sound', () => {
     const out = toHeard(new Float32Array([1, 1, 1, -1, -1, -1, 2, 2, 2, -2, -2, -2]), 48000);
     expect([...out]).toEqual([32767, -32767, 32767, -32768]);

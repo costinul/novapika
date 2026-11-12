@@ -24,12 +24,13 @@ registerProcessor('helper-ear', HelperEar);
 const PAUSE_SECONDS = 0.8;
 
 /**
- * A phrase as the helper parrot is sent it: 16-bit samples at `HEARD_RATE`.
- * Each new sample is the mean of the ones it stands for.
+ * A phrase as the helper parrot is sent it: 16-bit samples at `HEARD_RATE`,
+ * and never more than the lobby takes. Each new sample is the mean of the
+ * ones it stands for.
  */
 export function toHeard(phrase: Float32Array, rate: number): Int16Array {
   const step = rate / HEARD_RATE;
-  const out = new Int16Array(Math.floor(phrase.length / step));
+  const out = new Int16Array(Math.min(Math.floor(phrase.length / step), HEARD_RATE * MAX_HEARD_SECONDS));
   for (let i = 0; i < out.length; i++) {
     const from = Math.floor(i * step);
     const to = Math.max(from + 1, Math.floor((i + 1) * step));

@@ -31,6 +31,10 @@ const SWITCH_FOR = 30_000; // ms
 const fault = (message: string, error: unknown): void =>
   console.error(JSON.stringify({ message, error: error instanceof Error ? error.message : String(error) }));
 
+/** Log what became of a phrase or a greeting: how it ended and how long it took. Never a word of what was said. */
+const turned = (kind: 'phrase' | 'greeting', result: string, started: number, bytes?: number): void =>
+  console.log(JSON.stringify({ message: `helper ${kind}`, result, ms: Date.now() - started, bytes }));
+
 export class Lobby extends DurableObject<Env> {
   private readonly rules = new LobbyRules<WebSocket>({
     send: (ws, data) => {
@@ -62,20 +66,26 @@ export class Lobby extends DurableObject<Env> {
       if (!mind) return;
       const speaker = { id: member.id, nickname: member.nickname };
       const players = this.rules.players.map((player) => player.nickname);
+      const started = Date.now();
       // A copy: the samples must outlast the message they came in.
       this.ctx.waitUntil(
         mind.heard(speaker, samples.slice(), players).then((result) => {
+          turned('phrase', result, started, samples.length);
           // An answer, or a squawk, reaches everybody. Otherwise nothing is
           // coming for this phrase: tell their game, so that it stops waiting.
           if (result === 'answered' || result === 'failed') return;
+          // Nothing could be made out: the helper gives its own call, to them alone.
+          if (result === 'nothing') return this.rules.tell(ws, { t: 'squawk' });
           this.rules.tell(ws, { t: 'helper', listens: result !== 'off' && result !== 'spent' });
         }),
       );
     },
     near: (_ws, member) => {
       const mind = this.helper();
+      if (!mind) return;
       const players = this.rules.players.map((player) => player.nickname);
-      if (mind) this.ctx.waitUntil(mind.near({ id: member.id, nickname: member.nickname }, players));
+      const started = Date.now();
+      this.ctx.waitUntil(mind.near({ id: member.id, nickname: member.nickname }, players).then((result) => turned('greeting', result, started)));
     },
   });
 

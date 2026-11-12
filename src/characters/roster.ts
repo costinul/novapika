@@ -175,6 +175,7 @@ export const flockOnly: Record<string, CharacterDef> = {
       cheek: 0xff8fb6,
     },
     crest: { color: 0xff7fb0, length: 0.5, feathers: 8, width: 0.085 },
+    emblem: 'K',
     voice: { pitch: 1900, wave: 'sine', notes: 3, slide: 1.35 },
   },
 };

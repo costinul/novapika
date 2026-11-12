@@ -204,6 +204,8 @@ export class Engine {
       fps: this.fps,
       movementState: this.describeMovement(),
       lobbyId: `${this.lobby?.module.id ?? '-'}  reach ${this.reach.reach.toFixed(2)} m`,
+      // The panel draws itself once before the helper parrot's part of the game exists.
+      note: `kiki: ${this.helper?.state ?? '-'}`,
       drawCalls: this.drawCalls,
       triangles: this.triangles,
     }));

@@ -1,4 +1,4 @@
-import { CanvasTexture, MeshLambertMaterial, Sprite, SpriteMaterial } from 'three';
+import { CanvasTexture, CircleGeometry, Mesh, MeshBasicMaterial, MeshLambertMaterial, SRGBColorSpace, Sprite, SpriteMaterial } from 'three';
 import type { CharacterDef } from './types';
 
 // The material a parrot's body is drawn with. Most parrots share one plain
@@ -39,6 +39,47 @@ export function parrotAura(def: CharacterDef): Sprite | null {
   aura.position.y = 0.5;
   aura.scale.setScalar(1.9);
   return aura;
+}
+
+/** One badge material for each letter worn, shared by every bird that wears it. */
+const emblemMaterials = new Map<string, MeshBasicMaterial>();
+
+/**
+ * A round white badge with a letter on it, for a bird that wears one, or null
+ * for one that does not. Add it to the parrot's body; it is placed on the
+ * chest of a bird 1 unit tall, as the model is, and faces the way the bird does.
+ */
+export function parrotEmblem(def: CharacterDef): Mesh | null {
+  // Nothing to draw a letter with outside a browser, as in tests.
+  if (!def.emblem || typeof document === 'undefined') return null;
+  let material = emblemMaterials.get(def.emblem);
+  if (!material) {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const g = canvas.getContext('2d')!;
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(size / 2, size / 2, size / 2 - 6, 0, Math.PI * 2);
+    g.fill();
+    g.lineWidth = 9;
+    g.strokeStyle = '#ff5fa2';
+    g.stroke();
+    g.fillStyle = '#16323a';
+    g.font = `bold ${size * 0.68}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(def.emblem, size / 2, size / 2 + size * 0.04);
+    const map = new CanvasTexture(canvas);
+    map.colorSpace = SRGBColorSpace;
+    material = new MeshBasicMaterial({ map, transparent: true });
+    emblemMaterials.set(def.emblem, material);
+  }
+  const emblem = new Mesh(new CircleGeometry(0.075, 24), material);
+  // On the front of the chest, leaning back a little as the chest does.
+  emblem.position.set(0, 0.45, -0.178);
+  emblem.rotation.set(0.25, Math.PI, 0, 'YXZ');
+  return emblem;
 }
 
 const RAINBOW = /* glsl */ `

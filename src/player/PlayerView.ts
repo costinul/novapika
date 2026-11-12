@@ -10,7 +10,7 @@ import {
   HEAD_CENTER,
   SHOULDER,
 } from '../characters/parrotGeometry';
-import { parrotAura, parrotMaterial } from '../characters/parrotMaterial';
+import { parrotAura, parrotEmblem, parrotMaterial } from '../characters/parrotMaterial';
 import { character } from '../characters/roster';
 import type { CharacterDef } from '../characters/types';
 import { movementConfig } from '../config/movement';
@@ -53,6 +53,7 @@ export class PlayerView {
   private readonly head = new Mesh();
   private readonly crest = new Mesh();
   private aura: Sprite | null = null;
+  private emblem: Mesh | null = null;
   private readonly beakTip: Mesh;
   private readonly claws: Mesh[];
   private readonly clawMaterial = new MeshLambertMaterial();
@@ -114,6 +115,10 @@ export class PlayerView {
     if (this.aura) this.body.remove(this.aura);
     this.aura = parrotAura(def);
     if (this.aura) this.body.add(this.aura);
+    // A badge with a letter, for a bird that wears one. It rides on the chest.
+    if (this.emblem) this.body.remove(this.emblem);
+    this.emblem = parrotEmblem(def);
+    if (this.emblem) this.body.add(this.emblem);
     (this.beakTip.material as MeshLambertMaterial).color.set(def.colors.beak);
     this.clawMaterial.color.set(def.colors.feet);
   }

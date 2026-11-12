@@ -51,6 +51,9 @@ export class Helper {
   private speaking = 0;
   /** The local player has come up to the helper parrot, and has not gone away since. */
   private close = false;
+  /** Phrases sent to the lobby, and answers heard back, since the game started. */
+  private sent = 0;
+  private answers = 0;
   private panner: PannerNode | null = null;
   private source: AudioBufferSourceNode | null = null;
   private readonly to = new Vector3();
@@ -61,9 +64,19 @@ export class Helper {
       // Heard as the player turned away, or while an answer is on its way: let it go.
       if (!this.attending()) return;
       this.waiting = ANSWER_WITHIN;
+      this.sent++;
       deps.ear.listen(false);
       deps.send(samples);
     };
+  }
+
+  /** What the helper parrot's ear is doing, in a few words, for the grown-up's debug panel. */
+  get state(): string {
+    if (!this.deps.parrot()) return 'not here';
+    if (!this.deps.ear.available) return 'no microphone';
+    if (!this.listens) return 'not listening';
+    const doing = this.speaking > 0 ? 'speaking' : this.waiting > 0 ? 'thinking' : this.attending() ? 'hears you' : 'face it, close';
+    return `${doing}, sent ${this.sent}, answered ${this.answers}`;
   }
 
   /** The lobby has said whether the helper parrot is listening. No answer is on its way. */
@@ -96,6 +109,7 @@ export class Helper {
     if (!ctx || ctx.state !== 'running' || !this.deps.parrot()) return;
     void ctx.decodeAudioData(frame.slice(SOUND_HEAD)).then(
       (buffer) => {
+        this.answers++;
         this.source?.stop();
         if (!this.panner) {
           this.panner = new PannerNode(ctx, {

@@ -166,8 +166,9 @@ Design: [docs/plans/2026-11-12-ai-parrot-design.md](docs/plans/2026-11-12-ai-par
 All three steps are built: Kiki talks, follows a player and leads them to a
 place, and starts a chat itself. It has not yet been run with its keys.
 
-Kiki is a turquoise parrot with a pink crest, on its own stump in the nest of
-the Aviary, beside the picture board. It is a kind robot parrot that answers
+Kiki is a turquoise parrot with a pink crest and a white badge with a K on
+its chest, on its own stump in the nest of the Aviary, beside the picture
+board. It is a kind robot parrot that answers
 questions about the game, such as how to hatch an egg.
 
 - **Talking to Kiki.** Stand within a few metres of Kiki and look at it. It
@@ -209,7 +210,13 @@ questions about the game, such as how to hatch an egg.
 - **The switch.** The admin page switches Kiki off and on for every lobby,
   within half a minute. While it is off, or the server has no keys for it,
   no game sends it anything.
-- **When something fails,** Kiki gives its own call and nothing else happens.
+- **When something fails,** or Kiki could not make out what was said, it
+  gives its own call and nothing else happens.
+- **If Kiki does not answer,** open the debug panel (hold **B** or **Y**). Its
+  `kiki:` line says what the ear is doing: `no microphone`, `not listening`
+  (switched off, out of phrases, or no keys), `face it, close`, `hears you`,
+  `thinking` or `speaking`, with how many phrases were sent and answered. The
+  server logs how each phrase and greeting ended, never what was said.
 
 ### Giving Kiki its keys
 
