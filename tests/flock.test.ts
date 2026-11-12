@@ -196,6 +196,48 @@ describe('flock', () => {
     expect(rescues).toBeLessThanOrEqual(2);
   });
 
+  it('stays where it is put, and touches nothing, while another game runs it', () => {
+    flock.setSimulated(false);
+    expect(flock.players.every((p) => !p.simulatedHere)).toBe(true);
+    // The game that runs the flock says where each parrot is.
+    flock.players.forEach((parrot, i) => parrot.position.set(i * 2, 12, 3));
+    run(20);
+    flock.players.forEach((parrot, i) => expect(parrot.position.toArray()).toEqual([i * 2, 12, 3]));
+    expect(applied.filter(byFlock)).toEqual([]);
+  });
+
+  it('carries each parrot on from where it is when it starts to run the flock', () => {
+    flock.setSimulated(false);
+    // Left by the game that ran them: some on perches, one in mid-air.
+    const left = flock.players.map((parrot, i) => {
+      const spot = flock.spots[(i * 5 + 3) % flock.spots.length];
+      parrot.position.copy(spot);
+      if (i === 0) parrot.position.set(4, 14, -6);
+      parrot.updateWorldPoses();
+      return parrot.position.clone();
+    });
+
+    flock.setSimulated(true);
+    expect(flock.players.every((p) => p.simulatedHere)).toBe(true);
+    // Nobody is put back on their home perch.
+    flock.players.forEach((parrot, i) => expect(parrot.position.distanceTo(left[i])).toBe(0));
+    run(1);
+    flock.players.forEach((parrot, i) => expect(parrot.position.distanceTo(left[i]), `parrot ${i}`).toBeLessThan(6));
+
+    // They fly on from there, and come to rest on a perch or the ground.
+    const landed = flock.players.map(() => false);
+    run(60, () => {
+      flock.players.forEach((parrot, i) => {
+        landed[i] ||= parrot.grounded && parrot.position.distanceTo(left[i]) > 2;
+        expect(Math.abs(parrot.position.x)).toBeLessThan(HALF);
+        expect(Math.abs(parrot.position.z)).toBeLessThan(HALF);
+        expect(parrot.position.y).toBeGreaterThan(-0.5);
+      });
+      return false;
+    });
+    expect(landed.filter(Boolean).length).toBeGreaterThanOrEqual(flock.players.length - 1);
+  });
+
   it('keeps out of the front of the player\'s face', () => {
     run(240);
     expect(closestInFront).toBeGreaterThan(0.8);

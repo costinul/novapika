@@ -161,6 +161,16 @@ export class PoseTrack {
     return this.count > 0;
   }
 
+  /** When the newest pose was heard, in seconds. */
+  get heardAt(): number {
+    return this.count > 0 ? this.times[(this.next - 1 + KEPT) % KEPT] : -Infinity;
+  }
+
+  /** Forget every pose heard. */
+  reset(): void {
+    this.count = 0;
+  }
+
   /** Take in the pose at byte `at` of `view`, heard at `time` seconds. */
   push(view: DataView, at: number, time: number): void {
     readPose(view, at, this.poses[this.next]);

@@ -409,6 +409,12 @@ export class Brain {
     this.side = this.random() < 0.5 ? 1 : -1;
   }
 
+  /** Another game ran this parrot until now: carry on from where it is, by flying to a perch. */
+  takeOver(): void {
+    this.rescue = false;
+    this.leave('wander');
+  }
+
   /** Called after the flock has put the parrot back on its home perch. */
   rescued(): void {
     this.rescue = false;

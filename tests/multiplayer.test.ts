@@ -1,5 +1,7 @@
 import { Vector3 } from 'three';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { PetView } from '../shared/api';
+import { founders } from '../shared/founders';
 import { PhysicsWorld } from '../src/engine/physics';
 import { Multiplayer } from '../src/net/Multiplayer';
 import { POSE_BYTES, POSE_DELAY, POSE_PLAYER, Pose, PoseTrack, readPose, writePose } from '../src/net/pose';
@@ -93,6 +95,12 @@ describe('two players in a lobby', () => {
     net: Multiplayer;
     /** What the game asked of its voice, in order. */
     voice: string[];
+    /** The lobby's own parrots, as this game has them. */
+    flock: Player[];
+    /** The pet out following this game's player, and its id. */
+    follower: { petId: string; player: Player } | null;
+    /** The other players' pets this game has heard of from the server. */
+    known: PetView[];
   }
   let lobby: ReturnType<typeof fakeLobby>;
   let time: number;
@@ -106,12 +114,22 @@ describe('two players in a lobby', () => {
     const local = new Player('local', characterId);
     world.players.set(local.id, local);
     const voice: string[] = [];
-    const net = new Multiplayer({
+    const flock = ['flock-a', 'flock-b', 'flock-c'].map((flockId) => {
+      const parrot = new Player(flockId, 'budgie');
+      parrot.human = false;
+      world.players.set(parrot.id, parrot);
+      return parrot;
+    });
+    const game: Game = { world, local, voice, flock, follower: null, known: [], net: null as unknown as Multiplayer };
+    game.net = new Multiplayer({
       world,
       feathers: null,
       local,
       connect: lobby.as(id, nickname),
-      about: () => ({ characterId: local.characterId, followerPetId: null }),
+      about: () => ({ characterId: local.characterId, followerPetId: game.follower?.petId ?? null }),
+      flock: () => flock,
+      follower: () => game.follower?.player ?? null,
+      petOf: (_ownerId, petId) => game.known.find((pet) => pet.id === petId) ?? null,
       onRefused: () => {},
       now: () => time,
       voice: {
@@ -122,8 +140,9 @@ describe('two players in a lobby', () => {
         place: (_position, _turn, headOf) => void (heads = [0, 1].map((slot) => headOf(slot)?.x ?? null)),
       },
     });
-    return { world, local, net, voice };
+    return game;
   };
+  const humans = (g: Game): string[] => [...g.world.players.values()].filter((p) => p.human).map((p) => p.id);
   /** Both games draw frames for `seconds`. */
   const play = (seconds: number): void => {
     for (let t = 0; t < seconds; t += 1 / 60) {
@@ -148,7 +167,7 @@ describe('two players in a lobby', () => {
   it('puts each in the other\'s world once they have been seen to move', () => {
     expect(alex.net.online && sam.net.online).toBe(true);
     // Nobody stands at the middle of the world waiting for their first pose.
-    expect([...alex.world.players.keys()]).toEqual(['local']);
+    expect(humans(alex)).toEqual(['local']);
 
     alex.local.position.set(3, 20, -4);
     sam.local.position.set(-6, 22, 1);
@@ -187,19 +206,17 @@ describe('two players in a lobby', () => {
     expect(behind).toBeLessThan(0.5);
   });
 
-  it('shows a player as the parrot they change into', async () => {
+  it('shows a player as the parrot they change into', () => {
     play(0.2);
     sam.local.characterId = 'budgie';
-    sam.net.aboutChanged();
-    await settle();
+    play(0.2);
     expect(alex.world.players.get('id-sam')!.characterId).toBe('budgie');
   });
 
-  it('shows the default parrot for one it does not know', async () => {
+  it('shows the default parrot for one it does not know', () => {
     play(0.2);
     sam.local.characterId = 'dragon';
-    sam.net.aboutChanged();
-    await settle();
+    play(0.2);
     expect(alex.world.players.get('id-sam')!.characterId).toBe('nova');
   });
 
@@ -207,18 +224,17 @@ describe('two players in a lobby', () => {
     play(0.2);
     sam.net.leave();
     expect(sam.net.online).toBe(false);
-    expect([...alex.world.players.keys()]).toEqual(['local']);
+    expect(humans(alex)).toEqual(['local']);
     // And whoever left sees nobody either.
-    expect([...sam.world.players.keys()]).toEqual(['local']);
+    expect(humans(sam)).toEqual(['local']);
   });
 
-  it('has the player in the lower place ring the other, once', async () => {
+  it('has the player in the lower place ring the other, once', () => {
     expect(alex.voice.filter((line) => line.startsWith('call'))).toEqual(['call 1']);
     expect(sam.voice.filter((line) => line.startsWith('call'))).toEqual([]);
     // Changing parrot is not a reason to ring again.
     sam.local.characterId = 'budgie';
-    sam.net.aboutChanged();
-    await settle();
+    play(0.2);
     expect(alex.voice.filter((line) => line.startsWith('call'))).toEqual(['call 1']);
   });
 
@@ -243,10 +259,81 @@ describe('two players in a lobby', () => {
     expect(sam.voice.at(-1)).toBe('clear');
   });
 
+  it('has the game that was in first run the lobby\'s parrots, and shows them to the other', () => {
+    expect(alex.net.isHost).toBe(true);
+    expect(sam.net.isHost).toBe(false);
+    alex.flock[1].position.set(7, 15, -2);
+    alex.flock[1].movementState = 'gliding';
+    // Where a game that is not the host has them counts for nothing.
+    sam.flock[0].position.set(-30, 4, 30);
+    play(0.5);
+    expect(sam.flock[1].position.distanceTo(alex.flock[1].position)).toBeLessThan(0.01);
+    expect(sam.flock[1].movementState).toBe('gliding');
+    expect(sam.flock[0].position.distanceTo(alex.flock[0].position)).toBeLessThan(0.01);
+    expect(alex.flock[0].position.toArray()).toEqual([0, 0, 0]);
+  });
+
+  it('passes the lobby\'s parrots on to whoever is left when the host goes', () => {
+    alex.flock[2].position.set(1, 9, 1);
+    play(0.5);
+    alex.net.leave();
+    expect(sam.net.isHost).toBe(true);
+    // Playing alone again, a game runs its own.
+    expect(alex.net.isHost).toBe(true);
+    // The new host carries on from where it last saw them, and is no longer told where they are.
+    sam.flock[2].position.set(2, 9, 2);
+    play(0.5);
+    expect(sam.flock[2].position.toArray()).toEqual([2, 9, 2]);
+  });
+
+  it('shows a player\'s follower once the server has said what it looks like', () => {
+    const pet: PetView = { id: 'p9', dna: founders.pip.dna };
+    const follower = new Player('pet-p9', 'pet');
+    follower.human = false;
+    follower.position.set(4, 21, -3);
+    sam.follower = { petId: 'p9', player: follower };
+    play(0.5);
+    // Not heard of yet: nothing to draw.
+    expect(alex.world.players.has('pet-p9')).toBe(false);
+
+    alex.known.push(pet);
+    play(0.5);
+    const shown = alex.world.players.get('pet-p9')!;
+    expect(shown.position.distanceTo(follower.position)).toBeLessThan(0.01);
+    expect(shown.human).toBe(false);
+    expect(shown.simulatedHere).toBe(false);
+    // A pet is small, and its wings are measured to match.
+    expect(shown.reachScale).toBeCloseTo(follower.reachScale, 1);
+  });
+
+  it('takes a follower away when its player chooses another, sends it home or leaves', () => {
+    alex.known.push({ id: 'p9', dna: founders.pip.dna }, { id: 'p4', dna: founders.pip.dna });
+    const pet = (petId: string): { petId: string; player: Player } => ({ petId, player: new Player(`pet-${petId}`, 'pet') });
+    sam.follower = pet('p9');
+    play(0.5);
+    expect(alex.world.players.has('pet-p9')).toBe(true);
+
+    sam.follower = pet('p4');
+    play(0.5);
+    expect(alex.world.players.has('pet-p9')).toBe(false);
+    expect(alex.world.players.has('pet-p4')).toBe(true);
+
+    // Sent home: nothing more is heard of it.
+    sam.follower = null;
+    play(3);
+    expect(alex.world.players.has('pet-p4')).toBe(false);
+
+    sam.follower = pet('p9');
+    play(0.5);
+    expect(alex.world.players.has('pet-p9')).toBe(true);
+    sam.net.leave();
+    expect(alex.world.players.has('pet-p9')).toBe(false);
+  });
+
   it('starts afresh when the line drops and comes back', async () => {
     play(0.2);
     sam.net.join('aviary');
-    expect([...sam.world.players.keys()]).toEqual(['local']);
+    expect(humans(sam)).toEqual(['local']);
     await settle();
     play(0.3);
     expect(sam.world.players.has('id-alex')).toBe(true);

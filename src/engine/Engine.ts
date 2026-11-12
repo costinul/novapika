@@ -192,7 +192,6 @@ export class Engine {
       if (action.type === 'chooseCharacter' && mine) {
         this.sounds.setVoice(character(action.characterId).voice);
         rememberCharacter(action.characterId);
-        this.multiplayer.aboutChanged();
       }
       if (action.type === 'passRing' && mine) this.stuntSample.passedRing = true;
       if (action.type === 'place') this.pets.onPlaced(action.toyId, action.targetId);
@@ -238,8 +237,11 @@ export class Engine {
       connect: connectLobby,
       about: () => ({
         characterId: this.localPlayer.characterId,
-        followerPetId: this.pets.corner?.player?.followerId ?? null,
+        followerPetId: this.pets.follower?.petId ?? null,
       }),
+      flock: () => this.flock.players,
+      follower: () => this.pets.follower?.player ?? null,
+      petOf: (ownerId, petId) => this.pets.friendPet(ownerId, petId),
       onRefused: () =>
         void petsApi.account().then((account) => {
           if (account.status === 'out') this.onSignedOut?.();
@@ -350,6 +352,8 @@ export class Engine {
     this.input.read(player.input);
     toMoveInput(player.input, this.moveNow);
     this.measureReach(dt);
+    // With other players in the lobby, only the host's game runs the lobby's own parrots.
+    this.flock.setSimulated(this.multiplayer.isHost);
 
     // In VR, wait for the first real head pose before seating the player.
     const poseReady = !this.renderer.xr.isPresenting || this.moveNow.head.y > 0.2;
@@ -381,11 +385,12 @@ export class Engine {
     this.rig.position.copy(this.viewPosition);
     this.feathers.begin();
     this.playerView.update(dt);
+    // First, so that parrots other games run are where those games say before they are drawn.
+    this.multiplayer.frame(dt);
     // The flock is simulated at half rate; draw it part way between its steps.
     const between = ((this.simSteps % FLOCK_EVERY) + this.stepper.alpha) / FLOCK_EVERY;
     this.flock.frame(dt, between);
     this.pets.frame(dt, between, player);
-    this.multiplayer.frame(dt);
     this.feathers.end();
     this.updateBeak(dt);
     this.updateStunts(dt);

@@ -32,7 +32,16 @@ Up to eight signed-in players share a lobby. Built so far:
   keeps a voice. A voice is sent only while playing, never from the start
   screen.
 
-Still to come: shared lobby parrots and followers, shared toys.
+- **The lobby's parrots are the same for everyone.** One game runs them: the
+  host's, which is whoever has been in the lobby longest. The others are sent
+  where each parrot is and only show it. When the host leaves, the next
+  player's game carries each parrot on from where it was. A mimic's squeaky
+  repeat is heard only by the host, whose voice it copies.
+- **Followers.** Everyone sees the pet that follows each other player. Its
+  owner's game runs it. The pet corner stays your own: you see only your pets
+  there.
+
+Still to come: shared toys, bells and rings.
 
 Not checked by the author of the code, because it needs two headsets: how
 voices sound (echo, loudness, distance), and connecting between two homes.

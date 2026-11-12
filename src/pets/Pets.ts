@@ -77,6 +77,17 @@ export class Pets {
     return this.live;
   }
 
+  /** The pet that is out following the player, if there is one. */
+  get follower(): LivePet | null {
+    return this.live.find((pet) => pet.mode === 'follow' && !pet.leaving) ?? null;
+  }
+
+  /** A pet of another player's, as the server last told it; null if it has not been heard of. */
+  friendPet(ownerId: string, petId: string): PetView | null {
+    const friend = this.corner?.friends.find((other) => other.id === ownerId);
+    return friend?.pets.find((pet) => pet.id === petId) ?? null;
+  }
+
   /** Set up the lobby's pet corner, if it has one. Call after the world has loaded the lobby. */
   load(def: PetCornerDef | undefined): void {
     if (!def) return;
@@ -244,7 +255,7 @@ export class Pets {
           corner.held = 0;
           return this.sync(corner, perch);
         }
-        const follower = this.follower();
+        const follower = this.follower;
         if (!follower) return this.refuse(at(def.goodbye.perch, 0.15));
         corner.placed.goodbye = follower.petId;
         return this.sync(corner);
@@ -272,7 +283,7 @@ export class Pets {
       return off();
     }
 
-    const follower = this.follower();
+    const follower = this.follower;
     if (!follower || corner.egg || asking || corner.full) return this.refuse(where);
     corner.placed.hearts[index] = follower.petId;
     this.sync(corner);
@@ -337,11 +348,6 @@ export class Pets {
   }
 
   // --- Pets that are out flying --------------------------------------------------
-
-  /** The pet that is following the player, if it is out. */
-  private follower(): LivePet | undefined {
-    return this.live.find((pet) => pet.mode === 'follow' && !pet.leaving);
-  }
 
   /** Each of the player's pets that sits on a heart perch or the goodbye perch, and where. */
   private sitting(corner: PetCorner): [string, Vector3][] {
