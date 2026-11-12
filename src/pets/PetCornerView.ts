@@ -21,8 +21,11 @@ import { noConnection, padlock, petStatue, picture, sign } from './pictures';
 // the rail under it for its tier, arrows to turn the page, and a picture when
 // there are no pets to show.
 
-/** The colour of each tier. A mythical's sleeve is a rainbow instead, and an ultra mythical's a rainbow striped with white. */
-const TIER_COLOR: Record<Exclude<Tier, 'mythical' | 'ultra'>, number> = {
+/**
+ * The colour of each tier. A mythical's sleeve is a rainbow instead, an ultra
+ * mythical's a rainbow striped with white, and a god mythical's white striped with gold.
+ */
+const TIER_COLOR: Record<Exclude<Tier, 'mythical' | 'ultra' | 'god'>, number> = {
   common: 0x8a949c,
   uncommon: 0x3fae54,
   rare: 0x3b82d6,
@@ -47,7 +50,8 @@ function sleeve(tier: Tier): BufferGeometry {
     // One colour for each triangle, by where its middle is along the rail.
     const along = (position.getX(i) + position.getX(i + 1) + position.getX(i + 2)) / 3 / SLEEVE_LENGTH + 0.5;
     const span = Math.min(0.999, Math.max(0, along));
-    if (tier === 'ultra' && Math.floor(span * 7) % 2 === 1) color.set(0xffffff);
+    if (tier === 'god') color.set(Math.floor(span * 7) % 2 === 1 ? 0xf2b632 : 0xffffff);
+    else if (tier === 'ultra' && Math.floor(span * 7) % 2 === 1) color.set(0xffffff);
     else if (tier === 'mythical' || tier === 'ultra') color.setHSL(span * 0.85, 0.95, 0.56, SRGBColorSpace);
     else color.set(TIER_COLOR[tier]);
     for (let k = 0; k < 3; k++) color.toArray(colors, (i + k) * 3);

@@ -260,8 +260,8 @@ describe('giving and removing pets', () => {
     await refused(givePet(store, deps, player.id, undefined), 'no-such-founder', 404);
   });
 
-  it('stops at 24 pets', async () => {
-    expect(PET_CAP).toBe(24);
+  it('stops at 100 pets', async () => {
+    expect(PET_CAP).toBe(100);
     const { player } = await createPlayer(store, deps, 'Alex');
     for (let i = 1; i < PET_CAP; i++) await givePet(store, deps, player.id, 'pip');
     expect((await playerView(store, player.id)).pets).toHaveLength(PET_CAP);
@@ -352,7 +352,7 @@ describe('breeding two of your own pets', () => {
     await refused(breedOwn(store, deps, player, ids[1], ids[2]), 'has-egg', 409);
   });
 
-  it('counts the egg towards the 24', async () => {
+  it('counts the egg towards the 100', async () => {
     const full = await playerWith('Full', PET_CAP);
     await refused(breedOwn(store, deps, full.player, full.ids[0], full.ids[1]), 'full', 409);
 
@@ -401,7 +401,7 @@ describe('asking a friend for DNA', () => {
     await refused(askFor(store, deps, alex.player, alex.ids[1], sam.ids[1]), 'has-egg', 409);
     await refused(breedOwn(store, deps, alex.player, alex.ids[0], alex.ids[1]), 'has-egg', 409);
 
-    // With 23 pets and a request out, a 24th pet would leave no room for the egg.
+    // With one pet short of the most and a request out, one more pet would leave no room for the egg.
     const nearly = await playerWith('Nearly', PET_CAP - 1);
     await askFor(store, deps, nearly.player, nearly.ids[0], sam.ids[0]);
     await refused(givePet(store, deps, nearly.player.id, 'pip'), 'full', 409);

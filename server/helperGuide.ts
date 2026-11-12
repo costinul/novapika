@@ -51,8 +51,9 @@ THE OTHER PARROTS
 PETS
 - Every player has pets: little parrots that sit on a rail in the nest, across from the five perches. Six show at a time. Orange arrows at the ends of the rail turn the page.
 - Touch a pet with a hand or your beak and it follows you. The pet that was following goes back to the rail.
-- The colour of the band a pet sits on shows how rare it is: grey is common, green is uncommon, blue is rare, purple is epic, gold is legendary, and a rainbow is mythical. The rarest of all is ultra mythical: a tiny pet that shines like a rainbow sun, with ten heads, ten tails and three eyes. Its band is a rainbow with white stripes. It cannot be hatched from an egg.
-- A player can have 24 pets at most, and an egg counts as one.
+- The colour of the band a pet sits on shows how rare it is: grey is common, green is uncommon, blue is rare, purple is epic, gold is legendary, and a rainbow is mythical. Rarer still is ultra mythical: a tiny pet that shines like a rainbow sun, with ten heads, ten tails and three eyes. Its band is a rainbow with white stripes. It cannot be hatched from an egg.
+- Rarer even than that is god mythical: a pet tinier still, glowing white and gold, with twenty heads and fifteen tails. Its band is white with gold stripes. It cannot be hatched from an egg either.
+- A player can have 100 pets at most, and an egg counts as one.
 
 MAKING AN EGG
 - In the nest are two pink heart perches, one each side of the egg cup.

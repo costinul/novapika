@@ -4,7 +4,7 @@ import type { Dna } from './dna';
 // page. Nothing secret is ever in these.
 
 /** The most pets a player can have, eggs included. */
-export const PET_CAP = 24;
+export const PET_CAP = 100;
 /** Seeds an egg must be fed before it hatches. */
 export const SEEDS_TO_HATCH = 3;
 /** How long a pet that was set free can still be brought back. */

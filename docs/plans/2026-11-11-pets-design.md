@@ -22,7 +22,7 @@ of the v1 requirements (section 12 below).
 | Getting a friend's DNA | Ask in the game; the friend answers later |
 | Breeding your own pets | Allowed |
 | Hatching | Feed the egg 3 seeds |
-| Pet cap | 24 per player, eggs included |
+| Pet cap | 100 per player, eggs included (24 until Nov 12, 2026) |
 | Parting with a pet | Set free by a deliberate act, with a 30-day undo |
 | Selling, gifting | Not built |
 | Backend | Cloudflare Worker + D1, in this repo |
@@ -128,7 +128,7 @@ Breeding runs on the server only.
 
 **Limits**
 
-- 24 pets per player, eggs included.
+- 100 pets per player, eggs included.
 - One egg at a time.
 - One follower at a time.
 - An open DNA request holds the asker's egg slot, so a "yes" always produces
@@ -220,7 +220,7 @@ it.
 
 **Other states**
 
-- At 24 pets a "no room" picture shows over the egg cup.
+- At 100 pets a "no room" picture shows over the egg cup.
 - Signed out, the pet corner shows a padlock.
 
 ## 10. Admin page
@@ -349,6 +349,21 @@ each forehead, so that each head's three eyes are the tips of a triangle.
 - Its ten heads are built from coarser shapes, so that it stays under 4,000
   triangles like every other fixed pet.
 
+**The god mythical pet** (added on Nov 12, 2026, at the owner's wish). An
+eighth tier, above ultra mythical, with one fixed pet: Halo. It is smaller
+still (size 0.28), glows white and gold as a glowing pale pet does, and has
+twenty heads and fifteen tails.
+
+- Its DNA has one gene no other pet has, `god`, with 20 for heads and 15 for
+  tails. A pet with `god` is god mythical. Breeding never makes one, and
+  never passes on the gene or more than three heads or tails.
+- Its band on the rail is white with gold stripes.
+- Its twenty heads are coarser again than the ultra mythical's ten, and its
+  crest has two feathers, to stay under 4,000 triangles.
+
+**The pet cap** was raised from 24 to 100 on the same day, at the owner's
+wish. The rail still shows six at a time.
+
 **Presents.** The owner lets a present go over a lobby from the admin page:
 a box with a fixed pet in it, which comes down slowly on a parachute. The
 first player to touch it gets the pet, and it follows them at once.
@@ -357,7 +372,7 @@ first player to touch it gets the pet, and it follows them at once.
 | --- | --- |
 | Who decides who was first | The lobby's Durable Object. A game only says its own player touched it |
 | The lobby's own parrots, Kiki, pets | Never: no game asks for a parrot it runs |
-| A player with 24 pets | Told no; the present stays for somebody else |
+| A player with 100 pets | Told no; the present stays for somebody else |
 | How many at once | One in each lobby. A second is refused until the first is opened |
 | Nobody in the lobby | It waits, kept in the lobby's own storage |
 | What the games are told | That a present is there and how long ago it was let go. Not what is inside |

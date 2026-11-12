@@ -142,6 +142,30 @@ describe('pet models', () => {
     expect(ten.body.boundingBox!.min.z).toBeGreaterThan(-0.3);
   });
 
+  it('draws the god mythical pet tinier still, with twenty heads on necks, a crest on each, and fifteen tails', () => {
+    const halo = founders.halo.dna;
+    const def = petCharacter('h', halo);
+    expect(def.scale).toBeLessThan(petCharacter('s', founders.sunny.dna).scale);
+    expect(def.specials).toMatchObject({ glow: true, rainbow: false, heads: 20, tails: 15 });
+
+    const twenty = buildParrotParts(def);
+    const one = buildParrotParts(petCharacter('h', { ...halo, heads: 1, tails: 1 }));
+    const ten = buildParrotParts(petCharacter('h', { ...halo, heads: 10, tails: 10 }));
+    expect(triangles(twenty.crest!)).toBe(triangles(one.crest!) * 20);
+    // The heads rise higher than ten do. Each is the same head and neck.
+    twenty.head.computeBoundingBox();
+    ten.head.computeBoundingBox();
+    expect(twenty.head.boundingBox!.max.y).toBeGreaterThan(ten.head.boundingBox!.max.y);
+    expect(triangles(twenty.head) % 20).toBe(0);
+    // Fifteen tails: five more than ten, in a fan that stays behind the bird.
+    const perTail = (triangles(twenty.body) - triangles(ten.body)) / 5;
+    expect(Number.isInteger(perTail) && perTail > 0).toBe(true);
+    twenty.body.computeBoundingBox();
+    expect(twenty.body.boundingBox!.min.z).toBeGreaterThan(-0.3);
+    // It glows as any glowing pet does.
+    expect(parrotMaterial(def)).toBe(parrotMaterial(petCharacter('p', { ...founders.pip.dna, glow: true })));
+  });
+
   it('shines the ultra mythical pet with a material of its own', () => {
     const def = petCharacter('s', founders.sunny.dna);
     expect(parrotMaterial(def)).not.toBe(parrotMaterial(petCharacter('p', founders.prism.dna)));

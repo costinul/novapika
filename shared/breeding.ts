@@ -67,7 +67,8 @@ export function breed(
     return random() < [odds.specialFromNeither, odds.specialFromOne, odds.specialFromBoth][parents];
   };
   // How many heads or tails: as a parent that has extra ones, or two if neither
-  // has. The ultra mythical pet's ten are its own: its baby has three at most.
+  // has. The ultra mythical pet's ten are its own, as are the god mythical
+  // pet's twenty heads and fifteen tails: a baby of theirs has three at most.
   const count = (gene: 'heads' | 'tails'): 1 | 2 | 3 => {
     if (!special(gene)) return 1;
     const extra = [a[gene], b[gene]].filter((n) => n > 1);

@@ -13,7 +13,7 @@ function seeded(seed: number): () => number {
   };
 }
 
-const { pip, sky, coco, ember, tango, prism, sunny } = founders;
+const { pip, sky, coco, ember, tango, prism, sunny, halo } = founders;
 
 describe('tiers', () => {
   it('counts the special genes, from common with none to mythical with all five', () => {
@@ -59,6 +59,36 @@ describe('the ultra mythical pet', () => {
     }
     // Its ten heads still count as extra heads: a baby may have three.
     expect(seen).toEqual(new Set([1, 3]));
+  });
+});
+
+describe('the god mythical pet', () => {
+  it('is told by its own gene, and is the tier above ultra mythical', () => {
+    expect(tierOf(halo.dna)).toBe('god');
+    expect(TIERS.indexOf('god')).toBe(TIERS.indexOf('ultra') + 1);
+    expect(TIER_NAMES.god).toBe('god mythical');
+    expect(Object.values(founders).filter((f) => tierOf(f.dna) === 'god')).toEqual([halo]);
+  });
+
+  it('is smaller than the ultra mythical pet, glows, and has twenty heads and fifteen tails', () => {
+    const { dna } = halo;
+    expect(dna.size).toBeLessThan(sunny.dna.size);
+    expect(dna.glow).toBe(true);
+    expect(dna.heads).toBe(20);
+    expect(dna.tails).toBe(15);
+  });
+
+  it('never passes on what makes it god mythical: its babies are ordinary pets', () => {
+    const random = seeded(7);
+    for (let i = 0; i < 3000; i++) {
+      const baby = breed(halo.dna, i % 2 ? sunny.dna : halo.dna, random);
+      expect(baby.god).toBeUndefined();
+      expect(baby.sun).toBeUndefined();
+      expect(baby.heads).toBeLessThanOrEqual(BRED_MOST);
+      expect(baby.tails).toBeLessThanOrEqual(BRED_MOST);
+      expect(baby.size).toBeGreaterThanOrEqual(SIZE_RANGE[0]);
+      expect(TIERS.indexOf(tierOf(baby))).toBeLessThanOrEqual(TIERS.indexOf('mythical'));
+    }
   });
 });
 

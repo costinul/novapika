@@ -86,7 +86,8 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
 - **The pet corner.** A rail on one side of the nest, across from the parrots
   you can be. A signed-in player's pets sit along it, six at a time, each on a
   band coloured for its tier: grey, green, blue, purple, gold, a rainbow
-  for a mythical, and a rainbow with white stripes for the ultra mythical.
+  for a mythical, a rainbow with white stripes for the ultra mythical, and
+  white with gold stripes for the god mythical.
   With more than six pets, orange arrows at the ends of the
   rail turn the page. Signed out, the rail shows a padlock; with no
   connection, a crossed-out cloud.
@@ -96,7 +97,7 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
   follows; if it says no, the pet shakes its head and nothing changes. The
   follower is still with you the next time you play.
 - **Pet DNA, tiers, breeding rules and models.** Add `?lobby=pet-show` to the
-  address to look at them: the nine fixed pets stand on the front bar, and
+  address to look at them: the ten fixed pets stand on the front bar, and
   eight babies bred from pairs of them on the bar behind.
 - **The ultra mythical pet,** Sunny: a tier above mythical. It is very small,
   less than half the size of the smallest pet that can be bred, and shines
@@ -104,6 +105,10 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
   set as the tips of a triangle. It is a fixed pet only: breeding never makes
   one. Its babies are ordinary pets, with three heads and three tails at
   most, and without the sun or the third eye.
+- **The god mythical pet,** Halo: the tier above ultra mythical. It is
+  smaller still, glows white and gold, and has twenty heads, each with a
+  little crest, and fifteen tails. It is a fixed pet only too, and its babies
+  are ordinary pets.
 - **A present from the sky.** On the admin page the owner chooses a fixed pet
   and a lobby, and lets a present go: a wrapped box under a little parachute
   comes down slowly, in 20 seconds, and waits where it lands. The first

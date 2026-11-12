@@ -87,10 +87,14 @@ function shape(
 const ball = (w = 10, h = 8): SphereGeometry => new SphereGeometry(1, w, h);
 /**
  * A ball for part of a head. A bird with ten heads has each so small that
- * coarser shapes look the same, and they keep it cheap to draw.
+ * coarser shapes look the same, and they keep it cheap to draw. One with
+ * twenty has them smaller and coarser still.
  */
-const headBall = (def: CharacterDef, w: number, h: number): SphereGeometry =>
-  (def.specials?.heads ?? 1) > 3 ? ball(Math.max(4, w - 4), Math.max(3, h - 2)) : ball(w, h);
+function headBall(def: CharacterDef, w: number, h: number): SphereGeometry {
+  const heads = def.specials?.heads ?? 1;
+  if (heads > 10) return ball(Math.max(4, w - 6), Math.max(3, h - 5));
+  return heads > 3 ? ball(Math.max(4, w - 4), Math.max(3, h - 2)) : ball(w, h);
+}
 /** Do something once for each side of the bird: -1 is its left, +1 its right. */
 const bothSides = <T>(make: (side: number) => T): T[] => [make(-1), make(1)];
 
@@ -120,7 +124,7 @@ function bodyParts(def: CharacterDef): BufferGeometry[] {
   );
 
   // A tail is a fan of three feathers. Extra tails splay out to the sides
-  // and lift a little, so each can be told from the next. Ten of them close
+  // and lift a little, so each can be told from the next. Ten or more close
   // up into one wide fan, like a peacock's, instead of wrapping round the bird.
   const tails = def.specials?.tails ?? 1;
   const apart = Math.min(0.6, TAIL_FAN / Math.max(1, tails - 1));
@@ -267,6 +271,30 @@ interface HeadSeat {
   size: number;
 }
 
+/**
+ * A crown of small heads on long necks, in rows fanned out one behind the
+ * other. Each row is how many heads, how far up from where the necks meet,
+ * how wide the fan is to each side in radians, and how far back it stands.
+ * A row has an even number of heads, so that none is straight above the body:
+ * only a head off to one side is given a neck.
+ */
+function crown(size: number, rows: [heads: number, reach: number, spread: number, z: number][]): HeadSeat[] {
+  const seats: HeadSeat[] = [];
+  for (const [heads, reach, spread, z] of rows) {
+    for (let i = 0; i < heads; i++) {
+      const angle = (i / (heads - 1) - 0.5) * 2 * spread;
+      seats.push({
+        x: NECK_ROOT.x + reach * Math.sin(angle),
+        y: NECK_ROOT.y + reach * Math.cos(angle),
+        z,
+        lean: -angle * 0.6,
+        size,
+      });
+    }
+  }
+  return seats;
+}
+
 /** A bird with several heads carries them side by side, smaller and leaning apart. */
 function headSeats(def: CharacterDef): HeadSeat[] {
   switch (def.specials?.heads ?? 1) {
@@ -281,25 +309,19 @@ function headSeats(def: CharacterDef): HeadSeat[] {
         { x: 0, y: 0.03, lean: 0, size: 0.75 },
         { x: 0.23, y: -0.07, lean: -0.55, size: 0.75 },
       ];
-    case 10: {
-      // A crown of ten small heads on long necks: six fanned out behind, four in front of them.
-      const seats: HeadSeat[] = [];
-      const row = (heads: number, reach: number, spread: number, z: number): void => {
-        for (let i = 0; i < heads; i++) {
-          const angle = (i / (heads - 1) - 0.5) * 2 * spread;
-          seats.push({
-            x: NECK_ROOT.x + reach * Math.sin(angle),
-            y: NECK_ROOT.y + reach * Math.cos(angle),
-            z,
-            lean: -angle * 0.6,
-            size: 0.44,
-          });
-        }
-      };
-      row(6, 0.4, 1.4, 0.03);
-      row(4, 0.25, 0.94, -0.05);
-      return seats;
-    }
+    case 10:
+      // Six fanned out behind, four in front of them.
+      return crown(0.44, [
+        [6, 0.4, 1.4, 0.03],
+        [4, 0.25, 0.94, -0.05],
+      ]);
+    case 20:
+      // Eight behind, eight before them, four in front.
+      return crown(0.34, [
+        [8, 0.54, 1.45, 0.06],
+        [8, 0.39, 1.3, 0],
+        [4, 0.24, 0.9, -0.06],
+      ]);
     default:
       return [{ x: 0, y: 0, lean: 0, size: 1 }];
   }
