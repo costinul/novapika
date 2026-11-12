@@ -10,12 +10,12 @@
     // Only the API runs server code. Everything else is a static file.
     "run_worker_first": ["/api/*"]
   },
-  // Players and pets. With no database_id, the first deploy creates the
-  // database and writes its id back into this file.
+  // Players and pets. The database is in Western Europe.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "novapika",
+      "database_id": "a03973da-0be7-4a9f-a0ed-8feb0d9f5c03",
       "migrations_dir": "server/migrations"
     }
   ],
