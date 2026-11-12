@@ -52,9 +52,13 @@
   // Once a day, what was said to the helper parrot more than a week ago is
   // forgotten.
   "triggers": { "crons": ["17 3 * * *"] },
+  // Only what the server itself writes is kept: errors, and how each of the
+  // helper parrot's turns ended. A line and a trace for every message would
+  // use up a day's allowance in a few hours, as each player sends their
+  // position 15 times a second.
   "observability": {
     "enabled": true,
-    "logs": { "enabled": true },
-    "traces": { "enabled": true }
+    "logs": { "enabled": true, "invocation_logs": false },
+    "traces": { "enabled": false }
   }
 }
