@@ -249,6 +249,33 @@ microphone and a headset: the whole path from a spoken phrase to Kiki's voice,
 how well small children are heard, how long an answer takes, and how its
 voice sounds. Everything else was tested with unit tests and the desktop emulator.
 
+## Places (being built)
+
+Design: [docs/plans/2026-11-12-places-design.md](docs/plans/2026-11-12-places-design.md).
+Step 1 of 5 is built: the gate, its board and the trip. The new places
+themselves (Downham Market, London, New York) are not built yet, so for now
+the gate leads to the test room and back.
+
+- **The gate.** The big stone gate against the Aviary's far netting is open.
+  With no place picked the sheet in it is dim, and going through does nothing.
+- **The board.** A small board stands on the grass to the left of the gate,
+  with a picture of every other place. Touch a picture with a hand or your
+  beak: it gets a yellow frame, and the gate lights up and shows that place.
+  The choice is your own; other players do not see it.
+- **The trip.** Fly or walk through the lit gate. The view fades to black, the
+  place is swapped, and the view fades back in with you on the step of that
+  place's gate. You stay in VR. You leave the players in the old place and
+  join those in the new one.
+- **Coming home.** Every place has the same gate and board. The Aviary is the
+  picture of a nest.
+- **Which way you face.** The game never turns your view, so you arrive facing
+  the way you flew in. The Aviary's gate is flown into heading away from the
+  nest, and every other gate the opposite way, so on a trip from or to the
+  Aviary the gate is behind you when you arrive.
+
+Not checked on a real headset: how the fade feels, and whether a small child
+finds the pictures easy to reach.
+
 ## Run
 
 ```bash
@@ -418,11 +445,12 @@ microphone is used for three things:
 | `src/movement/` | Movement rules as pure functions of state, input and world queries |
 | `src/characters/` | The roster of parrots as data, and the code that builds their models |
 | `src/stunts/` | One small recogniser per stunt |
-| `src/comfort/` | Speed vignette and arm-reach measuring |
+| `src/comfort/` | Speed vignette, arm-reach measuring, and the fade to black between places |
 | `src/flock/` | The lobby's own parrots: the pilot that flies them and their behaviour |
 | `src/world/` | Toys, target places and bells; the action layer every world change goes through |
 | `src/audio/` | Sounds, synthesized in code; the microphone; mimicry; the ear that hears what is said to the helper parrot |
 | `src/lobbies/` | Lobby registry and one folder per lobby |
+| `src/gate/` | The gate to the other places: its layout, rules, scenery and pictures, and the trip through it |
 | `src/debug/` | In-headset debug panel |
 | `src/dev/` | Desktop WebXR emulator (development builds only) |
 | `src/net/` | Multiplayer: the line to the lobby server, the other players, and how a pose travels |

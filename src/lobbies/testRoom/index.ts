@@ -13,7 +13,10 @@ import {
   RepeatWrapping,
   SRGBColorSpace,
 } from 'three';
-import type { LobbyContent } from '../../world/types';
+import { gateLayout } from '../../gate/layout';
+import { buildGate } from '../../gate/scenery';
+import type { GateDef, LobbyContent } from '../../world/types';
+import { StaticBuilder } from '../build';
 import type { LobbyModule } from '../types';
 
 const SIZE = 24; // m, floor is SIZE x SIZE: room to fly a circle
@@ -39,7 +42,10 @@ const BLOCKS: readonly (readonly [number, Vec3, Vec3])[] = [
   [0xc98a4b, [3.3, 3.37, -1.5], [0.5, 0.06, 0.06]],
 ];
 
-/** Toys, the toy box and the bells. */
+/** The gate back to the other places, against the south wall. A player flies into it heading south. */
+const GATE: GateDef = { position: [0, 0, SIZE / 2 - 1.6], yaw: Math.PI };
+
+/** Toys, the toy box, the bells and the gate. */
 const CONTENT: LobbyContent = {
   toyTypes: {
     woodBlock: { shape: 'box', size: 0.12, color: 0xe8b06a, density: 300, bounce: 0.2 },
@@ -63,6 +69,7 @@ const CONTENT: LobbyContent = {
   ],
   rings: [],
   water: [],
+  gate: GATE,
 };
 
 /** Upright poles: [colour, base centre x, z, height, radius]. */
@@ -163,6 +170,10 @@ const testRoom: LobbyModule = {
       root.add(mesh);
       physics.addStaticCylinder([x, height / 2, z], height / 2, radius);
     }
+
+    const gate = new StaticBuilder(physics);
+    buildGate(gate, gateLayout(GATE, 'test-room'));
+    root.add(gate.mesh());
 
     return { root };
   },

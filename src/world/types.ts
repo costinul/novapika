@@ -149,6 +149,18 @@ export interface PetCornerDef {
   goodbye: { perch: Stand; pads: readonly [Stand, Stand] };
 }
 
+/**
+ * The way to the other places: a doorway to fly through, with a board of
+ * pictures beside it to choose on. Its shape is the same everywhere; see
+ * src/gate/layout.ts.
+ */
+export interface GateDef {
+  /** The middle of the doorway's foot, on the ground. */
+  position: Vec3;
+  /** Way the doorway faces, toward whoever flies in, as a turn about the vertical axis in radians. */
+  yaw: number;
+}
+
 /** One of the places the helper parrot can lead a player to. The names are in shared/helper.ts. */
 export type HelperPlaces = Readonly<Partial<Record<string, Vec3>>>;
 
@@ -162,6 +174,7 @@ export interface LobbyContent {
   characterPerches?: readonly CharacterPerchDef[];
   petCorner?: PetCornerDef;
   flock?: FlockDef;
+  gate?: GateDef;
   /** Where the helper parrot lands at each place it can lead a player to. */
   helperPlaces?: HelperPlaces;
 }

@@ -17,11 +17,15 @@ import { Sounds } from '../audio/Sounds';
 import { FeatherBatch } from '../characters/FeatherBatch';
 import { tickParrotMaterials } from '../characters/parrotMaterial';
 import { character, DEFAULT_CHARACTER, roster } from '../characters/roster';
+import { Fade } from '../comfort/Fade';
 import { ReachMeter } from '../comfort/ReachMeter';
 import { Vignette } from '../comfort/Vignette';
 import { movementConfig } from '../config/movement';
 import { DebugPanel } from '../debug/DebugPanel';
 import { Flock } from '../flock/Flock';
+import { Gate } from '../gate/Gate';
+import { GateView } from '../gate/GateView';
+import { Travel } from '../gate/Travel';
 import { Helper } from '../helper/Helper';
 import type { PanelPointer } from '../debug/DebugPanel';
 import { lobbyRegistry } from '../lobbies/registry';
@@ -124,6 +128,21 @@ export class Engine {
   private wasFlapping = false;
   private readonly wasPlanted = { left: false, right: false };
   private readonly vignette = new Vignette();
+  /** The way to the other places: its rules, what is drawn of it, and the trip through it. */
+  private readonly gate = new Gate();
+  private readonly gateView = new GateView();
+  private readonly fade = new Fade();
+  private readonly travel = new Travel((placeId) =>
+    this.loadLobby(placeId, true).catch((error: unknown) => {
+      // The place could not be fetched: the player stays where they are.
+      console.error(error);
+    }),
+  );
+  /**
+   * The place was come to through a gate: the player is seated at its gate,
+   * in this place along its step, not at a start point. Otherwise -1.
+   */
+  private arriveAt = -1;
   private readonly reach = new ReachMeter();
   /** How long the menu button has been held, s. */
   private menuHeld = 0;
@@ -169,7 +188,7 @@ export class Engine {
 
     this.camera.position.set(0, EYE_HEIGHT_DESKTOP, 0);
     this.rig.add(this.camera);
-    this.camera.add(this.vignette.object);
+    this.camera.add(this.vignette.object, this.fade.object);
     this.scene.add(this.rig);
 
     this.input = new XRInput(this.renderer, this.camera);
@@ -207,6 +226,12 @@ export class Engine {
       this.playAction(action, remote);
     });
     this.world.onJingle = (_toy, strength) => this.sounds.jingle(strength);
+    this.scene.add(this.gateView.object);
+    this.gate.onPicked = (placeId, at) => {
+      this.gateView.setPicked(placeId);
+      this.sounds.chirp();
+      this.worldView.burst(at, 0xfff27a);
+    };
     this.flock = new Flock(this.world, this.actions, this.physics, this.feathers, this.sounds, this.mimicry);
     this.scene.add(this.flock.object);
     this.helper = new Helper({
@@ -290,11 +315,16 @@ export class Engine {
     return new Engine(canvas, await PhysicsWorld.create());
   }
 
-  /** Unload the current lobby, if any, and load the one with this id. */
-  async loadLobby(id: string): Promise<void> {
+  /**
+   * Unload the current lobby, if any, and load the one with this id. With
+   * `atGate`, the player is seated at the new lobby's gate, if it has one.
+   */
+  async loadLobby(id: string, atGate = false): Promise<void> {
     const loader = lobbyRegistry[id];
     if (!loader) throw new Error(`Unknown lobby "${id}"`);
     const module = await loader();
+    // Their slot in the lobby they are leaving gives each player a place of their own to arrive.
+    const leftAs = Math.max(0, this.multiplayer.slot);
 
     if (this.lobby) {
       this.scene.remove(this.lobby.instance.root);
@@ -310,6 +340,9 @@ export class Engine {
     if (module.content) this.world.load(module.content);
     this.flock.load(module.content?.flock);
     this.pets.load(module.content?.petCorner);
+    this.gate.load(module.content?.gate, module.id);
+    this.gateView.rebuild(this.gate.layout);
+    this.arriveAt = atGate && this.gate.layout ? leftAs % this.gate.layout.arrivals.length : -1;
     this.worldView.rebuild();
     this.sounds.setAmbience(module.ambience ?? null);
     this.scene.add(instance.root);
@@ -332,9 +365,14 @@ export class Engine {
   private respawn(): void {
     if (!this.lobby) return;
     const player = this.localPlayer;
-    // Each player in the lobby has their own place to start, where the lobby has enough.
-    const points = this.lobby.module.spawnPoints;
-    this.scratch.fromArray(points[Math.max(0, this.multiplayer.slot) % points.length].position);
+    if (this.arriveAt >= 0 && this.gate.layout) {
+      this.scratch.fromArray(this.gate.layout.arrivals[this.arriveAt]);
+    } else {
+      // Each player in the lobby has their own place to start, where the lobby has enough.
+      const points = this.lobby.module.spawnPoints;
+      this.scratch.fromArray(points[Math.max(0, this.multiplayer.slot) % points.length].position);
+    }
+    this.arriveAt = -1;
     placeAt(player, this.moveNow, movementConfig, this.scratch);
     toMoveInput(player.input, this.movePrev);
     player.updateWorldPoses();
@@ -424,6 +462,10 @@ export class Engine {
     this.feathers.end();
     this.updateBeak(dt);
     this.updateStunts(dt);
+    const through = this.gate.update(player);
+    if (through) this.travel.go(through);
+    this.travel.update(dt);
+    this.fade.set(this.travel.dark);
     this.worldView.update(dt, this.biteable);
     tickParrotMaterials(dt);
     this.sounds.update(dt);

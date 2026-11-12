@@ -3,6 +3,7 @@ import { BACK_PERCH, PERCH_ORDER } from '../../characters/roster';
 import type {
   CharacterPerchDef,
   FlockDef,
+  GateDef,
   LobbyContent,
   PeckableDef,
   PetCornerDef,
@@ -296,8 +297,10 @@ export const FEEDER: Vec3 = [feederX, 0.25, feederZ]; // top of its stump
 const [boxX, boxZ] = polar(215, 14);
 export const TOY_BOX: Vec3 = [boxX, 0, boxZ];
 
-/** Closed doorway to future lobbies, against the far netting. */
+/** The gate to the other places, against the far netting. */
 export const PORTAL: Vec3 = [0, 0, -HALF + 1.6];
+/** It faces the home tree, so a player flies into it heading away from the nest. */
+export const GATE: GateDef = { position: PORTAL, yaw: 0 };
 
 /** The tall corner post with a lookout platform. */
 export const LOOKOUT: Vec3 = [HALF - 1.2, 18, HALF - 1.2];
@@ -402,7 +405,7 @@ const toys: ToyDef[] = [
   // Shiny bottle caps, hidden in hard-to-reach places.
   { id: 'cap-1', type: 'bottleCap', position: above(PADS[0], 0.06) },
   { id: 'cap-2', type: 'bottleCap', position: [GYM[0] - GYM_HALF, GYM_HEIGHT + 0.2, GYM[2] - GYM_HALF] },
-  { id: 'cap-3', type: 'bottleCap', position: [PORTAL[0], 4.4, PORTAL[2] - 0.8] }, // on top of the portal arch
+  { id: 'cap-3', type: 'bottleCap', position: [PORTAL[0], 4.4, PORTAL[2] - 0.8] }, // on top of the gate's arch
   { id: 'cap-4', type: 'bottleCap', position: above(LOOKOUT, 0.1) },
   // Seeds and millet, to carry to the feeder.
   { id: 'seed-1', type: 'seed', position: ground(105, 17, 0.05) },
@@ -437,7 +440,7 @@ const flockSpots: Vec3[] = [
   // On a big branch of the home tree, just under the nest. The nest itself
   // is kept clear for the player and their pets.
   onBranch(HOME_LOW_BRANCHES[2]),
-  [PORTAL[0] + 1.6, 0.4, PORTAL[2] + 0.6], // on the portal's step
+  [PORTAL[0] + 1.6, 0.4, PORTAL[2] + 0.6], // on the gate's step
   [LOOKOUT[0], LOOKOUT[1], LOOKOUT[2]],
   // On the grass.
   ground(10, 7, 0),
@@ -499,5 +502,6 @@ export const CONTENT: LobbyContent = {
   characterPerches: CHARACTER_PERCHES,
   petCorner: PET_CORNER,
   flock: FLOCK,
+  gate: GATE,
   helperPlaces: HELPER_PLACES_AT,
 };

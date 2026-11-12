@@ -1,10 +1,13 @@
 import type { Vec3 } from '../../world/types';
 import type { StaticBuilder } from '../build';
 import { roster } from '../../characters/roster';
+import { gateLayout } from '../../gate/layout';
+import { buildGate } from '../../gate/scenery';
 import {
   BELL_HOOKS,
   CONTENT,
   FEEDER,
+  GATE,
   GYM,
   GYM_HALF,
   GYM_HEIGHT,
@@ -26,7 +29,6 @@ import {
   PET_RAIL,
   POND,
   POND_RADIUS,
-  PORTAL,
   TOY_BOX,
   TREES,
 } from './layout';
@@ -206,7 +208,8 @@ export function buildScenery(b: StaticBuilder): void {
     b.limb(POST, [x, y + ring.radius, z], [x, HEIGHT, z], 0.02, 0.02, { sides: 4, solid: false });
   }
 
-  portal(b);
+  buildGate(b, gateLayout(GATE, 'aviary'));
+  gatePerch(b);
   farAway(b);
 }
 
@@ -256,20 +259,9 @@ function playGym(b: StaticBuilder): void {
   b.limb(BAR, at(h, 0.55, -h), at(h, 0.55, h), 0.07, 0.07, { sides: 6 });
 }
 
-/** A closed doorway with a perch in front: the way to future lobbies. */
-function portal(b: StaticBuilder): void {
-  const [px, , pz] = PORTAL;
-  const STONE_LIGHT = 0xd8d2e8;
-  b.box(STONE_LIGHT, [px, 0.2, pz], [5, 0.4, 3]);
-  for (const x of [-1.5, 1.5]) b.limb(STONE_LIGHT, [px + x, 0.4, pz - 0.8], [px + x, 4, pz - 0.8], 0.3, 0.26, { sides: 8 });
-  b.limb(STONE_LIGHT, [px - 1.8, 4, pz - 0.8], [px + 1.8, 4, pz - 0.8], 0.28, 0.28, { sides: 8 });
-  b.drum(STONE_LIGHT, [px, 4.3, pz - 0.8], 0.4, 0.08, 8);
-  // The door itself: shut, with bars across it.
-  b.box(0x7a5bd6, [px, 2.2, pz - 0.85], [2.7, 3.5, 0.12]);
-  b.box(0x9d84ea, [px, 2.2, pz - 0.76], [1.9, 2.6, 0.06], { solid: false });
-  b.box(0x5a3fb0, [px, 2.9, pz - 0.72], [2.7, 0.16, 0.06], { solid: false });
-  b.box(0x5a3fb0, [px, 1.5, pz - 0.72], [2.7, 0.16, 0.06], { solid: false });
-  // Perch in front of the door.
+/** A perch on the gate's step, in front of the doorway. */
+function gatePerch(b: StaticBuilder): void {
+  const [px, , pz] = GATE.position;
   for (const x of [-0.9, 0.9]) b.limb(WOOD, [px + x, 0.4, pz + 0.7], [px + x, 1.0, pz + 0.7], 0.06, 0.06, { sides: 6 });
   b.limb(WOOD, [px - 1.1, 1.0, pz + 0.7], [px + 1.1, 1.0, pz + 0.7], 0.08, 0.08, { sides: 6 });
 }

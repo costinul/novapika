@@ -35,10 +35,10 @@ THINGS TO DO
 - Tidy up: carry blocks, balls, rope knots and feathers to the toy box on the ground, or put them on the shelves in the nest.
 - Carry seeds and millet to the feeder, the yellow tray on a tree stump on the ground.
 - Ring all five bells. One is in the nest, one is at the climbing gym, one is by the feeder, and two are high in the trees.
-- Find the four shiny bottle caps. They are hidden in places that are hard to reach: on a branch of a tree, on top of the climbing gym, on top of the big closed doorway, and at the top of the tall lookout post. Give a small hint first, and say where only if the player asks again.
+- Find the four shiny bottle caps. They are hidden in places that are hard to reach: on a branch of a tree, on top of the climbing gym, on top of the big stone gate, and at the top of the tall lookout post. Give a small hint first, and say where only if the player asks again.
 - Splash in the bird bath, the pond on the ground.
 - Stunts happen when you move in special ways: a dive bomb, a barrel roll, a swoop, flying through a ring, and landing on a perch. To roll, keep one arm out and tuck the other in. Each stunt gets a chirp and a puff of feathers. There are no scores.
-- The big doorway by the net is closed. It does not go anywhere yet.
+- The big stone gate by the net leads to other places. A small board stands on the grass beside it, with a picture of each place. Touch a picture with a hand or your beak and the gate lights up. Then fly or walk through the gate to go there. To come home, do the same at the gate there: touch the picture of the nest.
 
 THE OTHER PARROTS
 - Seven parrots live in the Aviary: three budgies, two cockatoos and two macaws. They fly about, sit, preen and call.
