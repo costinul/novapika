@@ -34,7 +34,7 @@ These choices are fixed. Do not substitute alternatives without asking the owner
 | Desktop testing | A WebXR emulator in the desktop browser | So the agent can run and check the game without a headset |
 | Hosting | Cloudflare: static files, plus a Worker API with a D1 database | The API keeps players and pets only; the game plays without it. See `docs/plans/2026-11-11-pets-design.md` |
 | Multiplayer | Cloudflare Durable Objects with WebSockets | Being built: see the README |
-| Later: voice | WebRTC | Not in v1 |
+| Voice | WebRTC, headset to headset | Built: see the README |
 | Later: store | Packaged as a PWA for the Meta Horizon Store | Not in v1 |
 
 ## 3. Architecture rules
@@ -285,7 +285,7 @@ The lobby has 6 to 8 parrots of mixed species that live there on their own, so i
 ### Mimicry
 
 - A lobby parrot near the player sometimes records a few seconds of what the player says and repeats it in a higher, squeaky voice.
-- This uses the headset microphone only. Audio is kept in memory for a few seconds, never stored and never sent anywhere.
+- This uses the headset microphone. For mimicry, audio is kept in memory for a few seconds, never stored and never sent anywhere. (Since multiplayer, the same microphone also carries the player's voice to the other players in the lobby.)
 - The game asks for microphone permission once and works fully if it is refused.
 
 ## 9. Comfort, safety and performance
@@ -301,7 +301,7 @@ The lobby has 6 to 8 parrots of mixed species that live there on their own, so i
 **Safety**
 
 - On start, show a picture-based reminder to clear space around the player, because flapping uses the full arm span.
-- No ads and no personal data. The game's only network calls are to its own server, for sign-in and pets; that server keeps a nickname, pets, eggs and DNA requests. The microphone is used only for mimicry, on the headset.
+- No ads and no personal data. The game's network calls are to its own server, for sign-in, pets and the lobby; that server keeps a nickname, pets, eggs and DNA requests. The microphone is used for mimicry, on the headset, and for voice, which goes only to the other players in the lobby and is never recorded.
 
 **Performance**
 

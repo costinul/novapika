@@ -91,16 +91,21 @@ describe('two players in a lobby', () => {
     world: WorldState;
     local: Player;
     net: Multiplayer;
+    /** What the game asked of its voice, in order. */
+    voice: string[];
   }
   let lobby: ReturnType<typeof fakeLobby>;
   let time: number;
   let alex: Game;
   let sam: Game;
+  /** Where the last game to draw a frame told its voice the players in places 0 and 1 are. */
+  let heads: (number | null)[];
 
   const game = (id: string, nickname: string, characterId: string): Game => {
     const world = new WorldState(physics);
     const local = new Player('local', characterId);
     world.players.set(local.id, local);
+    const voice: string[] = [];
     const net = new Multiplayer({
       world,
       feathers: null,
@@ -109,8 +114,15 @@ describe('two players in a lobby', () => {
       about: () => ({ characterId: local.characterId, followerPetId: null }),
       onRefused: () => {},
       now: () => time,
+      voice: {
+        call: (slot) => void voice.push(`call ${slot}`),
+        signal: (from, data) => void voice.push(`signal ${from} ${JSON.stringify(data)}`),
+        remove: (slot) => void voice.push(`remove ${slot}`),
+        clear: () => void voice.push('clear'),
+        place: (_position, _turn, headOf) => void (heads = [0, 1].map((slot) => headOf(slot)?.x ?? null)),
+      },
     });
-    return { world, local, net };
+    return { world, local, net, voice };
   };
   /** Both games draw frames for `seconds`. */
   const play = (seconds: number): void => {
@@ -198,6 +210,37 @@ describe('two players in a lobby', () => {
     expect([...alex.world.players.keys()]).toEqual(['local']);
     // And whoever left sees nobody either.
     expect([...sam.world.players.keys()]).toEqual(['local']);
+  });
+
+  it('has the player in the lower place ring the other, once', async () => {
+    expect(alex.voice.filter((line) => line.startsWith('call'))).toEqual(['call 1']);
+    expect(sam.voice.filter((line) => line.startsWith('call'))).toEqual([]);
+    // Changing parrot is not a reason to ring again.
+    sam.local.characterId = 'budgie';
+    sam.net.aboutChanged();
+    await settle();
+    expect(alex.voice.filter((line) => line.startsWith('call'))).toEqual(['call 1']);
+  });
+
+  it('carries the messages that set a call up, to the one they are for', () => {
+    alex.net.sendRtc(1, { sdp: { type: 'offer', sdp: 'v=0' } });
+    expect(sam.voice.at(-1)).toBe('signal 0 {"sdp":{"type":"offer","sdp":"v=0"}}');
+    sam.net.sendRtc(0, { ice: { candidate: 'c' } });
+    expect(alex.voice.at(-1)).toBe('signal 1 {"ice":{"candidate":"c"}}');
+  });
+
+  it('tells its voice where everyone is, and when they leave', () => {
+    sam.local.position.set(-6, 22, 1);
+    alex.net.frame(1 / 60);
+    // Not seen to move yet: nowhere to play their voice from.
+    expect(heads).toEqual([null, null]);
+    play(0.5);
+    alex.net.frame(1 / 60);
+    expect(heads[1]).toBeCloseTo(-6, 2);
+
+    sam.net.leave();
+    expect(alex.voice.at(-1)).toBe('remove 1');
+    expect(sam.voice.at(-1)).toBe('clear');
   });
 
   it('starts afresh when the line drops and comes back', async () => {

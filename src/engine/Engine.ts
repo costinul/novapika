@@ -9,7 +9,8 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { Material, Mesh, Object3D, Texture } from 'three';
-import { petsApi } from '../account/account';
+import { iceServers, petsApi } from '../account/account';
+import { Microphone } from '../audio/Microphone';
 import { Mimicry } from '../audio/Mimicry';
 import { Sounds } from '../audio/Sounds';
 import { FeatherBatch } from '../characters/FeatherBatch';
@@ -33,6 +34,7 @@ import type { InputSource } from '../player/Player';
 import { PlayerView } from '../player/PlayerView';
 import { XRInput } from '../player/XRInput';
 import { createRecognisers } from '../stunts/recognisers';
+import { Voice } from '../voice/Voice';
 import type { StuntSample } from '../stunts/recognisers';
 import { ActionLayer } from '../world/actions';
 import { beakPosition } from '../world/beak';
@@ -89,7 +91,9 @@ export class Engine {
   private readonly sounds = new Sounds();
   /** Room for forty parrots' wings: the players, their followers and the lobby's own. */
   private readonly feathers = new FeatherBatch(560);
+  private readonly microphone = new Microphone();
   private readonly mimicry = new Mimicry();
+  private readonly voice: Voice;
   private readonly flock: Flock;
   /** A signed-in player's pets. Tell it who is signed in with `pets.setAccount`. */
   readonly pets: Pets;
@@ -221,7 +225,13 @@ export class Engine {
     });
     this.scene.add(this.pets.object);
 
+    this.voice = new Voice({
+      context: () => this.sounds.context,
+      send: (to, data) => this.multiplayer.sendRtc(to, data),
+      iceServers,
+    });
     this.multiplayer = new Multiplayer({
+      voice: this.voice,
       world: this.world,
       feathers: this.feathers,
       local: this.localPlayer,
@@ -318,9 +328,12 @@ export class Engine {
   /** Must be called from a user gesture such as a button click. */
   async enterVR(): Promise<void> {
     this.sounds.unlock();
-    // Asks for the microphone once, for the parrots that copy what you say.
-    // The game is the same without it.
-    if (this.sounds.context) void this.mimicry.enable(this.sounds.context);
+    // Asks for the microphone once: to talk to the other players, and for the
+    // parrots that copy what you say. The game is the same without it.
+    void this.microphone.open().then((stream) => {
+      this.voice.setMicrophone(stream);
+      if (this.sounds.context) void this.mimicry.enable(this.sounds.context, stream);
+    });
     if (this.renderer.xr.isPresenting) return;
     const session = await navigator.xr!.requestSession('immersive-vr', {
       requiredFeatures: ['local-floor'],

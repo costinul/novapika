@@ -1,8 +1,9 @@
-import { Group } from 'three';
+import { Group, Vector3 } from 'three';
 import { FRAME_POSES } from '../../shared/net';
-import type { AboutMe, ServerMessage } from '../../shared/net';
+import type { AboutMe, LobbyPlayer, RtcData, ServerMessage } from '../../shared/net';
 import type { FeatherBatch } from '../characters/FeatherBatch';
 import type { Player } from '../player/Player';
+import type { Voice } from '../voice/Voice';
 import type { WorldState } from '../world/WorldState';
 import type { Connect, Link } from './LobbyClient';
 import { POSE_BYTES, POSE_PLAYER, writePose } from './pose';
@@ -27,6 +28,8 @@ export interface MultiplayerDeps {
   onRefused(): void;
   /** The lobby has let this player in, and said which place is theirs. */
   onJoined?(): void;
+  /** Talking to the other players. Left out, nobody is heard. */
+  voice?: Pick<Voice, 'call' | 'signal' | 'remove' | 'clear' | 'place'>;
   /** The time in seconds. Left out, the browser's clock. */
   now?(): number;
 }
@@ -47,6 +50,7 @@ export class Multiplayer {
   private readonly frameBytes = new ArrayBuffer(2 + POSE_BYTES * MOST_POSES);
   private readonly frameView = new DataView(this.frameBytes);
   private readonly now: () => number;
+  private readonly scratch = new Vector3();
 
   constructor(private readonly deps: MultiplayerDeps) {
     this.now = deps.now ?? (() => performance.now() / 1000);
@@ -78,6 +82,11 @@ export class Multiplayer {
     this.offline();
   }
 
+  /** Pass a voice set-up message to the player in place `to`. */
+  sendRtc(to: number, data: RtcData): void {
+    this.link?.send({ t: 'rtc', to, data });
+  }
+
   /** The local player has changed parrot or follower: tell the others. */
   aboutChanged(): void {
     this.link?.send({ t: 'me', me: this.deps.about() });
@@ -86,6 +95,8 @@ export class Multiplayer {
   /** Once per drawn frame, between the feathers' `begin` and `end`. */
   frame(dt: number): void {
     this.remotes.frame(dt, this.now());
+    const head = this.deps.local.head;
+    this.deps.voice?.place(head.position, head.quaternion, (slot) => this.remotes.headOf(slot), this.scratch);
 
     if (!this.online || !this.link?.open) return;
     this.sendIn -= dt;
@@ -100,23 +111,35 @@ export class Multiplayer {
   private offline(): void {
     this.slot = -1;
     this.remotes.clear();
+    this.deps.voice?.clear();
+  }
+
+  /** Somebody else is in the lobby, or has changed parrot. */
+  private meet(player: LobbyPlayer): void {
+    if (player.slot === this.slot) return;
+    // Of any two players, the one in the lower place rings the other.
+    if (this.remotes.set(player) && this.slot < player.slot) this.deps.voice?.call(player.slot);
   }
 
   private onMessage(message: ServerMessage): void {
     switch (message.t) {
       case 'welcome':
-        this.remotes.clear();
+        this.offline();
         this.slot = message.you;
-        for (const player of message.players) if (player.slot !== this.slot) this.remotes.set(player);
+        for (const player of message.players) this.meet(player);
         this.deps.onJoined?.();
         break;
       case 'player':
-        if (message.player.slot !== this.slot) this.remotes.set(message.player);
+        this.meet(message.player);
         break;
       case 'leave':
         this.remotes.remove(message.slot);
+        this.deps.voice?.remove(message.slot);
         break;
       case 'host':
+        break;
+      case 'rtc':
+        this.deps.voice?.signal(message.from, message.data);
         break;
     }
   }

@@ -169,6 +169,45 @@ describe('passing poses on', () => {
   });
 });
 
+describe('setting up a voice call', () => {
+  const rtc = (to: unknown, data: unknown): string => JSON.stringify({ t: 'rtc', to, data });
+
+  it('passes a message to the one player it is for, saying who it is from', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    const kim = join('Kim');
+    const heard = [alex, sam, kim].map((c) => c.heard.length);
+    rules.text(kim, rtc(0, { sdp: { type: 'offer', sdp: 'v=0' } }));
+    expect(alex.heard.at(-1)).toEqual({ t: 'rtc', from: 2, data: { sdp: { type: 'offer', sdp: 'v=0' } } });
+    expect([sam, kim].map((c) => c.heard.length)).toEqual(heard.slice(1));
+  });
+
+  it('quietly drops a message for somebody who has gone, or for oneself', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    rules.leave(sam);
+    const heard = alex.heard.length;
+    rules.text(alex, rtc(1, { ice: {} }));
+    rules.text(alex, rtc(0, { ice: {} }));
+    expect(alex.heard).toHaveLength(heard);
+    expect(alex.closed).toBeNull();
+  });
+
+  it('drops a connection that sends one that is not ours', () => {
+    join('Alex');
+    for (const [to, data] of [
+      ['0', {}],
+      [0.5, {}],
+      [0, null],
+      [0, 'offer'],
+    ]) {
+      const bad = join('bad');
+      rules.text(bad, rtc(to, data));
+      expect(bad.closed).toBe(CLOSE_BAD);
+    }
+  });
+});
+
 describe('waking up', () => {
   it('knows everyone again from what was kept with each connection', () => {
     const alex = join('Alex');

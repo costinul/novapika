@@ -168,6 +168,34 @@ async function lobby(request: Request, env: Env, store: Store, lobbyId: string):
   return env.LOBBY.getByName(lobbyId).fetch(new Request(request, { headers }));
 }
 
+/** Where WebRTC can always ask for a player's own address. Free, and needs no key. */
+const STUN = { urls: ['stun:stun.cloudflare.com:3478'] };
+/** How long a player's pass for the voice relay lasts: longer than anyone plays in one go. */
+const TURN_TTL = 24 * 60 * 60; // s
+
+/**
+ * The servers two players' games use to find a way to each other for voice.
+ * With a Cloudflare TURN key set, a short-lived pass for its relay is
+ * included, for players whose networks will not let them connect directly.
+ * The key itself never leaves the server.
+ */
+async function iceServers(env: Env): Promise<unknown[]> {
+  const { TURN_KEY_ID: id, TURN_KEY_API_TOKEN: token } = env as Env & { TURN_KEY_ID?: string; TURN_KEY_API_TOKEN?: string };
+  if (!id || !token) return [STUN];
+  try {
+    const response = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${id}/credentials/generate-ice-servers`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ttl: TURN_TTL }),
+    });
+    if (!response.ok) throw new Error(`status ${response.status}`);
+    return ((await response.json()) as { iceServers: unknown[] }).iceServers;
+  } catch (error) {
+    console.error(JSON.stringify({ message: 'no relay pass', error: error instanceof Error ? error.message : String(error) }));
+    return [STUN];
+  }
+}
+
 async function route(request: Request, env: Env): Promise<Response> {
   const path = new URL(request.url).pathname.replace(/\/+$/, '');
   if (!path.startsWith('/api/')) return refuse('not-found', 404);
@@ -194,6 +222,7 @@ async function route(request: Request, env: Env): Promise<Response> {
 
   const player = await playerForToken(store, bearer(request));
   if (!player) return refuse('signed-out', 401);
+  if (rest === '/ice' && request.method === 'GET') return json({ iceServers: await iceServers(env) });
   return mine(request, rest, store, player);
 }
 

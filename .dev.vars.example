@@ -4,3 +4,9 @@
 # This password only guards the local test database. The real one is set on
 # Cloudflare with `wrangler secret put ADMIN_PASSWORD` and is kept nowhere else.
 ADMIN_PASSWORD=local-dev-only
+
+# Optional: a Cloudflare TURN key, so players whose networks will not let them
+# connect directly can still hear each other. Not needed on one PC or one
+# home network.
+# TURN_KEY_ID=
+# TURN_KEY_API_TOKEN=

@@ -25,7 +25,17 @@ Up to eight signed-in players share a lobby. Built so far:
   player there holds a WebSocket to, signed in with the same token as the
   rest. It only passes messages on; it keeps nothing once the lobby is empty.
 
-Still to come: voice, shared lobby parrots and followers, shared toys.
+- **Voice.** Players in a lobby hear each other, always on: louder when
+  closer, and from the direction of the other parrot. Each pair of players
+  holds one WebRTC connection straight between their two headsets; the server
+  only passes the few messages it takes to set one up, and never hears or
+  keeps a voice. A voice is sent only while playing, never from the start
+  screen.
+
+Still to come: shared lobby parrots and followers, shared toys.
+
+Not checked by the author of the code, because it needs two headsets: how
+voices sound (echo, loudness, distance), and connecting between two homes.
 
 ## Pets (being built)
 
@@ -107,6 +117,26 @@ The first deploy creates the database and writes its id into
 `wrangler.jsonc`; commit that change. After that, `npm run deploy` is enough,
 followed by `npm run db:remote` whenever `server/migrations` has a new file.
 
+#### The voice relay (optional)
+
+Two players' headsets normally connect straight to each other for voice. Some
+home and mobile networks do not allow that; a relay (TURN) gets round it.
+Without one, those players see each other but cannot hear each other.
+
+In the Cloudflare dashboard, under Realtime, create a TURN key. Then give its
+two values to the server:
+
+```bash
+npx wrangler@4.160.0 secret put TURN_KEY_ID
+```
+
+```bash
+npx wrangler@4.160.0 secret put TURN_KEY_API_TOKEN
+```
+
+The key stays on the server. Each signed-in player is handed a pass for the
+relay that lasts a day. The first 1,000 GB a month are free.
+
 ## Run
 
 ```bash
@@ -178,9 +208,10 @@ npm run build
   they spread their arms, and scales the wing distances and flap speed to it,
   so a child's arms work as well as an adult's. `autoArmReach` switches it off.
 - **Your parrot is remembered** on the device between visits. If a player has
-  signed in, so is their sign-in. Nothing else is kept on the device, and
-  nothing is sent anywhere except to the game's own server, for sign-in and
-  pets.
+  signed in, so is their sign-in. Nothing else is kept on the device. What
+  leaves it: sign-in, pets and where your parrot is go to the game's own
+  server; your voice goes to the other players in your lobby, and nowhere
+  else.
 
 ## Comfort
 
@@ -229,16 +260,23 @@ headset, and it moves by the same claw and wing rules: it really flaps to
 climb and glides to travel. The one difference is that a flap tires a lobby
 parrot less (40% of the cost), since it flaps far more than a child would.
 
-### Mimicry and the microphone
+### Mimicry, voice and the microphone
 
 Two of the parrots copy you. When one is perched within a few metres it
 sometimes listens, and repeats what you said in a higher, squeaky voice.
 
-The game asks for the microphone once, when you press the play button. If you refuse,
-everything else works the same; there is just no mimicry. The microphone is
-used for nothing else. Sound is only looked at while a parrot is listening;
-one phrase of at most three seconds is held in memory, played back once and
-dropped. Nothing is stored and nothing leaves the headset.
+The game asks for the microphone once, when you press the play button. If you
+refuse, everything else works the same; there is no mimicry, and the other
+players cannot hear you (you still hear them). The microphone is used for two
+things:
+
+- **Mimicry.** Sound is only looked at while a parrot is listening; one phrase
+  of at most three seconds is held in memory, played back once and dropped.
+  None of it is stored or leaves the headset.
+- **Voice.** While you are playing, your voice goes to the other players in
+  your lobby, who are all players the owner has given a code. It goes straight
+  from headset to headset (or through Cloudflare's relay, which only passes it
+  on). Nothing is recorded, and the game's server never receives it.
 
 ## Things to do in the Aviary
 
@@ -267,12 +305,12 @@ dropped. Nothing is stored and nothing leaves the headset.
 | `src/comfort/` | Speed vignette and arm-reach measuring |
 | `src/flock/` | The lobby's own parrots: the pilot that flies them and their behaviour |
 | `src/world/` | Toys, target places and bells; the action layer every world change goes through |
-| `src/audio/` | Sounds, synthesized in code; mimicry |
+| `src/audio/` | Sounds, synthesized in code; the microphone; mimicry |
 | `src/lobbies/` | Lobby registry and one folder per lobby |
 | `src/debug/` | In-headset debug panel |
 | `src/dev/` | Desktop WebXR emulator (development builds only) |
 | `src/net/` | Multiplayer: the line to the lobby server, the other players, and how a pose travels |
-| `src/voice/` | Reserved for voice |
+| `src/voice/` | Voice between the players in a lobby |
 | `src/account/` | Signing in: the number pad on the start screen and the token the device keeps |
 | `src/pets/` | The pet corner in the nest, and the pet that follows the player |
 | `src/admin/`, `admin.html` | The owner's admin page |

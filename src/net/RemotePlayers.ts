@@ -1,4 +1,5 @@
 import { Group } from 'three';
+import type { Vector3 } from 'three';
 import type { LobbyPlayer } from '../../shared/net';
 import type { FeatherBatch } from '../characters/FeatherBatch';
 import { DEFAULT_CHARACTER, roster } from '../characters/roster';
@@ -30,27 +31,27 @@ export class RemotePlayers {
     private readonly feathers: FeatherBatch | null,
   ) {}
 
-  /** The other players who have been seen to move, by slot. */
-  get players(): ReadonlyMap<number, Player> {
-    const seen = new Map<number, Player>();
-    for (const [slot, remote] of this.bySlot) if (remote.track.started) seen.set(slot, remote.player);
-    return seen;
+  /** Where the head of the player in `slot` is, or null if they have not been seen to move yet. */
+  headOf(slot: number): Vector3 | null {
+    const remote = this.bySlot.get(slot);
+    return remote?.track.started ? remote.player.head.position : null;
   }
 
-  /** Somebody is in the lobby, or has changed parrot. */
-  set(info: LobbyPlayer): void {
+  /** Somebody is in the lobby, or has changed parrot. True if they were not known before. */
+  set(info: LobbyPlayer): boolean {
     const characterId = info.characterId in roster ? info.characterId : DEFAULT_CHARACTER;
     const known = this.bySlot.get(info.slot);
     if (known?.info.id === info.id) {
       known.info = info;
       known.player.characterId = characterId;
-      return;
+      return false;
     }
     this.remove(info.slot);
     const player = new Player(info.id, characterId);
     player.simulatedHere = false;
     const view = this.feathers ? new PlayerView(player, this.feathers, false) : null;
     this.bySlot.set(info.slot, { info, player, view, track: new PoseTrack() });
+    return true;
   }
 
   remove(slot: number): void {

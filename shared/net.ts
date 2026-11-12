@@ -46,9 +46,17 @@ export interface AboutMe {
   followerPetId: string | null;
 }
 
+/**
+ * What two games pass each other to set up a voice call between them: an
+ * offer or an answer, or a way to reach them. The server passes it on unread.
+ */
+export type RtcData = Record<string, unknown>;
+
 export type ClientMessage =
   /** Sent on joining, and again whenever it changes. */
-  { t: 'me'; me: AboutMe };
+  | { t: 'me'; me: AboutMe }
+  /** For the player in place `to` only. */
+  | { t: 'rtc'; to: number; data: RtcData };
 
 export type ServerMessage =
   /** The first thing a player hears: who they are here, and who else is in. */
@@ -57,4 +65,6 @@ export type ServerMessage =
   | { t: 'player'; player: LobbyPlayer }
   | { t: 'leave'; slot: number }
   /** Who now runs the lobby's own parrots: the player who has been in longest. */
-  | { t: 'host'; slot: number };
+  | { t: 'host'; slot: number }
+  /** From the player in place `from`, for this player only. */
+  | { t: 'rtc'; from: number; data: RtcData };

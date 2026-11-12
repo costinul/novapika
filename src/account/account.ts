@@ -94,6 +94,13 @@ async function call<T>(method: string, path: string, body?: object): Promise<T |
   }
 }
 
+/**
+ * The servers two players' games use to find a way to each other for voice.
+ * Without the server's answer, the free one that needs no pass.
+ */
+export const iceServers = async (): Promise<RTCIceServer[]> =>
+  (await call<{ iceServers: RTCIceServer[] }>('GET', '/ice'))?.iceServers ?? [{ urls: 'stun:stun.cloudflare.com:3478' }];
+
 /** A change that answers with the player as the server now has them. */
 const change = async (method: string, path: string, body?: object): Promise<PlayerView | null> =>
   (await call<{ player: PlayerView }>(method, path, body))?.player ?? null;

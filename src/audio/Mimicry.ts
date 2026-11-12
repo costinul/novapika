@@ -25,11 +25,11 @@ const SQUEAK = 1.6;
 /**
  * Lets a lobby parrot repeat what the player says in a squeaky voice.
  *
- * Privacy: the microphone is used for this and nothing else. Sound is only
- * examined while a parrot is listening; one phrase of at most a few seconds
- * is held in memory, played back once, and then dropped. Nothing is stored
- * and nothing is sent anywhere. If permission is refused, the game simply
- * has no mimicry.
+ * Privacy: sound is only examined while a parrot is listening; one phrase of
+ * at most a few seconds is held in memory, played back once, and then
+ * dropped. Nothing of it is stored or sent anywhere. (The same microphone
+ * carries the player's voice to the others in the lobby; that is src/voice.)
+ * If permission is refused, the game simply has no mimicry.
  */
 export class Mimicry {
   /** A phrase that has been heard and not yet repeated. */
@@ -44,17 +44,14 @@ export class Mimicry {
   }
 
   /**
-   * Ask for the microphone. Asks at most once per visit; call it from a
-   * click or button press. Resolves false if it is refused or unsupported.
+   * Start listening to the microphone, once. Resolves false if there is none
+   * or it cannot be done.
    */
-  async enable(ctx: AudioContext): Promise<boolean> {
+  async enable(ctx: AudioContext, stream: MediaStream | null): Promise<boolean> {
     if (this.asked) return this.available;
     this.asked = true;
     try {
-      if (!ctx.audioWorklet || !navigator.mediaDevices?.getUserMedia) return false;
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
+      if (!ctx.audioWorklet || !stream) return false;
       const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
       await ctx.audioWorklet.addModule(url);
       URL.revokeObjectURL(url);
@@ -75,7 +72,7 @@ export class Mimicry {
       this.capture = capture;
       return true;
     } catch {
-      return false; // Refused, or no microphone: the game carries on without.
+      return false; // The game carries on without.
     }
   }
 

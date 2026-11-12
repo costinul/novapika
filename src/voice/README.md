@@ -1,8 +1,16 @@
-# voice (reserved, empty in v1)
+# voice
 
-Player-to-player voice chat over WebRTC goes here later.
+Players in a lobby talk to each other: always on, louder when closer, and from
+the direction of the other parrot.
 
-The v1 mimicry feature (a lobby parrot repeating the player's words) is not
-voice chat: it stays on the headset and lives with the lobby parrots.
+`Voice.ts` holds one WebRTC connection for each other player, straight between
+the two games. Of any two players, the one in the lower lobby place rings the
+other. The few messages it takes to set a call up travel through the lobby
+(`rtc` in `shared/net.ts`); voices never do. Each voice is played through a
+`PannerNode` placed at its parrot's head.
 
-No voice code is written in v1.
+The microphone is `src/audio/Microphone.ts`, shared with mimicry. A voice is
+sent only while there are calls, which is only while playing in a lobby.
+
+The servers used to find a way between two players come from `GET /api/ice`:
+Cloudflare's free STUN server, and its TURN relay when the server has a key.

@@ -97,6 +97,15 @@ export class LobbyRules<C> {
       this.tellOthers(conn, { t: 'player', player: view(member) });
       return;
     }
+    if (message.t === 'rtc') {
+      const { to, data } = message;
+      if (!Number.isInteger(to) || typeof data !== 'object' || data === null) return this.bad(conn);
+      // Somebody who has just left may still be sent to: that is nobody's fault.
+      for (const [other, them] of this.members) {
+        if (them.slot === to && other !== conn) this.tell(other, { t: 'rtc', from: member.slot, data });
+      }
+      return;
+    }
     this.bad(conn);
   }
 
