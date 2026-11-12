@@ -210,4 +210,13 @@ describe('the play button on the start screen', () => {
     expect(startButton(true, signedIn)).toEqual({ state: 'ready', label: 'Play' });
     expect(startButton(false, signedIn).state).toBe('none');
   });
+
+  it('asks about the microphone before Play, while the browser has still to ask', () => {
+    expect(startButton(true, signedIn, true).state).toBe('microphone');
+    expect(startButton(true, signedIn, false).state).toBe('ready');
+    // Never before the player can play at all.
+    expect(startButton(true, { status: 'out' }, true).state).toBe('locked');
+    expect(startButton(null, signedIn, true).state).toBe('loading');
+    expect(startButton(false, signedIn, true).state).toBe('none');
+  });
 });

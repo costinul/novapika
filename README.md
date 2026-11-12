@@ -184,7 +184,9 @@ relay that lasts a day. The first 1,000 GB a month are free.
 
 Design: [docs/plans/2026-11-12-ai-parrot-design.md](docs/plans/2026-11-12-ai-parrot-design.md).
 All three steps are built: Kiki talks, follows a player and leads them to a
-place, and starts a chat itself. It has not yet been run with its keys.
+place, and starts a chat itself. On the live server its greetings work, and
+its hearing was tried with a recorded phrase and works; it has not yet
+answered a phrase spoken in a headset.
 
 Kiki is a turquoise parrot with a pink crest and a white badge with a K on
 its chest, on its own stump in the nest of the Aviary, beside the picture
@@ -499,9 +501,15 @@ parrot less (40% of the cost), since it flaps far more than a child would.
 Two of the parrots copy you. When one is perched within a few metres it
 sometimes listens, and repeats what you said in a higher, squeaky voice.
 
-The game asks for the microphone once, when you press the play button. If you
-refuse, everything else works the same; there is no mimicry, and the other
-players cannot hear you (you still hear them), and Kiki cannot either. The
+The first time on a device, the play button shows a microphone instead of
+the play arrow. Press it and the browser asks whether the game may use the
+microphone; answer, and the button turns to play. It is asked there, on the
+flat page, because a question that comes up as VR starts cannot be seen or
+answered. If you refuse, everything else works the same; there is no mimicry,
+and the other players cannot hear you (you still hear them), and Kiki cannot
+either. If the microphone was not given, pressing play asks again. If it is
+blocked for the site, a crossed-out microphone shows in the corner of the
+start screen: allow it in the browser's settings for the site and reload. The
 microphone is used for three things:
 
 - **Mimicry.** Sound is only looked at while a parrot is listening; one phrase

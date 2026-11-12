@@ -468,18 +468,28 @@ export class Engine {
     return (await navigator.xr?.isSessionSupported('immersive-vr')) ?? false;
   }
 
+  /**
+   * Ask for the microphone: to talk to the other players, for the parrots
+   * that copy what you say, and for the helper parrot to hear you. The game
+   * is the same without it. Must be called from a user gesture such as a
+   * button click. If it was not given before, it is asked for again.
+   * Resolves true if the game has it.
+   */
+  async openMicrophone(): Promise<boolean> {
+    this.sounds.unlock();
+    const stream = await this.microphone.open();
+    this.voice.setMicrophone(stream);
+    const ctx = this.sounds.context;
+    if (stream && ctx) {
+      void this.mimicry.enable(ctx, stream);
+      void this.ear.enable(ctx, stream);
+    }
+    return stream !== null;
+  }
+
   /** Must be called from a user gesture such as a button click. */
   async enterVR(): Promise<void> {
-    this.sounds.unlock();
-    // Asks for the microphone once: to talk to the other players, for the
-    // parrots that copy what you say, and for the helper parrot to hear you.
-    // The game is the same without it.
-    void this.microphone.open().then((stream) => {
-      this.voice.setMicrophone(stream);
-      if (!this.sounds.context) return;
-      void this.mimicry.enable(this.sounds.context, stream);
-      void this.ear.enable(this.sounds.context, stream);
-    });
+    void this.openMicrophone();
     if (this.renderer.xr.isPresenting) return;
     const session = await navigator.xr!.requestSession('immersive-vr', {
       requiredFeatures: ['local-floor'],

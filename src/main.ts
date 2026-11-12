@@ -1,6 +1,8 @@
 import type { Account } from './account/account';
 import { setUpSignIn } from './account/signInPad';
 import { startButton } from './account/startButton';
+import { watchMicrophone } from './audio/Microphone';
+import type { MicrophoneAccess } from './audio/Microphone';
 import { Engine } from './engine/Engine';
 import { DEFAULT_LOBBY_ID } from './lobbies/registry';
 
@@ -13,21 +15,33 @@ if (import.meta.env.DEV && !nativeVR) {
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const start = document.querySelector<HTMLElement>('#start')!;
 const button = document.querySelector<HTMLButtonElement>('#enter-vr')!;
+const noMicrophone = document.querySelector<HTMLElement>('#no-microphone')!;
 
 // Nobody plays without signing in. Both are null until known: who is signed
 // in on this device, and whether this browser can do VR.
 let account: Account | null = null;
 let vr: boolean | null = null;
 let engine: Engine | null = null;
+// What the browser says about the microphone, and whether it has been asked
+// for on this visit. Asked once, the game is played with or without it.
+let microphone: MicrophoneAccess = 'unknown';
+let askedMicrophone = false;
 
 /** The start button shows its state as a picture; the label is for screen readers. */
 function show(): void {
-  const { state, label } = startButton(vr, account);
+  const { state, label } = startButton(vr, account, microphone === 'prompt' && !askedMicrophone);
   button.dataset.state = state;
   // Loading and no-VR have nothing to press.
   button.disabled = state === 'loading' || state === 'none';
   button.setAttribute('aria-label', label);
+  // Blocked for this site: nobody will hear the player. A grown-up can allow it in the browser's settings.
+  noMicrophone.hidden = microphone !== 'denied';
 }
+
+void watchMicrophone((access) => {
+  microphone = access;
+  show();
+});
 
 /** Somebody starts or stops playing: the start screen goes or comes back, and so do the other players. */
 function playing(on: boolean): void {
@@ -55,6 +69,12 @@ button.addEventListener('click', (event) => {
     account = null;
     show();
     signIn.check();
+  } else if (state === 'microphone') {
+    // The browser asks its question here, on the flat page. Answered either way, the button turns to Play.
+    void engine?.openMicrophone().then(() => {
+      askedMicrophone = true;
+      show();
+    });
   } else if (state === 'ready') {
     engine?.enterVR().catch((err) => {
       console.error(err);
