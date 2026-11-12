@@ -145,6 +145,8 @@ Each step is committed and pushed to main.
    room. Built; see [the step 1 plan](2026-11-12-places-step-1-plan.md)
    and its notes on what was built differently.
 2. The pet and the chosen parrot come along. Player counts on the board.
+   Built. The chosen parrot needed nothing. The counts come from a new call,
+   `GET /api/places`, which asks each lobby how many players it holds.
 3. Downham Market.
 4. London.
 5. New York.

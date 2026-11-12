@@ -59,6 +59,11 @@ export interface FriendView {
   pets: PetView[];
 }
 
+/** How many players are in each lobby now, by lobby id: what a gate's board shows. */
+export interface PlacesView {
+  counts: Record<string, number>;
+}
+
 /** A player as the admin page sees them. */
 export interface AdminPlayerView extends PlayerView {
   /** Pets set free in the last 30 days, which can still be brought back. */

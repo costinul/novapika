@@ -1,10 +1,14 @@
 import { Vector3 } from 'three';
+import { LOBBY_SIZE } from '../../shared/net';
 import { HANDS } from '../player/Player';
 import type { Player } from '../player/Player';
 import { beakPosition } from '../world/beak';
 import type { GateDef } from '../world/types';
 import { gateLayout, onPicture, OPENING, toGate } from './layout';
 import type { GateLayout } from './layout';
+
+/** From this near the gate its board can be seen well enough to be worth keeping up to date. */
+const NEAR = 15; // m
 
 /**
  * The rules of a place's gate, for the local player. Touching a picture on
@@ -19,11 +23,17 @@ export class Gate {
   layout: GateLayout | null = null;
   /** The place picked on the board, by lobby id. */
   picked: string | null = null;
+  /** How many players are in each place, by lobby id, as the server last said. Null when it is not known. */
+  counts: Readonly<Record<string, number>> | null = null;
   /** Called when a place is picked, with the middle of its picture. */
   onPicked: ((placeId: string, at: Vector3) => void) | null = null;
+  /** Called when a full place is touched, with the middle of its picture. */
+  onRefused: ((placeId: string, at: Vector3) => void) | null = null;
 
   /** How far in front of the doorway the head was a frame ago, or null if not known. */
   private lastFront: number | null = null;
+  /** The full place being touched now, so that one touch is refused once. */
+  private refusing: string | null = null;
   private readonly beak = new Vector3();
   private readonly point = new Vector3();
 
@@ -31,7 +41,14 @@ export class Gate {
   load(def: GateDef | undefined, here: string): void {
     this.layout = def ? gateLayout(def, here) : null;
     this.picked = null;
+    this.counts = null;
     this.lastFront = null;
+    this.refusing = null;
+  }
+
+  /** Is the player near enough to the gate to see its board? */
+  near(player: Player): boolean {
+    return !!this.layout && this.point.set(...this.layout.def.position).distanceTo(player.head.position) < NEAR;
   }
 
   /**
@@ -45,13 +62,19 @@ export class Gate {
     const { def } = layout;
     toGate(def, beakPosition(player.head, this.beak), this.beak);
     for (const { placeId, position, local } of layout.pictures) {
-      if (placeId === this.picked) continue;
       const touching =
         onPicture(this.beak, local) ||
         HANDS.some((h) => onPicture(toGate(def, player.hands[h].grip.position, this.point), local));
-      if (touching) {
+      if (!touching) {
+        if (this.refusing === placeId) this.refusing = null;
+      } else if (placeId === this.picked) {
+        // Picked already.
+      } else if ((this.counts?.[placeId] ?? 0) < LOBBY_SIZE) {
         this.picked = placeId;
         this.onPicked?.(placeId, this.point.set(...position));
+      } else if (this.refusing !== placeId) {
+        this.refusing = placeId;
+        this.onRefused?.(placeId, this.point.set(...position));
       }
     }
 

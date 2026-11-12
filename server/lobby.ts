@@ -124,6 +124,11 @@ export class Lobby extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client, headers: { 'Sec-WebSocket-Protocol': PROTOCOL } });
   }
 
+  /** How many players are in the lobby now. The Worker asks, for the boards by the gates. */
+  count(): number {
+    return this.rules.players.length;
+  }
+
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     if (typeof message === 'string') this.rules.text(ws, message);
     else this.rules.binary(ws, message);

@@ -150,6 +150,58 @@ describe('picking a place', () => {
   });
 });
 
+describe('a full place', () => {
+  let refused: string[];
+  beforeEach(() => {
+    refused = [];
+    gate.onRefused = (placeId) => refused.push(placeId);
+  });
+
+  it('cannot be picked, and says no once for each touch', () => {
+    gate.counts = { 'test-room': LOBBY_SIZE };
+    peck('test-room');
+    peck('test-room');
+    expect(gate.picked).toBeNull();
+    expect(refused).toEqual(['test-room']);
+    // The beak comes away, and touches again.
+    headAt(0, MID_Y, 3);
+    gate.update(player);
+    peck('test-room');
+    expect(refused).toEqual(['test-room', 'test-room']);
+    expect(picked).toEqual([]);
+  });
+
+  it('can be picked while there is room, and while nobody knows how many are there', () => {
+    gate.counts = { 'test-room': LOBBY_SIZE - 1 };
+    peck('test-room');
+    expect(gate.picked).toBe('test-room');
+    gate.load(DEF, 'aviary');
+    expect(gate.counts).toBeNull();
+    peck('test-room');
+    expect(gate.picked).toBe('test-room');
+    expect(refused).toEqual([]);
+  });
+
+  it('stays picked if it fills afterwards', () => {
+    peck('test-room');
+    gate.counts = { 'test-room': LOBBY_SIZE };
+    expect(fly(IN_FRONT, BEHIND)).toBe('test-room');
+  });
+});
+
+describe('asking how many are in each place', () => {
+  it('is worth it only near the gate, where the board can be seen', () => {
+    peck('test-room');
+    expect(gate.near(player)).toBe(true);
+    headAt(...IN_FRONT);
+    expect(gate.near(player)).toBe(true);
+    headAt(0, MID_Y, 40);
+    expect(gate.near(player)).toBe(false);
+    gate.load(undefined, 'pet-show');
+    expect(gate.near(player)).toBe(false);
+  });
+});
+
 describe('flying through the doorway', () => {
   it('leads to the place that was picked', () => {
     peck('test-room');

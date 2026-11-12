@@ -9,7 +9,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { Material, Mesh, Object3D, Texture } from 'three';
-import { iceServers, petsApi } from '../account/account';
+import { iceServers, petsApi, placeCounts } from '../account/account';
 import { Ear } from '../audio/Ear';
 import { Microphone } from '../audio/Microphone';
 import { Mimicry } from '../audio/Mimicry';
@@ -77,6 +77,9 @@ function rememberCharacter(id: string): void {
   }
 }
 
+/** Near a gate, how often the server is asked how many players are in each place. */
+const COUNTS_EVERY = 10; // s
+
 /** The lobby's parrots are simulated on every this-many-th step, to save time. */
 const FLOCK_EVERY = 2;
 
@@ -143,6 +146,8 @@ export class Engine {
    * in this place along its step, not at a start point. Otherwise -1.
    */
   private arriveAt = -1;
+  /** Seconds until the server is next asked how many players are in each place. */
+  private countsIn = 0;
   private readonly reach = new ReachMeter();
   /** How long the menu button has been held, s. */
   private menuHeld = 0;
@@ -231,6 +236,10 @@ export class Engine {
       this.gateView.setPicked(placeId);
       this.sounds.chirp();
       this.worldView.burst(at, 0xfff27a);
+    };
+    this.gate.onRefused = (_placeId, at) => {
+      this.sounds.refuse();
+      this.worldView.burst(at, 0xff6a5f);
     };
     this.flock = new Flock(this.world, this.actions, this.physics, this.feathers, this.sounds, this.mimicry);
     this.scene.add(this.flock.object);
@@ -339,9 +348,10 @@ export class Engine {
     const instance = module.load({ physics: this.physics });
     if (module.content) this.world.load(module.content);
     this.flock.load(module.content?.flock);
-    this.pets.load(module.content?.petCorner);
+    this.pets.load(module.content?.petCorner, module.spawnPoints[0].position);
     this.gate.load(module.content?.gate, module.id);
     this.gateView.rebuild(this.gate.layout);
+    this.countsIn = 0;
     this.arriveAt = atGate && this.gate.layout ? leftAs % this.gate.layout.arrivals.length : -1;
     this.worldView.rebuild();
     this.sounds.setAmbience(module.ambience ?? null);
@@ -464,6 +474,7 @@ export class Engine {
     this.updateStunts(dt);
     const through = this.gate.update(player);
     if (through) this.travel.go(through);
+    this.updateCounts(dt);
     this.travel.update(dt);
     this.fade.set(this.travel.dark);
     this.worldView.update(dt, this.biteable);
@@ -486,6 +497,20 @@ export class Engine {
       this.pets.step(dt * FLOCK_EVERY, this.localPlayer);
     }
     this.world.step(dt, this.actions);
+  }
+
+  /** Near a gate, keep its board up to date with how many players are in each place. */
+  private updateCounts(dt: number): void {
+    this.countsIn -= dt;
+    if (this.countsIn > 0 || !this.wantOnline || !this.gate.near(this.localPlayer)) return;
+    this.countsIn = COUNTS_EVERY;
+    const layout = this.gate.layout;
+    void placeCounts().then((counts) => {
+      // The place may have been left while the server was asked.
+      if (this.gate.layout !== layout) return;
+      this.gate.counts = counts;
+      this.gateView.setCounts(counts);
+    });
   }
 
   /** The sound of an action. One another player's game made happen is quieter the further off it was. */

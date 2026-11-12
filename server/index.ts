@@ -1,3 +1,4 @@
+import type { PlacesView } from '../shared/api';
 import { LOBBY_IDS, PROTOCOL } from '../shared/net';
 import { d1Store } from './d1Store';
 import { helperAi } from './helperAi';
@@ -208,6 +209,12 @@ async function iceServers(env: Env): Promise<unknown[]> {
   }
 }
 
+/** How many players are in each lobby now, by lobby id. Each lobby is asked. */
+async function placeCounts(env: Env): Promise<Record<string, number>> {
+  const counts = await Promise.all(LOBBY_IDS.map(async (id) => [id, await env.LOBBY.getByName(id).count()] as const));
+  return Object.fromEntries(counts);
+}
+
 async function route(request: Request, env: Env): Promise<Response> {
   const path = new URL(request.url).pathname.replace(/\/+$/, '');
   if (!path.startsWith('/api/')) return refuse('not-found', 404);
@@ -235,6 +242,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   const player = await playerForToken(store, bearer(request));
   if (!player) return refuse('signed-out', 401);
   if (rest === '/ice' && request.method === 'GET') return json({ iceServers: await iceServers(env) });
+  if (rest === '/places' && request.method === 'GET') return json({ counts: await placeCounts(env) } satisfies PlacesView);
   return mine(request, rest, store, player);
 }
 

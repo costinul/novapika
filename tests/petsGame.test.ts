@@ -500,3 +500,79 @@ describe('setting a pet free', () => {
     expect(pets.corner!.held).toBe(0);
   });
 });
+
+describe('a place with no pet corner', () => {
+  /** Leave the place with the pet corner for one without, as going through the gate does. */
+  const travel = (): void => {
+    pets.clear();
+    pets.load(undefined, [0, NEST_Y, 0]);
+  };
+
+  it('has the follower come along, and nothing else', () => {
+    travel();
+    expect(pets.corner).toBeNull();
+    expect(out()).toEqual([[mine[0], 'follow']]);
+    expect(pets.follower!.petId).toBe(mine[0]);
+  });
+
+  it('has the follower stay by its owner', () => {
+    travel();
+    owner.position.set(6, NEST_Y, 4);
+    owner.head.position.set(6, NEST_Y + 0.6, 4);
+    fly(4);
+    expect(pets.follower!.player.position.distanceTo(owner.position)).toBeLessThan(3);
+  });
+
+  it('has nothing about while nobody is signed in', () => {
+    travel();
+    pets.setAccount({ status: 'out' });
+    expect(pets.pets).toHaveLength(0);
+  });
+
+  it('takes whichever pet the server says follows', async () => {
+    travel();
+    await rules.chooseFollower(store, alex, mine[1]);
+    pets.setAccount(await server.account());
+    expect(out()).toEqual([[mine[1], 'follow']]);
+  });
+
+  it("still knows what the friends' pets look like, to draw the ones that follow them", async () => {
+    expect(pets.friendPet(sam.id, theirs[0])?.id).toBe(theirs[0]);
+    travel();
+    expect(pets.friendPet(sam.id, theirs[0])?.id).toBe(theirs[0]);
+
+    // And when the game starts in such a place, it asks.
+    pets = new Pets({ physics, feathers: null, api: server, spots: () => [], eat: () => {} });
+    pets.load(undefined, [0, NEST_Y, 0]);
+    pets.setAccount(await server.account());
+    expect(pets.friendPet(sam.id, theirs[0])).toBeNull();
+    pets.frame(STEP, 1, owner);
+    await settle();
+    expect(pets.friendPet(sam.id, theirs[0])?.id).toBe(theirs[0]);
+  });
+
+  it('says so when the server no longer takes the sign-in', async () => {
+    let signedOut = 0;
+    pets = new Pets({ physics, feathers: null, api: server, spots: () => [], eat: () => {}, onSignedOut: () => signedOut++ });
+    pets.load(undefined, [0, NEST_Y, 0]);
+    pets.setAccount(await server.account());
+    pets.frame(STEP, 1, owner);
+    await settle();
+    expect(signedOut).toBe(0);
+
+    server.account = async () => ({ status: 'out' });
+    pets.frame(25, 1, owner);
+    await settle();
+    expect(signedOut).toBe(1);
+    expect(pets.pets).toHaveLength(0);
+  });
+
+  it('has the pets back on the rail, and the friends on the board, on coming home', () => {
+    travel();
+    pets.clear();
+    pets.load(PET_CORNER);
+    expect(out()).toEqual([[mine[0], 'follow']]);
+    expect(rail()).toEqual([null, mine[1], mine[2], null, null, null]);
+    expect(pets.corner!.friendShowing()!.friend.nickname).toBe('Sam');
+  });
+});

@@ -252,9 +252,10 @@ voice sounds. Everything else was tested with unit tests and the desktop emulato
 ## Places (being built)
 
 Design: [docs/plans/2026-11-12-places-design.md](docs/plans/2026-11-12-places-design.md).
-Step 1 of 5 is built: the gate, its board and the trip. The new places
-themselves (Downham Market, London, New York) are not built yet, so for now
-the gate leads to the test room and back.
+Steps 1 and 2 of 5 are built: the gate, its board and the trip; the pet that
+comes along; and the counts of who is where. The new places themselves
+(Downham Market, London, New York) are not built yet, so for now the gate
+leads to the test room and back.
 
 - **The gate.** The big stone gate against the Aviary's far netting is open.
   With no place picked the sheet in it is dim, and going through does nothing.
@@ -268,6 +269,13 @@ the gate leads to the test room and back.
   join those in the new one.
 - **Coming home.** Every place has the same gate and board. The Aviary is the
   picture of a nest.
+- **Who is where.** Over each picture is a row of little parrots, one for each
+  player in that place now. The game asks the server every ten seconds while
+  you are near a gate. A full place, with eight, has its picture greyed, and
+  touching it gets a "no". With no connection the board shows no parrots.
+- **Your pet comes along.** The pet that follows you is beside you when you
+  arrive, and the other players there see it. Your other pets stay on the
+  rail in the Aviary, which is still the only place to choose a follower.
 - **Which way you face.** The game never turns your view, so you arrive facing
   the way you flew in. The Aviary's gate is flown into heading away from the
   nest, and every other gate the opposite way, so on a trip from or to the

@@ -1,5 +1,5 @@
 import { Group, Vector3 } from 'three';
-import type { PetView, PlayerView as PlayerInfo } from '../../shared/api';
+import type { FriendView, PetView, PlayerView as PlayerInfo } from '../../shared/api';
 import type { Account, PetsApi } from '../account/account';
 import type { FeatherBatch } from '../characters/FeatherBatch';
 import { petCharacter } from '../characters/pets';
@@ -8,7 +8,7 @@ import type { PhysicsWorld } from '../engine/physics';
 import { HANDS } from '../player/Player';
 import type { Player } from '../player/Player';
 import { beakPosition } from '../world/beak';
-import type { PetCornerDef, Stand } from '../world/types';
+import type { PetCornerDef, Stand, Vec3 } from '../world/types';
 import { LivePet } from './LivePet';
 import { PetCorner } from './PetCorner';
 import type { PetTouch } from './PetCorner';
@@ -19,6 +19,9 @@ import { StationsView } from './StationsView';
 // one that follows the player about, breeding, the egg, and setting a pet
 // free. What happens is the server's to say: a touch asks it, and nothing
 // changes here until it has agreed.
+//
+// A lobby without a pet corner has none of that, but the pet that follows the
+// player is still with them there.
 
 /** How long both pads by the goodbye perch must be held to set a pet free. */
 export const HOLD_TO_FREE = 3; // s
@@ -63,6 +66,12 @@ export class Pets {
   private rail: PetCornerView | null = null;
   private stations: StationsView | null = null;
   private account: Account = { status: 'out' };
+  /** The other players and their pets, as the server last told them. */
+  private friends: FriendView[] = [];
+  /** Where the follower is put if it gets lost, in a lobby with no pet corner. */
+  private readonly fallback = new Vector3();
+  /** A lobby is loaded. Between lobbies no pet is out. */
+  private loaded = false;
   private live: LivePet[] = [];
   /** A request to the server is on its way; touches wait for its answer. */
   private busy = false;
@@ -84,18 +93,26 @@ export class Pets {
 
   /** A pet of another player's, as the server last told it; null if it has not been heard of. */
   friendPet(ownerId: string, petId: string): PetView | null {
-    const friend = this.corner?.friends.find((other) => other.id === ownerId);
+    const friend = this.friends.find((other) => other.id === ownerId);
     return friend?.pets.find((pet) => pet.id === petId) ?? null;
   }
 
-  /** Set up the lobby's pet corner, if it has one. Call after the world has loaded the lobby. */
-  load(def: PetCornerDef | undefined): void {
-    if (!def) return;
-    this.corner = new PetCorner(def);
-    if (this.deps.feathers) {
-      this.rail = new PetCornerView(this.corner);
-      this.stations = new StationsView(this.corner);
-      this.object.add(this.rail.object, this.stations.object);
+  /**
+   * Set up the lobby's pet corner, if it has one. Call after the world has
+   * loaded the lobby. In a lobby without one only the follower is out;
+   * `fallback` is where it is put if it gets lost there.
+   */
+  load(def: PetCornerDef | undefined, fallback: Vec3 = [0, 0, 0]): void {
+    this.fallback.set(...fallback);
+    this.loaded = true;
+    if (def) {
+      this.corner = new PetCorner(def);
+      this.corner.setFriends(this.friends);
+      if (this.deps.feathers) {
+        this.rail = new PetCornerView(this.corner);
+        this.stations = new StationsView(this.corner);
+        this.object.add(this.rail.object, this.stations.object);
+      }
     }
     this.setAccount(this.account);
   }
@@ -111,6 +128,7 @@ export class Pets {
     }
     this.rail = this.stations = null;
     this.corner = null;
+    this.loaded = false;
   }
 
   /**
@@ -122,8 +140,12 @@ export class Pets {
   setAccount(account: Account, start: Vector3 | 'beside' = 'beside'): void {
     const wasIn = this.account.status === 'in';
     this.account = account;
+    if (account.status === 'out') this.friends = [];
     const corner = this.corner;
-    if (!corner) return;
+    if (!corner) {
+      if (this.loaded) this.followOnly(start);
+      return;
+    }
 
     // Pets the change takes off a heart perch or the goodbye perch go back where they belong.
     const sat = this.sitting(corner);
@@ -142,14 +164,13 @@ export class Pets {
   /** One fixed simulation step for the pets that are out. `owner` is the player they belong to. */
   step(dt: number, owner: Player | null): void {
     const corner = this.corner;
-    if (!corner) return;
     const done: LivePet[] = [];
     for (const pet of this.live) {
       pet.step(dt, owner);
       if (pet.arrived) this.deps.onEvent?.({ type: 'call', voice: pet.def.voice, at: pet.position });
       if (pet.mode === 'home' && pet.atHome) done.push(pet);
     }
-    if (done.length === 0) return;
+    if (!corner || done.length === 0) return;
     for (const pet of done) {
       const where = pet.leaving ? pet.position.clone() : at(corner.def.perches[Math.max(0, corner.perchOf(pet.petId))], 0.15);
       this.remove(pet);
@@ -170,13 +191,13 @@ export class Pets {
     this.stations?.update(dt);
 
     const corner = this.corner;
-    if (!corner || !corner.player) return;
+    if (this.account.status !== 'in') return;
     this.askIn -= dt;
     if (this.askIn <= 0 && !this.busy) {
       this.askIn = ASK_EVERY;
       void this.hear(corner);
     }
-    if (!owner || this.busy) return;
+    if (!corner || !owner || this.busy) return;
 
     beakPosition(owner.head, this.points[0]);
     HANDS.forEach((h, i) => this.points[i + 1].copy(owner.hands[h].grip.position));
@@ -398,12 +419,25 @@ export class Pets {
     this.refresh(corner);
   }
 
-  /** Bring a pet out, flying. */
-  private fly(corner: PetCorner, pet: PetView, start: Vector3 | 'beside'): LivePet {
+  /**
+   * In a lobby with no pet corner: make the follower the one pet that is out.
+   * There is nowhere there to choose another, but the server may still say so.
+   */
+  private followOnly(start: Vector3 | 'beside'): void {
+    const player = this.account.status === 'in' ? this.account.player : null;
+    const follower = player?.pets.find((pet) => pet.id === player.followerId) ?? null;
+    const keep = this.live.filter((pet) => pet.petId === follower?.id);
+    for (const pet of this.live) if (!keep.includes(pet)) this.remove(pet);
+    this.live = keep;
+    if (follower && keep.length === 0) this.live.push(this.fly(null, follower, start));
+  }
+
+  /** Bring a pet out, flying. Its home is its perch in the corner, or the fallback where there is no corner. */
+  private fly(corner: PetCorner | null, pet: PetView, start: Vector3 | 'beside'): LivePet {
     const out = new LivePet(
       pet.id,
       petCharacter(pet.id, pet.dna),
-      at(corner.def.perches[Math.max(0, corner.perchOf(pet.id))]),
+      corner ? at(corner.def.perches[Math.max(0, corner.perchOf(pet.id))]) : this.fallback.clone(),
       this.deps.physics,
       this.deps.feathers,
       this.deps.spots,
@@ -435,14 +469,17 @@ export class Pets {
   }
 
   /** Ask the server what has changed: a friend's answer, a new request, the friends' pets. */
-  private async hear(corner: PetCorner): Promise<void> {
+  private async hear(corner: PetCorner | null): Promise<void> {
     const [account, friends] = await Promise.all([this.deps.api.account(), this.deps.api.friends()]);
     // An answer that comes back late, or while something else is being asked, is dropped.
     if (this.corner !== corner || this.busy || this.feeding) return;
-    if (friends) corner.setFriends(friends);
+    if (friends) {
+      this.friends = friends;
+      corner?.setFriends(friends);
+    }
     // With no connection the game carries on with what it last knew.
     if (account.status !== 'offline') this.setAccount(account);
-    else this.refresh(corner);
+    else if (corner) this.refresh(corner);
     if (account.status === 'out') this.deps.onSignedOut?.();
   }
 

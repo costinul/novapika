@@ -1,4 +1,4 @@
-import type { FriendView, PlayerView } from '../../shared/api';
+import type { FriendView, PlacesView, PlayerView } from '../../shared/api';
 
 // Signing in. A player types their 6-digit code once; the server swaps it
 // for a token, which is all this device keeps. Nobody plays without it.
@@ -100,6 +100,10 @@ async function call<T>(method: string, path: string, body?: object): Promise<T |
  */
 export const iceServers = async (): Promise<RTCIceServer[]> =>
   (await call<{ iceServers: RTCIceServer[] }>('GET', '/ice'))?.iceServers ?? [{ urls: 'stun:stun.cloudflare.com:3478' }];
+
+/** How many players are in each place now, by lobby id; null if the server cannot say. */
+export const placeCounts = async (): Promise<Record<string, number> | null> =>
+  (await call<PlacesView>('GET', '/places'))?.counts ?? null;
 
 /** A change that answers with the player as the server now has them. */
 const change = async (method: string, path: string, body?: object): Promise<PlayerView | null> =>

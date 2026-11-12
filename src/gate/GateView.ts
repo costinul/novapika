@@ -1,5 +1,5 @@
-import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
-import type { CanvasTexture } from 'three';
+import { CanvasTexture, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace } from 'three';
+import { LOBBY_SIZE } from '../../shared/net';
 import { fromGate, OPENING, PICTURE } from './layout';
 import type { GateLayout } from './layout';
 import { placePicture } from './pictures';
@@ -7,20 +7,51 @@ import { placePicture } from './pictures';
 const DIM = 0x7a5bd6; // the doorway's sheet with no place picked
 const LIT = 0xfff3b8; // and with one picked
 const FRAME = 0xffd23f; // round the picture that is picked
+const FULL = 0x6b6b6b; // a full place's picture is greyed with this
 /** The picked place's picture, as it shows in the doorway. */
 const SHOWN = 2.1; // m square
+/** The row of little parrots over a picture, as wide as the picture: one for each player in that place. */
+const ROW_HEIGHT = PICTURE / LOBBY_SIZE; // m
+const ROW_PX = 32; // px, one parrot
+
+/** A row of `count` little parrot heads. */
+function drawRow(canvas: HTMLCanvasElement, count: number): void {
+  const g = canvas.getContext('2d')!;
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < count; i++) {
+    const x = (i + 0.5) * ROW_PX;
+    const y = ROW_PX / 2;
+    g.fillStyle = '#ffd23f';
+    g.beginPath();
+    g.arc(x, y, 12, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#f08a24';
+    g.beginPath();
+    g.moveTo(x - 5, y + 2);
+    g.lineTo(x + 5, y + 2);
+    g.lineTo(x, y + 11);
+    g.fill();
+    g.fillStyle = '#3a2f2a';
+    for (const side of [-1, 1]) {
+      g.beginPath();
+      g.arc(x + side * 5, y - 3, 2.2, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+}
 
 /**
  * Draws what changes about a gate: the pictures on its board, a frame round
- * the one that is picked, and the sheet in the doorway, which is dim until a
- * place is picked and then shows that place. The stone and wood are part of
- * the place's scenery; see scenery.ts.
+ * the one that is picked, how many players are in each place, and the sheet
+ * in the doorway, which is dim until a place is picked and then shows that
+ * place. The stone and wood are part of the place's scenery; see scenery.ts.
  */
 export class GateView {
   /** Add this to the scene. */
   readonly object = new Group();
   private layout: GateLayout | null = null;
-  private readonly textures = new Map<string, CanvasTexture>();
+  private readonly pictures = new Map<string, MeshBasicMaterial>();
+  private readonly rows = new Map<string, { mesh: Mesh; canvas: HTMLCanvasElement; texture: CanvasTexture }>();
   private frame: Mesh | null = null;
   private sheet: Mesh | null = null;
   private shown: Mesh | null = null;
@@ -42,9 +73,21 @@ export class GateView {
     };
 
     for (const { placeId, local } of layout.pictures) {
-      const map = placePicture(placeId);
-      this.textures.set(placeId, map);
-      flat(PICTURE, PICTURE, new MeshBasicMaterial({ map }), local[0], local[1], local[2] + 0.006);
+      const [x, y, z] = local;
+      const picture = new MeshBasicMaterial({ map: placePicture(placeId) });
+      this.pictures.set(placeId, picture);
+      flat(PICTURE, PICTURE, picture, x, y, z + 0.006);
+
+      // Above it, room for one little parrot for each player a place holds. Empty until the server says.
+      const canvas = document.createElement('canvas');
+      canvas.width = ROW_PX * LOBBY_SIZE;
+      canvas.height = ROW_PX;
+      const texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      const row = new MeshBasicMaterial({ map: texture, transparent: true });
+      const mesh = flat(PICTURE, ROW_HEIGHT, row, x, y + PICTURE / 2 + 0.06, z + 0.006);
+      mesh.visible = false;
+      this.rows.set(placeId, { mesh, canvas, texture });
     }
     this.frame = flat(PICTURE + 0.09, PICTURE + 0.09, new MeshBasicMaterial({ color: FRAME }), 0, 0, 0);
     this.frame.visible = false;
@@ -76,21 +119,39 @@ export class GateView {
     sheet.color.set(picture ? LIT : DIM);
     sheet.opacity = picture ? 0.9 : 0.5;
     const shown = this.shown.material as MeshBasicMaterial;
-    shown.map = picture ? (this.textures.get(picture.placeId) ?? null) : null;
+    shown.map = picture ? (this.pictures.get(picture.placeId)?.map ?? null) : null;
     shown.needsUpdate = true;
     this.shown.visible = !!picture;
+  }
+
+  /**
+   * Show how many players are in each place, by lobby id: a row of little
+   * parrots over its picture, and the picture greyed when the place is full.
+   * With null, nothing is known and nothing is shown.
+   */
+  setCounts(counts: Readonly<Record<string, number>> | null): void {
+    for (const [placeId, row] of this.rows) {
+      const count = Math.min(LOBBY_SIZE, counts?.[placeId] ?? 0);
+      drawRow(row.canvas, count);
+      row.texture.needsUpdate = true;
+      row.mesh.visible = count > 0;
+      this.pictures.get(placeId)?.color.set(count >= LOBBY_SIZE ? FULL : 0xffffff);
+    }
   }
 
   /** Free what was made for drawing. */
   private clear(): void {
     for (const child of this.object.children) {
       const mesh = child as Mesh;
+      const material = mesh.material as MeshBasicMaterial;
       mesh.geometry.dispose();
-      (mesh.material as MeshBasicMaterial).dispose();
+      // The doorway shows one of the board's own pictures: freeing it twice does no harm.
+      material.map?.dispose();
+      material.dispose();
     }
     this.object.clear();
-    for (const texture of this.textures.values()) texture.dispose();
-    this.textures.clear();
+    this.pictures.clear();
+    this.rows.clear();
     this.frame = this.sheet = this.shown = null;
   }
 }
