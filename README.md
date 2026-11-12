@@ -399,6 +399,11 @@ npm run build
   - Place: drop a toy into the toy box for a chirp and a sparkle.
   - Peck: move your head (or a hand) into a bell to ring it. No button.
 - **Grip** (optional): locks a touching hand to the surface.
+- **A or X: your menu.** A small board of picture buttons opens at your chest
+  and flies along with you; press again to close it (desktop: **M**). To
+  choose, hold a hand on a button for a little over a second while a green
+  ring fills. For now it has one button, a door: it leaves VR and brings back
+  the start screen. More buttons are entries in `src/menu/buttons.ts`.
 
 ## Starting, for a child
 
@@ -523,6 +528,7 @@ microphone is used for three things:
 | `src/account/` | Signing in: the number pad on the start screen and the token the device keeps |
 | `src/pets/` | The pet corner in the nest, and the pet that follows the player |
 | `src/helper/` | The game's side of the helper parrot: when it listens, and playing its voice |
+| `src/menu/` | The player's own menu board, and the picture buttons on it |
 | `src/admin/`, `admin.html` | The owner's admin page |
 | `shared/` | Pet DNA, tiers, breeding rules, the fixed pets, what the server sends, and what the game and the lobby say to each other; used by game and server |
 | `server/` | The API on Cloudflare: rules, database layer and migrations; the lobby's rules and its Durable Object; the helper parrot's mind (`helper*.ts`) |

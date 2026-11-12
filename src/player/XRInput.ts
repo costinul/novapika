@@ -6,6 +6,7 @@ import type { Handedness, InputSource, PlayerInput, Pose } from './Player';
 // xr-standard gamepad button indices.
 const BUTTON_TRIGGER = 0;
 const BUTTON_SQUEEZE = 1;
+const BUTTON_BOARD = 4; // A on the right controller, X on the left
 const BUTTON_MENU = 5; // B on the right controller, Y on the left
 
 // Hand positions used on a flat screen, relative to the head.
@@ -78,6 +79,7 @@ export class XRInput implements InputSource {
       out.hands[h].gripPressed = false;
       out.hands[h].triggerPressed = false;
       out.hands[h].menuPressed = false;
+      out.hands[h].boardPressed = false;
     }
     for (const source of xr.getSession()?.inputSources ?? []) {
       const h = source.handedness;
@@ -86,6 +88,7 @@ export class XRInput implements InputSource {
       out.hands[h].triggerPressed = buttons[BUTTON_TRIGGER]?.pressed ?? false;
       out.hands[h].gripPressed = buttons[BUTTON_SQUEEZE]?.pressed ?? false;
       out.hands[h].menuPressed = buttons[BUTTON_MENU]?.pressed ?? false;
+      out.hands[h].boardPressed = buttons[BUTTON_BOARD]?.pressed ?? false;
     }
   }
 
@@ -110,7 +113,7 @@ export class XRInput implements InputSource {
       hand.grip.quaternion.copy(out.head.quaternion);
       hand.aim.position.copy(hand.grip.position);
       hand.aim.quaternion.copy(hand.grip.quaternion);
-      hand.gripPressed = hand.triggerPressed = hand.menuPressed = false;
+      hand.gripPressed = hand.triggerPressed = hand.menuPressed = hand.boardPressed = false;
     }
   }
 }

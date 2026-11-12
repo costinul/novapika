@@ -30,6 +30,8 @@ export interface HandInput {
   triggerPressed: boolean;
   /** Opens and closes the debug panel. */
   menuPressed: boolean;
+  /** Opens and closes the player's own menu board. */
+  boardPressed: boolean;
 }
 
 /**
@@ -62,6 +64,7 @@ const handInput = (): HandInput => ({
   gripPressed: false,
   triggerPressed: false,
   menuPressed: false,
+  boardPressed: false,
 });
 
 export function createPlayerInput(): PlayerInput {

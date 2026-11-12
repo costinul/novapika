@@ -27,6 +27,8 @@ import { Gate } from '../gate/Gate';
 import { GateView } from '../gate/GateView';
 import { Travel } from '../gate/Travel';
 import { Helper } from '../helper/Helper';
+import { MENU_BUTTONS } from '../menu/buttons';
+import { Menu } from '../menu/Menu';
 import type { PanelPointer } from '../debug/DebugPanel';
 import { lobbyRegistry } from '../lobbies/registry';
 import type { LobbyInstance, LobbyModule } from '../lobbies/types';
@@ -107,6 +109,10 @@ export class Engine {
   private readonly voice: Voice;
   private readonly flock: Flock;
   private readonly helper: Helper;
+  /** The player's own menu board, opened with A or X. */
+  private readonly menu: Menu;
+  private boardWasPressed = false;
+  private desktopMenu = false;
   /** A signed-in player's pets. Tell it who is signed in with `pets.setAccount`. */
   readonly pets: Pets;
   /** Called when the server stops taking this device's sign-in in the middle of a game. */
@@ -211,6 +217,13 @@ export class Engine {
     }));
     this.scene.add(this.debugPanel.object);
     this.debugPanel.object.visible = false;
+
+    // The player's own menu. It is in their tracking space, so it flies along with them.
+    this.menu = new Menu(MENU_BUTTONS, (id) => {
+      // Leaving ends the VR session: the start screen comes back, as when the headset is taken off.
+      if (id === 'leave') void this.renderer.xr.getSession()?.end();
+    });
+    this.rig.add(this.menu.object);
 
     this.world = new WorldState(this.physics);
     this.world.players.set(this.localPlayer.id, this.localPlayer);
@@ -318,6 +331,7 @@ export class Engine {
     // Head height changes when a session starts or ends, so re-seat the player.
     this.renderer.xr.addEventListener('sessionstart', () => (this.needsSpawn = true));
     this.renderer.xr.addEventListener('sessionend', () => (this.needsSpawn = true));
+    this.renderer.xr.addEventListener('sessionend', () => this.menu.close());
 
     this.listenToWindow(canvas);
   }
@@ -483,6 +497,7 @@ export class Engine {
     tickParrotMaterials(dt);
     this.sounds.update(dt);
     this.updateDebugPanel(dt);
+    this.updateMenu(dt);
 
     this.renderer.render(this.scene, this.camera);
     // In VR this counts both eyes, so it reads about double the scene's own total.
@@ -655,6 +670,25 @@ export class Engine {
     return `${movementState}   L${mark(claws.left.planted)} R${mark(claws.right.planted)}`;
   }
 
+  /** The player's menu: A or X opens and closes it, and a hand held on a button chooses. */
+  private updateMenu(dt: number): void {
+    const input = this.localPlayer.input;
+    const pressed = this.desktopMenu || HANDS.some((h) => input.hands[h].boardPressed);
+    this.desktopMenu = false;
+    if (pressed && !this.boardWasPressed) {
+      this.menu.toggle(input.head);
+      this.sounds.clawTap();
+    }
+    this.boardWasPressed = pressed;
+    const open = this.menu.open;
+    this.menu.update(
+      dt,
+      HANDS.map((h) => input.hands[h].grip.position),
+    );
+    // Chosen: a buzz in both hands.
+    if (open && !this.menu.open && !pressed) for (const h of HANDS) this.input.pulse?.(h, 0.5, 80);
+  }
+
   private updateDebugPanel(dt: number): void {
     const player = this.localPlayer;
     // Hold B or Y for a moment: a child's stray press does not open it.
@@ -710,6 +744,7 @@ export class Engine {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'p') this.debugPanel.toggle(this.localPlayer.head);
       if (e.key === 'b') this.desktopBite = true; // bite or drop, as the trigger does
+      if (e.key === 'm') this.desktopMenu = true; // the player's menu, as A or X does
     });
   }
 }
