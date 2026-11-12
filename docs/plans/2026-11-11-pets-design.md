@@ -227,8 +227,10 @@ it.
 
 A plain page at `/admin`, protected by one admin password held as a Worker
 secret. The owner sets it; it is never in the repo. The page keeps the
-password only in memory, so it is asked for again after a reload. A deploy
-fails if the password has not been set.
+password for its browser tab only (changed on Nov 12, 2026, at the owner's
+wish: it was kept in memory only, and asked for again after every reload).
+Closing the tab or pressing Lock forgets it. A deploy fails if the password
+has not been set.
 
 - Players: list, add by nickname (shows the code), regenerate the code, and
   delete. Deleting takes the player's sign-ins, pets, eggs and requests with

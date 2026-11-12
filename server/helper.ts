@@ -99,13 +99,18 @@ export interface Verdict {
   why: string;
 }
 
-/** An exchange as it is kept for the owner to read. */
+/**
+ * An exchange as it is kept for the owner to read. A phrase that got no
+ * answer is kept too, so that the owner can see it was heard at all.
+ */
 export interface Talk {
   at: number;
   lobbyId: string;
   playerId: string;
   nickname: string;
+  /** What the player said. Empty: they only came near, or nothing could be made out of it. */
   heard: string;
+  /** What the helper answered. Empty: it gave no answer to a phrase. */
   said: string;
   /** Why the owner should look at this one, or null. */
   flagged: string | null;
@@ -256,6 +261,19 @@ export class HelperMind {
     // One at a time: anything said while it thinks or speaks is dropped.
     if (this.busy) return 'busy';
     this.busy = true;
+    // What was made out of the phrase so far, and what it was doing when something failed.
+    let said = '';
+    let stage = '';
+    const doing = <T>(what: string, work: Promise<T>): Promise<T> =>
+      work.catch((error: unknown) => {
+        stage ||= what;
+        throw error;
+      });
+    /** Keep a phrase that got no answer, so that the owner can see it reached the helper. */
+    const unanswered = (flagged: string | null): Promise<void> =>
+      deps
+        .record({ at: deps.now(), lobbyId: deps.lobbyId, playerId: speaker.id, nickname: speaker.nickname, heard: said, said: '', flagged })
+        .catch((error: unknown) => deps.failed('record', error));
     try {
       if (!(await deps.on())) return 'off';
       if (this.spent(speaker.id)) return 'spent';
@@ -266,12 +284,18 @@ export class HelperMind {
         this.greetedAt = deps.now();
       }
 
-      const [heard, about] = await Promise.all([hear ? hear() : '', deps.about(speaker.id)]);
-      const said = heard.trim();
+      const [heard, about] = await Promise.all([
+        hear ? doing('hearing', hear()) : '',
+        doing('reading about the player', deps.about(speaker.id)),
+      ]);
+      said = heard.trim();
       // A cough, a bump, or talk too quiet to make out.
-      if (hear && said.length < 2) return 'nothing';
+      if (hear && said.length < 2) {
+        await unanswered(null);
+        return 'nothing';
+      }
 
-      const thought = await deps.think({ speaker: speaker.nickname, heard: said, about, players, history: this.history });
+      const thought = await doing('thinking', deps.think({ speaker: speaker.nickname, heard: said, about, players, history: this.history }));
       let reply = (thought?.say ?? '').trim();
       // What it means to do, unless the reply is refused: then it only says the
       // safe line. A greeting never sends it anywhere.
@@ -285,12 +309,12 @@ export class HelperMind {
       const fault = unfit(reply);
       if (fault) refuse(fault);
       else {
-        const verdict = await deps.check(said, reply, players);
+        const verdict = await doing('checking', deps.check(said, reply, players));
         if (!verdict.ok) refuse(verdict.why);
         else if (verdict.worry) flagged = `worry: ${verdict.why}`;
       }
 
-      deps.say(await deps.speak(reply));
+      deps.say(await doing('speaking', deps.speak(reply)));
       this.met.set(speaker.id, deps.now());
       if (intent) this.does(intent);
       this.history.push({ nickname: speaker.nickname, heard: said, said: reply });
@@ -303,7 +327,10 @@ export class HelperMind {
     } catch (error) {
       deps.failed(hear ? 'answer' : 'greeting', error);
       // A greeting that fails is simply not given.
-      if (hear) deps.squawk();
+      if (hear) {
+        deps.squawk();
+        await unanswered(`no answer: ${stage || 'answering'} failed`);
+      }
       return 'failed';
     } finally {
       this.busy = false;

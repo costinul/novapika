@@ -87,7 +87,9 @@ export interface TalkView {
   at: number;
   lobbyId: string;
   nickname: string;
+  /** What the player said. Empty: they only came near, or nothing could be made out of it. */
   heard: string;
+  /** What the helper answered. Empty: it gave no answer to a phrase. */
   said: string;
   /** Why the owner should look at this one; null for ordinary talk. */
   flagged: string | null;

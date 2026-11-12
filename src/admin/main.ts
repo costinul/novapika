@@ -7,11 +7,12 @@ import { HELPER_NAME } from '../../shared/helper';
 import { LOBBY_NAMES } from '../../shared/net';
 import { petPicture } from './petPicture';
 
-// The owner's page: add players, hand out sign-in codes, give or remove
-// pets, let a present with a pet in it go over a lobby, switch the helper
-// parrot on or off and read what was said to it.
-// Every call carries the admin password, which is kept only in this
-// page's memory and is gone when the page is closed or reloaded.
+// The owner's page, in three pages chosen from a menu: the players, with
+// their sign-in codes and pets; letting a present with a pet in it go over a
+// lobby; and the helper parrot, with its switch and what was said to it.
+// Every call carries the admin password. It is kept for this browser tab
+// only, so that the page can be reloaded without typing it again, and is
+// gone when the tab is closed or the page is locked.
 
 const gate = document.querySelector<HTMLFormElement>('#gate')!;
 const gateError = document.querySelector<HTMLElement>('#gate-error')!;
@@ -20,6 +21,30 @@ const notice = document.querySelector<HTMLElement>('#notice')!;
 const list = document.querySelector<HTMLElement>('#players')!;
 const helper = document.querySelector<HTMLElement>('#helper')!;
 const present = document.querySelector<HTMLElement>('#present')!;
+const lockButton = document.querySelector<HTMLButtonElement>('#lock')!;
+const menu = document.querySelector<HTMLElement>('#menu')!;
+const pages = Array.from(document.querySelectorAll<HTMLElement>('.page'));
+
+/** Where this tab keeps the password while the page is open. */
+const KEPT = 'novapika.admin';
+
+/** The password this tab was opened with, if it still has it. */
+function kept(): string {
+  try {
+    return sessionStorage.getItem(KEPT) ?? '';
+  } catch {
+    return ''; // Storage switched off: the password is typed after every reload.
+  }
+}
+
+function keep(value: string): void {
+  try {
+    if (value) sessionStorage.setItem(KEPT, value);
+    else sessionStorage.removeItem(KEPT);
+  } catch {
+    // Storage switched off.
+  }
+}
 
 let password = '';
 
@@ -66,9 +91,23 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
 
 function lock(why: string): void {
   password = '';
+  keep('');
   panel.hidden = true;
+  lockButton.hidden = true;
   gate.hidden = false;
   gateError.textContent = why;
+}
+
+/** The page the menu has chosen: the one named after the # in the address, or the players. */
+function showPage(): string {
+  const wanted = location.hash.slice(1);
+  const name = pages.some((page) => page.dataset.page === wanted) ? wanted : 'players';
+  for (const page of pages) page.hidden = page.dataset.page !== name;
+  for (const link of menu.querySelectorAll('a')) {
+    if (link.hash === `#${name}`) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  return name;
 }
 
 function say(...parts: (Node | string)[]): void {
@@ -220,15 +259,31 @@ function playerCard(player: AdminPlayerView): HTMLElement {
   );
 }
 
-/** One thing a player said to the helper parrot, and what it answered. */
+const roomName = (id: string): string => (LOBBY_NAMES as Record<string, string>)[id] ?? id;
+
+/**
+ * One thing a player said to the helper parrot, and what it answered. A
+ * phrase it gave no answer to is shown too: one it could not make out, or
+ * one it failed on.
+ */
 function talkCard(talk: TalkView): HTMLElement {
+  const unanswered = talk.said === '';
+  const heard = talk.heard
+    ? el('p', {}, el('strong', {}, `${talk.nickname}: `), talk.heard)
+    : el(
+        'p',
+        { className: 'when' },
+        !unanswered ? `${talk.nickname} came near.` : talk.flagged ? `${talk.nickname} said something.` : `${talk.nickname} said something ${HELPER_NAME} could not make out.`,
+      );
   return el(
     'li',
-    { className: talk.flagged ? 'flagged' : '' },
-    el('p', { className: 'when' }, `${new Date(talk.at).toLocaleString()} · ${talk.nickname} · ${talk.lobbyId}`),
+    { className: talk.flagged ? 'flagged' : unanswered ? 'unanswered' : '' },
+    el('p', { className: 'when' }, `${new Date(talk.at).toLocaleString()} · ${talk.nickname} · ${roomName(talk.lobbyId)}`),
     ...(talk.flagged ? [el('p', { className: 'why' }, `Look at this one: ${talk.flagged}`)] : []),
-    talk.heard ? el('p', {}, el('strong', {}, `${talk.nickname}: `), talk.heard) : el('p', { className: 'when' }, `${talk.nickname} came near.`),
-    el('p', {}, el('strong', {}, `${HELPER_NAME}: `), talk.said),
+    heard,
+    unanswered
+      ? el('p', { className: 'when' }, `${HELPER_NAME} gave its call and did not answer.`)
+      : el('p', {}, el('strong', {}, `${HELPER_NAME}: `), talk.said),
   );
 }
 
@@ -246,14 +301,21 @@ function showHelper(view: HelperView): void {
       say(`${HELPER_NAME} is switched ${view.on ? 'off' : 'on'}. Lobbies learn of it within half a minute.`);
     });
   });
+  const spoken = view.talk.filter((talk) => talk.heard || talk.said === '').length;
   helper.replaceChildren(
     el('header', {}, el('div', {}, el('h2', {}, `${HELPER_NAME}, the helper parrot`), el('p', {}, state)), el('div', { className: 'actions' }, flip)),
     el('h3', {}, `Said in the last ${TALK_KEPT_DAYS} days, as text. No sound is kept.`),
+    // Every phrase that reaches the server is listed, answered or not. None listed means none arrived.
+    el(
+      'p',
+      {},
+      spoken > 0
+        ? `${spoken} of these ${view.talk.length} began with something a player said.`
+        : `No phrase from a player has reached ${HELPER_NAME} yet${view.talk.length > 0 ? ': these are its own greetings' : ''}. If a player has spoken to it, their game did not send it: look at the kiki line on the debug panel in the headset.`,
+    ),
     view.talk.length > 0 ? el('ul', { className: 'talk' }, ...view.talk.map(talkCard)) : el('p', {}, 'Nothing yet.'),
   );
 }
-
-const roomName = (id: string): string => (LOBBY_NAMES as Record<string, string>)[id] ?? id;
 
 /** A lobby in the list to choose from: who is in it, and whether a present is there already. */
 function roomLabel(room: RoomView): string {
@@ -318,22 +380,40 @@ async function refresh(): Promise<void> {
   showRooms(rooms);
 }
 
-gate.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const input = document.querySelector<HTMLInputElement>('#password')!;
-  password = input.value;
-  input.value = '';
+/** Open the page with a password: one just typed, or the one this tab kept across a reload. */
+function open(given: string): void {
+  password = given;
   gateError.textContent = '';
   void attempt(async () => {
     await refresh();
+    keep(password);
     gate.hidden = true;
     panel.hidden = false;
+    lockButton.hidden = false;
     say();
   }).then(() => {
     // A failure that was not a wrong password is shown at the gate too.
     if (panel.hidden && !gateError.textContent) gateError.textContent = notice.textContent ?? '';
   });
+}
+
+gate.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const input = document.querySelector<HTMLInputElement>('#password')!;
+  const given = input.value;
+  input.value = '';
+  open(given);
 });
+
+lockButton.addEventListener('click', () => lock(''));
+
+// Choosing from the menu shows that page, with what the server knows now.
+window.addEventListener('hashchange', () => {
+  showPage();
+  if (password) void attempt(refresh);
+});
+showPage();
+if (kept()) open(kept());
 
 document.querySelector<HTMLFormElement>('#add-player')!.addEventListener('submit', (event) => {
   event.preventDefault();

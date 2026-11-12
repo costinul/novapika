@@ -129,7 +129,7 @@ describe('answering a phrase', () => {
     expect(w.squawks).toBe(0);
   });
 
-  it('says nothing when nothing was said', async () => {
+  it('says nothing when nothing was said, and keeps a note that a phrase came', async () => {
     for (const noise of ['', '  ', 'a']) {
       w.hears = noise;
       expect(await hear()).toBe('nothing');
@@ -137,8 +137,13 @@ describe('answering a phrase', () => {
     }
     expect(w.thought).toEqual([]);
     expect(w.said).toEqual([]);
-    expect(w.records).toEqual([]);
     expect(w.squawks).toBe(0);
+    // The owner can see that the phrase reached the helper, and that nothing could be made out of it.
+    expect(w.records.map(({ playerId, heard, said, flagged }) => ({ playerId, heard, said, flagged }))).toEqual([
+      { playerId: 'id-sam', heard: '', said: '', flagged: null },
+      { playerId: 'id-sam', heard: '', said: '', flagged: null },
+      { playerId: 'id-sam', heard: 'a', said: '', flagged: null },
+    ]);
   });
 
   it('remembers the last few exchanges, and forgets them when the lobby empties', async () => {
@@ -232,8 +237,15 @@ describe('when something fails', () => {
     }
     expect(w.squawks).toBe(5);
     expect(w.said).toEqual([]);
-    expect(w.records).toEqual([]);
     expect(w.failures).toEqual(['answer', 'answer', 'answer', 'answer', 'answer']);
+    // Each is kept with what failed, and with what had been made out of the phrase by then.
+    expect(w.records.map(({ heard, said, flagged }) => ({ heard, said, flagged }))).toEqual([
+      { heard: '', said: '', flagged: 'no answer: hearing failed' },
+      { heard: '', said: '', flagged: 'no answer: reading about the player failed' },
+      { heard: 'How do I hatch my egg?', said: '', flagged: 'no answer: thinking failed' },
+      { heard: 'How do I hatch my egg?', said: '', flagged: 'no answer: checking failed' },
+      { heard: 'How do I hatch my egg?', said: '', flagged: 'no answer: speaking failed' },
+    ]);
 
     w.breaks = null;
     expect(await hear()).toBe('answered');

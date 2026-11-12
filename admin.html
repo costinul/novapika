@@ -13,12 +13,13 @@
       * { box-sizing: border-box; }
       body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
       main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
-      h1 { font-size: 1.5rem; margin: 0 0 20px; }
+      h1 { font-size: 1.5rem; margin: 0; }
       h2 { font-size: 1.15rem; margin: 0; }
       form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
       label { display: grid; gap: 4px; font-size: 0.875rem; color: var(--soft); }
-      input, select, button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); }
-      input, select { background: #fff; color: var(--ink); min-width: 14rem; }
+      /* Big enough for a finger: a phone is where this page is often used. */
+      input, select, button { font: inherit; padding: 8px 12px; min-height: 44px; border-radius: 8px; border: 1px solid var(--line); }
+      input, select { background: #fff; color: var(--ink); min-width: 14rem; max-width: 100%; }
       button { background: var(--ink); color: #fff; border-color: var(--ink); cursor: pointer; }
       button.quiet { background: #fff; color: var(--ink); border-color: var(--line); }
       button.danger { background: #fff; color: var(--stop); border-color: var(--line); }
@@ -26,13 +27,29 @@
       :focus-visible { outline: 3px solid #2b6cb0; outline-offset: 2px; }
       [hidden] { display: none !important; }
 
+      #top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+      /* The menu: one page of the three shows at a time. It stays at the top while the page scrolls. */
+      #menu {
+        position: sticky; top: 0; z-index: 1; display: flex; gap: 8px;
+        margin: 0 -16px; padding: 8px 16px; background: var(--page);
+      }
+      #menu a {
+        flex: 1; display: grid; place-items: center; min-height: 44px; padding: 8px 6px; text-align: center;
+        border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+        font-weight: 600; text-decoration: none;
+      }
+      #menu a[aria-current='page'] { background: var(--ink); border-color: var(--ink); color: #fff; }
+
       #gate-error { color: var(--stop); min-height: 1.5em; margin: 8px 0 0; }
-      #notice { background: var(--note); border-radius: 8px; padding: 12px 16px; margin: 16px 0 0; }
+      #gate[hidden] + #gate-error { display: none; }
+      #notice { background: var(--note); border-radius: 8px; padding: 12px 16px; margin: 8px 0 0; overflow-wrap: anywhere; }
       #notice:empty { display: none; }
       #notice strong { font-size: 1.4rem; letter-spacing: 0.12em; }
       #notice.problem { background: #fde8e6; }
 
+      .page { margin-top: 16px; }
       .player { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 16px; }
+      .page > .player:first-child { margin-top: 0; }
       .player header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
       .player header p { margin: 0; color: var(--soft); font-size: 0.875rem; }
       .player header .actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -47,23 +64,43 @@
       .tier.epic { background: #7a4fc4; }
       .tier.legendary { background: #b7791f; }
       .tier.mythical { background: linear-gradient(90deg, #d33, #d80, #2a2, #06c, #83c); }
-      .tier.ultra { background: linear-gradient(90deg, #d33, #d80, #2a2, #06c, #83c); box-shadow: 0 0 0 2px #f2b632, 0 0 10px 2px #ffd84a; }
+      .tier.ultra { background: linear-gradient(90deg, #d33, #d80, #2a2, #06c, #83c); border: 2px solid #f2b632; }
       .pet .follows { color: var(--go); font-weight: 600; }
       .pet.freed img { opacity: 0.55; }
       h3 { font-size: 0.9375rem; margin: 20px 0 0; color: var(--soft); }
       #present form { margin-top: 12px; }
 
       .talk { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
-      .talk li { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+      .talk li { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; overflow-wrap: anywhere; }
       .talk li.flagged { border-color: var(--stop); background: #fde8e6; }
+      /* A phrase the helper gave no answer to. */
+      .talk li.unanswered { background: #f3f6f8; }
       .talk p { margin: 0; }
       .talk .when, .talk .why { color: var(--soft); font-size: 0.8125rem; }
       .talk .why { color: var(--stop); font-weight: 600; }
+
+      /* A phone: everything in one column, and as wide as the screen. */
+      @media (max-width: 600px) {
+        main { padding: 12px 12px 48px; }
+        #menu { margin: 0 -12px; padding: 8px 12px; }
+        h1 { font-size: 1.25rem; }
+        form { flex-direction: column; align-items: stretch; }
+        input, select { min-width: 0; width: 100%; }
+        .player { padding: 12px; }
+        .player header .actions { width: 100%; }
+        .player header .actions button { flex: 1; }
+        .pets { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .pet button { width: 100%; }
+        #notice strong { display: block; font-size: 1.6rem; }
+      }
     </style>
   </head>
   <body>
     <main>
-      <h1>Nova Pika admin</h1>
+      <div id="top">
+        <h1>Nova Pika admin</h1>
+        <button id="lock" class="quiet" type="button" hidden>Lock</button>
+      </div>
 
       <form id="gate">
         <label>
@@ -75,17 +112,31 @@
       <p id="gate-error" role="alert"></p>
 
       <section id="panel" hidden>
-        <form id="add-player">
-          <label>
-            New player's nickname
-            <input id="nickname" maxlength="20" autocomplete="off" required />
-          </label>
-          <button>Add player</button>
-        </form>
+        <nav id="menu" aria-label="Pages">
+          <a href="#players">Players</a>
+          <a href="#present">Present</a>
+          <a href="#kiki">Kiki</a>
+        </nav>
         <p id="notice" role="status"></p>
-        <section id="present" class="player"></section>
-        <section id="helper" class="player"></section>
-        <div id="players"></div>
+
+        <section class="page" data-page="players">
+          <form id="add-player">
+            <label>
+              New player's nickname
+              <input id="nickname" maxlength="20" autocomplete="off" required />
+            </label>
+            <button>Add player</button>
+          </form>
+          <div id="players"></div>
+        </section>
+
+        <section class="page" data-page="present" hidden>
+          <section id="present" class="player"></section>
+        </section>
+
+        <section class="page" data-page="kiki" hidden>
+          <section id="helper" class="player"></section>
+        </section>
       </section>
     </main>
 

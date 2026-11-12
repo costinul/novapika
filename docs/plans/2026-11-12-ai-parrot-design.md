@@ -208,6 +208,9 @@ how the owner sees one if it happens, and the switch turns the parrot off.
   was heard, what was said, and whether it was flagged.
 - Rows are deleted after 7 days by a scheduled job.
 - The admin page lists them, newest first.
+- A phrase that got no answer is kept as well (added on Nov 12, 2026): with
+  nothing said back, and with what failed if something did. That is how the
+  owner sees whether a child's phrases reach the server at all.
 - No audio is stored anywhere, on the server or at Cloudflare.
 
 ## 10. When something fails

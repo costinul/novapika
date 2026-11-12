@@ -121,12 +121,19 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
   once; the headset then stays signed in. With no connection the button shows
   a crossed-out cloud; pressing it tries again.
 - **The admin page**, at `/admin` (`/admin.html` on the dev server). It asks
-  for the admin password, then lets you add and delete players, regenerate
-  their codes, give or remove pets, and bring back a pet that was set free.
-  A code is shown once, when it is made. Deleting a player takes their pets
-  with them and cannot be undone. "Drop a present" lets a present go over a
-  lobby; the list says how many players are in each lobby now, and whether a
-  present is there already.
+  for the admin password, and then has a menu of three pages. It fits a
+  phone.
+  - **Players:** add and delete players, regenerate their codes, give or
+    remove pets, and bring back a pet that was set free. A code is shown
+    once, when it is made. Deleting a player takes their pets with them and
+    cannot be undone.
+  - **Present:** let a present go over a lobby. The list says how many
+    players are in each lobby now, and whether a present is there already.
+  - **Kiki:** its switch, and what was said to it.
+
+  The password is kept for that browser tab only, so the page can be
+  reloaded without typing it again. Closing the tab, or pressing **Lock**,
+  forgets it.
 
 ### Running the server on this PC
 
@@ -231,8 +238,12 @@ questions about the game, such as how to hatch an egg.
   lobby answers 600 a day; these are at the top of `server/helper.ts`. Past a
   limit Kiki is an ordinary parrot until the next day.
 - **Records.** What was said to Kiki and what it answered is kept as text
-  for 7 days and shown on the admin page, flagged talk first. No sound is
-  kept anywhere. Deleting a player deletes what they said.
+  for 7 days and shown on the admin page, flagged talk first. Every phrase
+  that reaches the server is kept, answered or not: one Kiki could not make
+  out shows as that, and one it failed on shows what failed (hearing,
+  thinking, checking or speaking). So if a player spoke to Kiki and nothing
+  at all shows, the phrase never left their headset. No sound is kept
+  anywhere. Deleting a player deletes what they said.
 - **The switch.** The admin page switches Kiki off and on for every lobby,
   within half a minute. While it is off, or the server has no keys for it,
   no game sends it anything.
