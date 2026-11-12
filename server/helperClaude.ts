@@ -61,8 +61,9 @@ export function helperClaude(apiKey: string): Pick<MindDeps, 'think' | 'check'> 
   const client = new Anthropic({ apiKey, timeout: WITHIN, maxRetries: 1 });
   return {
     think: (input) => ask<Thought>(client, PERSONA, REPLY, thinkPrompt(input)),
-    async check(heard, reply) {
-      const verdict = await ask<Verdict>(client, CHECKER, VERDICT, `<heard>${plain(heard)}</heard>\n<answer>${plain(reply)}</answer>`);
+    async check(heard, reply, nicknames) {
+      const content = `<nicknames>${nicknames.map(plain).join(', ')}</nicknames>\n<heard>${plain(heard)}</heard>\n<answer>${plain(reply)}</answer>`;
+      const verdict = await ask<Verdict>(client, CHECKER, VERDICT, content);
       return verdict ?? { ok: false, worry: false, why: 'no verdict' };
     },
   };

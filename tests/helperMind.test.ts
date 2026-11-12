@@ -35,7 +35,8 @@ interface World {
   /** A step named here fails. */
   breaks: string | null;
   thought: ThinkInput[];
-  checked: [string, string][];
+  /** What the second look was shown: what was heard, the reply, and the players' nicknames. */
+  checked: [string, string, string[]][];
   spoken: string[];
   said: string[];
   acted: HelperIntent[];
@@ -63,8 +64,8 @@ function deps(): MindDeps {
       w.thought.push(structuredClone(input));
       return step('think', { say: w.thinks, ...w.does });
     },
-    check: (heard, reply) => {
-      w.checked.push([heard, reply]);
+    check: (heard, reply, nicknames) => {
+      w.checked.push([heard, reply, nicknames]);
       return step('check', w.verdict);
     },
     speak: (text) => {
@@ -112,7 +113,7 @@ describe('answering a phrase', () => {
     expect(w.thought).toEqual([
       { speaker: 'Sam', heard: 'How do I hatch my egg?', about: 'They have 2 pets and no egg.', players: ['Sam', 'Alex'], history: [] },
     ]);
-    expect(w.checked).toEqual([['How do I hatch my egg?', 'Feed it three seeds, Sam!']]);
+    expect(w.checked).toEqual([['How do I hatch my egg?', 'Feed it three seeds, Sam!', ['Sam', 'Alex']]]);
     expect(w.said).toEqual(['Feed it three seeds, Sam!']);
     expect(w.records).toEqual([
       {
@@ -404,7 +405,8 @@ describe('greeting a player who comes up to it', () => {
   it('greets them without hearing anything, and keeps a record', async () => {
     expect(await near()).toBe('answered');
     expect(w.thought).toEqual([{ speaker: 'Sam', heard: '', about: 'They have 2 pets and no egg.', players: ['Sam', 'Alex'], history: [] }]);
-    expect(w.checked).toEqual([['', 'Hello, Sam! What are you doing today?']]);
+    // The second look is told the nicknames, so that a greeting by nickname is not taken for a real name.
+    expect(w.checked).toEqual([['', 'Hello, Sam! What are you doing today?', ['Sam', 'Alex']]]);
     expect(w.said).toEqual(['Hello, Sam! What are you doing today?']);
     expect(w.records[0]).toMatchObject({ playerId: 'id-sam', heard: '', said: 'Hello, Sam! What are you doing today?', flagged: null });
     // It counts toward the day, as a phrase does.

@@ -126,8 +126,11 @@ export interface MindDeps {
   about(playerId: string): Promise<string>;
   /** The helper's reply, and what it means to do. Null if it would not answer. */
   think(input: ThinkInput): Promise<Thought | null>;
-  /** A second, separate look at what was heard and the reply. */
-  check(heard: string, reply: string): Promise<Verdict>;
+  /**
+   * A second, separate look at what was heard and the reply. `nicknames` are
+   * the names the game gives the players in the lobby, which the helper may use.
+   */
+  check(heard: string, reply: string, nicknames: string[]): Promise<Verdict>;
   /** The reply as sound. */
   speak(text: string): Promise<ArrayBuffer>;
   record(talk: Talk): Promise<void>;
@@ -278,7 +281,7 @@ export class HelperMind {
       const fault = unfit(reply);
       if (fault) refuse(fault);
       else {
-        const verdict = await deps.check(said, reply);
+        const verdict = await deps.check(said, reply, players);
         if (!verdict.ok) refuse(verdict.why);
         else if (verdict.worry) flagged = `worry: ${verdict.why}`;
       }
