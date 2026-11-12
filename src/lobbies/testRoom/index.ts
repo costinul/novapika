@@ -70,6 +70,8 @@ const CONTENT: LobbyContent = {
   rings: [],
   water: [],
   gate: GATE,
+  // Clear of the steps and the climbing wall.
+  presentSpot: [4, 0, 3],
 };
 
 /** Upright poles: [colour, base centre x, z, height, radius]. */

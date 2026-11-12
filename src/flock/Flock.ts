@@ -271,6 +271,10 @@ export class Flock implements FlockView {
     return nearest;
   }
 
+  humans(): Player[] {
+    return [...this.world.players.values()].filter((player) => player.human);
+  }
+
   /** The player this game is played by: the one who hears the flock, and whom a mimic hears. */
   private listener(): Player | null {
     for (const player of this.world.players.values()) if (player.human && player.simulatedHere) return player;

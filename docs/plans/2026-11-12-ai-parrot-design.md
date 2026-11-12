@@ -99,12 +99,20 @@ lobby empties. The parrot remembers nothing about a child between visits.
 ## 6. Starting a chat itself
 
 With nothing asked of it, the AI parrot flies over to a player every two or
-three minutes, stays half a minute, and flies back to its stump. When a child
-comes near it, or it to them, that child's game tells the lobby. The lobby
-then asks the model for a greeting or a kind question: at most once in five
-minutes for each child, never within half a minute of its last greeting, and
-within the caps. Nothing is heard for a greeting, and it never sends the
-parrot anywhere.
+three minutes, stays about half a minute, and flies back to its stump. It
+goes to any player in the lobby, not only the nearest, and lands to one side
+and a little ahead of them, where they see it. When a child comes near it, or
+it to them, that child's game tells the lobby, and tells it again every 15
+seconds for as long as they stay. The lobby then asks the model for a
+greeting, or for something nice or funny: a kind word, a little joke, or a
+fun thing to try. That is at most once in three minutes for each child, never
+within half a minute of the last time, and within the caps. Nothing is heard
+for this, and it never sends the parrot anywhere.
+
+(Changed on Nov 12, 2026, at the owner's wish that it come to players and say
+nice or funny things: it was once in five minutes, a greeting or a question
+only, told once each time a child came up, and visits went to the nearest
+player only, landing behind them.)
 
 ## 7. Protection
 

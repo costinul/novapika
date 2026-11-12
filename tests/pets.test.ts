@@ -115,6 +115,39 @@ describe('pet models', () => {
     expect(triangles(two)).toBeGreaterThan(triangles(one));
   });
 
+  it('draws the ultra mythical pet tiny, with ten heads, a third eye on each, and ten tails in one fan', () => {
+    const sunny = founders.sunny.dna;
+    const def = petCharacter('s', sunny);
+    expect(def.scale).toBeLessThan(PET_SCALE / 2);
+    expect(def.specials).toMatchObject({ heads: 10, tails: 10, sun: true, thirdEye: true });
+
+    const ten = buildParrotParts(def);
+    const three = buildParrotParts(petCharacter('s', { ...sunny, heads: 3, tails: 3 }));
+    const blind = buildParrotParts(petCharacter('s', { ...sunny, thirdEye: false }));
+    // The heads fan out wider than three do, and no head is below the body's top.
+    expect(width(ten.head)).toBeGreaterThan(width(three.head));
+    // The third eye is the same two shapes on every one of the ten heads.
+    const eyes = triangles(ten.head) - triangles(blind.head);
+    expect(eyes).toBeGreaterThan(0);
+    expect(eyes % 10).toBe(0);
+    expect(hasWhite(ten.head)).toBe(true);
+    expect(hasWhite(blind.head)).toBe(false);
+
+    // Ten tails: seven more than three, each the same three feathers.
+    const perTail = (triangles(ten.body) - triangles(three.body)) / 7;
+    expect(Number.isInteger(perTail) && perTail > 0).toBe(true);
+    // They spread into a fan behind the bird, and do not wrap round to its front.
+    ten.body.computeBoundingBox();
+    expect(width(ten.body)).toBeGreaterThan(width(three.body));
+    expect(ten.body.boundingBox!.min.z).toBeGreaterThan(-0.3);
+  });
+
+  it('shines the ultra mythical pet with a material of its own', () => {
+    const def = petCharacter('s', founders.sunny.dna);
+    expect(parrotMaterial(def)).not.toBe(parrotMaterial(petCharacter('p', founders.prism.dna)));
+    expect(parrotMaterial(def)).toBe(parrotMaterial(petCharacter('t', { ...founders.sunny.dna, heads: 1 })));
+  });
+
   it('paints a rainbow pet in bands of many colours', () => {
     expect(colours(statue(plain))).toBeLessThan(15);
     expect(colours(statue({ ...plain, rainbow: true }))).toBeGreaterThan(60);

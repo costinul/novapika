@@ -40,6 +40,7 @@ import { bodyCenter, clawCorrection, placeAt, stepMovement } from '../movement/s
 import { HANDS, Player } from '../player/Player';
 import type { InputSource } from '../player/Player';
 import { PlayerView } from '../player/PlayerView';
+import { FallingPresent } from '../present/FallingPresent';
 import { XRInput } from '../player/XRInput';
 import { createRecognisers } from '../stunts/recognisers';
 import { Voice } from '../voice/Voice';
@@ -82,6 +83,11 @@ function rememberCharacter(id: string): void {
 /** Near a gate, how often the server is asked how many players are in each place. */
 const COUNTS_EVERY = 10; // s
 
+/** With no place of its own in a lobby, a present comes down this far in front of where players start. */
+const PRESENT_AHEAD = 6; // m
+/** A present lands on whatever is under it within this height of its place: a stall or a step, never a roof. */
+const PRESENT_REACH = 6; // m
+
 /** The lobby's parrots are simulated on every this-many-th step, to save time. */
 const FLOCK_EVERY = 2;
 
@@ -113,6 +119,10 @@ export class Engine {
   private readonly menu: Menu;
   private boardWasPressed = false;
   private desktopMenu = false;
+  /** A present the owner let go over the lobby, while it is there. */
+  private readonly present = new FallingPresent();
+  /** What the player touches with: the beak, and each hand. */
+  private readonly touch = [new Vector3(), new Vector3(), new Vector3()];
   /** A signed-in player's pets. Tell it who is signed in with `pets.setAccount`. */
   readonly pets: Pets;
   /** Called when the server stops taking this device's sign-in in the middle of a game. */
@@ -295,7 +305,7 @@ export class Engine {
         }
       },
     });
-    this.scene.add(this.pets.object);
+    this.scene.add(this.pets.object, this.present.object);
 
     this.voice = new Voice({
       context: () => this.sounds.context,
@@ -305,6 +315,29 @@ export class Engine {
     this.multiplayer = new Multiplayer({
       voice: this.voice,
       helper: this.helper,
+      present: {
+        show: (present) => {
+          this.present.show(present, present ? this.presentLanding() : undefined);
+          // One that has only just been let go rings out, so that everybody looks up.
+          if (present && present.age < 3000) this.sounds.bell();
+        },
+        opened: (id, mine) => {
+          if (this.present.id !== id) return;
+          const at = this.present.position.clone();
+          this.present.show(null);
+          this.sounds.chirp();
+          this.worldView.burst(at, 0xfff27a);
+          // The winner's new pet flies out of the box; everybody else hears of it too.
+          this.pets.hearNow(mine ? at : 'beside');
+          if (mine) for (const h of HANDS) this.input.pulse?.(h, 0.6, 120);
+        },
+        shut: (id) => {
+          if (this.present.id !== id) return;
+          this.present.refused();
+          this.sounds.refuse();
+          this.worldView.burst(this.present.position, 0xff6a5f);
+        },
+      },
       world: this.world,
       feathers: this.feathers,
       local: this.localPlayer,
@@ -385,6 +418,24 @@ export class Engine {
     this.seatWhenIn = on;
     if (!on) this.multiplayer.leave();
     else if (this.lobby) this.multiplayer.join(this.lobby.module.id);
+  }
+
+  /** Where a present comes to rest in this lobby: on whatever is under its place. */
+  private presentLanding(): Vector3 {
+    const module = this.lobby?.module;
+    const start = module?.spawnPoints[0].position ?? [0, 0, 0];
+    const [x, y, z] = module?.content?.presentSpot ?? [start[0], start[1], start[2] - PRESENT_AHEAD];
+    const ground = this.physics.groundBelow(this.scratch.set(x, y + PRESENT_REACH, z), PRESENT_REACH + 2);
+    return new Vector3(x, ground ?? y, z);
+  }
+
+  /** A present that is here comes down, and the player's touch asks the lobby for what is in it. */
+  private updatePresent(dt: number): void {
+    const player = this.localPlayer;
+    beakPosition(player.head, this.touch[0]);
+    HANDS.forEach((h, i) => this.touch[i + 1].copy(player.hands[h].grip.position));
+    const id = this.present.frame(dt, this.touch);
+    if (id) this.multiplayer.sendOpen(id);
   }
 
   /** Put the local player at rest on the lobby's spawn point. */
@@ -486,6 +537,7 @@ export class Engine {
     this.flock.frame(dt, between);
     this.pets.frame(dt, between, player);
     this.feathers.end();
+    this.updatePresent(dt);
     this.updateBeak(dt);
     this.updateStunts(dt);
     const through = this.gate.update(player);

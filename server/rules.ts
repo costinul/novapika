@@ -21,6 +21,9 @@ export type RefusalReason =
   | 'no-such-pet'
   | 'no-such-founder'
   | 'no-such-request'
+  | 'no-such-room'
+  /** A present is already coming down or waiting in that lobby. */
+  | 'has-present'
   /** The player has as many pets as they can have. */
   | 'full'
   /** The player already has an egg, or is waiting for a friend's answer, which holds the egg's place. */
@@ -311,13 +314,27 @@ export async function overview(store: Store, deps: Deps): Promise<AdminPlayerVie
 /** The owner gives a player one of the fixed pets. */
 export async function givePet(store: Store, deps: Deps, playerId: string, founderId: unknown): Promise<PetView> {
   if (!(await store.player(playerId))) throw new Refusal('no-such-player', 404);
-  const founder = typeof founderId === 'string' && Object.hasOwn(founders, founderId) ? founders[founderId] : null;
+  const founder = isFounder(founderId) ? founders[founderId] : null;
   if (!founder) throw new Refusal('no-such-founder', 404);
   await roomForPet(store, playerId);
 
   const pet = newPet(deps, playerId, structuredClone(founder.dna));
   await store.addPet(pet);
   return petView(pet);
+}
+
+/** Whether this is one of the fixed pets. */
+export const isFounder = (founderId: unknown): founderId is string =>
+  typeof founderId === 'string' && Object.hasOwn(founders, founderId);
+
+/**
+ * A player touched a present before anybody else: the fixed pet in it is
+ * theirs, and follows them at once.
+ */
+export async function openPresent(store: Store, deps: Deps, playerId: string, founderId: string): Promise<PetView> {
+  const pet = await givePet(store, deps, playerId, founderId);
+  await store.setFollower(playerId, pet.id);
+  return pet;
 }
 
 /** Turn down a new hatched pet if the player is full. An egg, or the place held for one, counts. */

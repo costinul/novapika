@@ -14,6 +14,8 @@ const HEAR_WITHIN = 3.5; // m
 const FACING = 0.77;
 /** A player who has come up to it must go this far off before coming up to it again counts. */
 const GONE_BEYOND = 7; // m
+/** While the player stays by it, the lobby is told again this often: it may have something more to say to them. */
+const STILL_NEAR_EVERY = 15; // s
 /** How long to wait for an answer to a phrase before listening again. */
 const ANSWER_WITHIN = 12; // s
 /** A moment of quiet after the helper speaks, so it never hears itself. */
@@ -32,7 +34,7 @@ export interface HelperDeps {
   context(): AudioContext | null;
   /** Send a phrase to the lobby server. */
   send(samples: Int16Array): void;
-  /** Tell the lobby server the local player has come up to the helper parrot. It may greet them. */
+  /** Tell the lobby server the local player has come up to the helper parrot, or is still by it. It may say something to them. */
   near(): void;
   /** The helper parrot's voice has started, and lasts this long. */
   onSpeaks(seconds: number): void;
@@ -51,6 +53,8 @@ export class Helper {
   private speaking = 0;
   /** The local player has come up to the helper parrot, and has not gone away since. */
   private close = false;
+  /** Seconds until the lobby is next told that they are still by it. */
+  private nearIn = 0;
   /** Phrases sent to the lobby, and answers heard back, since the game started. */
   private sent = 0;
   private answers = 0;
@@ -94,6 +98,7 @@ export class Helper {
   clear(): void {
     this.deps.onIntent({ do: 'stay' });
     this.close = false;
+    this.nearIn = 0;
     this.listens = false;
     this.waiting = 0;
     this.speaking = 0;
@@ -147,7 +152,7 @@ export class Helper {
 
     // Its voice comes from where its head is.
     const head = this.deps.parrot()?.head.position;
-    this.notice(head);
+    this.notice(head, dt);
     if (this.panner && head) {
       this.panner.positionX.value = head.x;
       this.panner.positionY.value = head.y;
@@ -157,18 +162,22 @@ export class Helper {
 
   /**
    * Tell the lobby when the local player comes up to the helper parrot, or it
-   * to them: once each time, and only while it is listening, so that it can
-   * answer what they say next.
+   * to them: at once each time, and again every so often for as long as they
+   * stay by it, so that it can greet them and later say something more. Only
+   * while it is listening, so that it can answer what they say next, and
+   * never while an answer is on its way or being spoken. The lobby decides
+   * whether it says anything.
    */
-  private notice(head: Vector3 | undefined): void {
+  private notice(head: Vector3 | undefined, dt: number): void {
     if (!head) return void (this.close = false);
     const distance = head.distanceTo(this.deps.local.head.position);
-    if (this.close) {
-      if (distance > GONE_BEYOND) this.close = false;
-    } else if (distance < HEAR_WITHIN && this.listens) {
-      this.close = true;
-      this.deps.near();
-    }
+    if (this.close && distance > GONE_BEYOND) this.close = false;
+    this.nearIn = Math.max(0, this.nearIn - dt);
+    if (distance > HEAR_WITHIN || !this.listens) return;
+    if (this.close && (this.nearIn > 0 || this.waiting > 0 || this.speaking > 0)) return;
+    this.close = true;
+    this.nearIn = STILL_NEAR_EVERY;
+    this.deps.near();
   }
 
   /**

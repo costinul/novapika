@@ -1,5 +1,5 @@
 import { LobbyRules } from '../server/lobbyRules';
-import type { Member } from '../server/lobbyRules';
+import type { Gift, Member } from '../server/lobbyRules';
 import type { SharedWorld } from '../shared/net';
 import type { Connect, LinkHandlers } from '../src/net/LobbyClient';
 
@@ -22,6 +22,8 @@ export interface FakeLobby {
   onHeard: ((member: Member, samples: Uint8Array) => void) | null;
   /** Told when a player comes up to the helper parrot. */
   onNear: ((member: Member) => void) | null;
+  /** Gives a player the pet in a present, or says they cannot have it. Null: nobody can. */
+  give: ((member: Member, gift: Gift) => Promise<boolean>) | null;
 }
 
 /**
@@ -36,6 +38,7 @@ export function fakeLobby(): FakeLobby {
     saved: null,
     onHeard: null,
     onNear: null,
+    give: null,
     rules: new LobbyRules<Conn>({
       send: (conn, data) => {
         if (!conn.open) return;
@@ -51,6 +54,7 @@ export function fakeLobby(): FakeLobby {
       save: (world) => void (lobby.saved = world && JSON.parse(JSON.stringify(world))),
       heard: (_conn, member, samples) => lobby.onHeard?.(member, samples.slice()),
       near: (_conn, member) => lobby.onNear?.(member),
+      give: (member, gift) => lobby.give?.(member, gift) ?? Promise.resolve(false),
     }),
     hold: () => void (waiting = []),
     release: () => {

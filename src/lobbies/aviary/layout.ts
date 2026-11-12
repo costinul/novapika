@@ -440,4 +440,6 @@ export const CONTENT: LobbyContent = {
   flock: FLOCK,
   gate: GATE,
   helperPlaces: HELPER_PLACES_AT,
+  // On the open grass between the home tree and the gate, in sight of the nest.
+  presentSpot: ground(270, 17, 0),
 };

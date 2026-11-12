@@ -27,6 +27,8 @@ const RESCUE_AFTER = 75; // s in the air before being put back on its home perch
 const FOOD_RANGE = 22; // m, how far away a held seed is noticed
 const TAKE_RANGE = 2.2; // m, how close a parrot must be to take a seed from a beak
 const BESIDE_PLAYER = 1.4; // m to the player's side where a visiting parrot lands
+const BEHIND_PLAYER = 0.5; // m behind them, for a lobby parrot: out of the way
+const AHEAD_OF_PLAYER = 1.6; // m in front of them, for the helper parrot: where it is seen, and can be spoken to
 const KEEP_FROM_FACE = 1.5; // m, no chosen spot is nearer the player's head than this
 const LOOSE_TOY_MAX_HEIGHT = 0.6; // m, toys this near the ground are easy to fetch
 const FOLLOW_COOLDOWN = 60; // s after following before following again
@@ -36,7 +38,7 @@ const TASK_FOR = 90; // s the helper parrot keeps at following or leading before
 const KEEP_UP_BEYOND = 5; // m, a player it follows who is further off than this is flown after
 const THERE_WITHIN = 1.6; // m from a place that counts as being at it
 const VISIT_EVERY = 90; // s at least between the helper parrot's visits to a player, with up to as long again on top
-const VISIT_FOR = 30; // s a visit lasts
+const VISIT_FOR = 50; // s a visit lasts, the flight there included
 
 /** What the helper parrot has been asked to do: keep near a player, or go to a place and wait there. */
 export type HelperTask = { follow: Player } | { lead: Vector3 };
@@ -51,6 +53,8 @@ export interface FlockView {
   foodSeekers(): number;
   /** The human nearest to `near`, if there is one: the one to pay attention to. */
   human(near: Vector3): Player | null;
+  /** Every human in the lobby. */
+  humans(): Player[];
   /** Toy types that count as food. */
   isFood(toyType: string): boolean;
   /** A parrot calls out. */
@@ -88,6 +92,8 @@ export class Brain {
   /** With nothing asked of it, the helper parrot visits a player now and then: seconds until the next visit, and left of this one. */
   private visitIn = VISIT_EVERY;
   private visiting = 0;
+  /** The player it is visiting. */
+  private visited: Player | null = null;
 
   constructor(
     readonly def: FlockParrotDef,
@@ -127,7 +133,7 @@ export class Brain {
   setTask(task: HelperTask | null): void {
     this.task = task;
     this.taskLeft = TASK_FOR;
-    this.visiting = 0;
+    this.endVisit();
     // In the air: turn for the new place at once. On a perch, the next step sees to it.
     if (this.state === 'flying') this.leave(this.helperErrand() ?? 'wander');
   }
@@ -138,28 +144,46 @@ export class Brain {
     const task = this.task;
     if (task && 'follow' in task) return task.follow.head.position.distanceTo(here) > KEEP_UP_BEYOND ? 'follow' : null;
     if (task) return task.lead.distanceTo(here) > THERE_WITHIN ? 'lead' : null;
-    const visited = this.visiting > 0 ? this.flock.human(here) : null;
+    const visited = this.visitedNow();
     if (visited) return visited.head.position.distanceTo(here) > KEEP_UP_BEYOND ? 'follow' : null;
     return this.v.fromArray(this.def.helper!).distanceTo(here) > THERE_WITHIN ? 'wander' : null;
   }
 
-  /** With nothing asked of it, the helper parrot now and then flies over to a player for a little while. */
+  /**
+   * With nothing asked of it, the helper parrot now and then flies over to a
+   * player for a little while: any player, so that in time it comes to all.
+   */
   private visits(dt: number): void {
     if (this.visiting > 0) {
       this.visiting -= dt;
+      if (this.visiting <= 0) this.endVisit();
       return;
     }
     this.visitIn -= dt;
     if (this.visitIn > 0) return;
     this.visitIn = VISIT_EVERY * (1 + this.random());
     // Only to somebody who is not beside it already.
-    const human = this.flock.human(this.player.position);
-    if (human && human.head.position.distanceTo(this.player.position) > KEEP_UP_BEYOND) this.visiting = VISIT_FOR;
+    const away = this.flock.humans().filter((human) => human.head.position.distanceTo(this.player.position) > KEEP_UP_BEYOND);
+    if (away.length === 0) return;
+    this.visited = away[Math.floor(this.random() * away.length)];
+    this.visiting = VISIT_FOR;
   }
 
-  /** The player a parrot keeps near: the one the helper was asked to follow, or else whoever is nearest. */
+  private endVisit(): void {
+    this.visiting = 0;
+    this.visited = null;
+  }
+
+  /** The player the helper parrot is visiting now, if they are still in the lobby. */
+  private visitedNow(): Player | null {
+    const visited = this.visiting > 0 ? this.visited : null;
+    return visited && this.world.players.get(visited.id) === visited ? visited : null;
+  }
+
+  /** The player a parrot keeps near: the one the helper was asked to follow or is visiting, or else whoever is nearest. */
   private companion(): Player | null {
-    return this.task && 'follow' in this.task ? this.task.follow : this.flock.human(this.player.position);
+    if (this.task && 'follow' in this.task) return this.task.follow;
+    return this.visitedNow() ?? this.flock.human(this.player.position);
   }
 
   // --- On a perch ------------------------------------------------------------
@@ -385,18 +409,20 @@ export class Brain {
 
   /**
    * A place to land near the player: on the ground to one side and a little
-   * behind, never in front of the face. Failing that, the nearest perch.
+   * behind, never in front of the face. The helper parrot lands to one side
+   * and well ahead instead, where the player sees it and can speak to it.
+   * Failing that, the nearest perch.
    */
   private besidePlayer(human: Player): boolean {
     const head = human.head;
     this.v.set(0, 0, -1).applyQuaternion(head.quaternion).setY(0);
     if (this.v.lengthSq() < 0.01) this.v.set(0, 0, -1);
     this.v.normalize();
-    // To the side (right is forward turned a quarter), and a little back.
+    // To the side (right is forward turned a quarter), and a little back or well ahead.
     this.target
       .set(-this.v.z, 0, this.v.x)
       .multiplyScalar(BESIDE_PLAYER * this.side)
-      .addScaledVector(this.v, -0.5)
+      .addScaledVector(this.v, this.def.helper ? AHEAD_OF_PLAYER : -BEHIND_PLAYER)
       .add(head.position);
     const ground = this.physics.groundBelow(this.target, 2.5);
     if (ground !== null) {
@@ -460,6 +486,7 @@ export class Brain {
       this.randomSpot();
       // The helper parrot could not get where it was asked to: it gives up on that.
       this.task = null;
+      this.endVisit();
     }
   }
 

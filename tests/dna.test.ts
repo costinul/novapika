@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { breed, breedingOdds } from '../shared/breeding';
-import { COLOR_GENES, hasSpecial, MARK_GENES, SIZE_RANGE, SPECIAL_GENES, TAIL_RANGE, tierOf, TIERS } from '../shared/dna';
+import { BRED_MOST, COLOR_GENES, hasSpecial, MARK_GENES, SIZE_RANGE, SPECIAL_GENES, TAIL_RANGE, TIER_NAMES, tierOf, TIERS } from '../shared/dna';
 import { founders } from '../shared/founders';
 
 /** A random that gives the same numbers every run (mulberry32). */
@@ -13,7 +13,7 @@ function seeded(seed: number): () => number {
   };
 }
 
-const { pip, sky, coco, ember, tango, prism } = founders;
+const { pip, sky, coco, ember, tango, prism, sunny } = founders;
 
 describe('tiers', () => {
   it('counts the special genes, from common with none to mythical with all five', () => {
@@ -23,6 +23,42 @@ describe('tiers', () => {
     expect(tierOf({ ...pip.dna, glow: true, tails: 3, heads: 2 })).toBe('epic');
     expect(tierOf({ ...pip.dna, glow: true, tails: 2, heads: 3, eyeDots: 2 })).toBe('legendary');
     expect(tierOf({ ...pip.dna, glow: true, tails: 2, heads: 2, eyeDots: 2, rainbow: true })).toBe('mythical');
+  });
+});
+
+describe('the ultra mythical pet', () => {
+  it('is told by its sun, and is a tier above mythical', () => {
+    expect(tierOf(sunny.dna)).toBe('ultra');
+    expect(TIERS.indexOf('ultra')).toBe(TIERS.indexOf('mythical') + 1);
+    expect(TIER_NAMES.ultra).toBe('ultra mythical');
+    // Only one fixed pet is.
+    expect(Object.values(founders).filter((f) => tierOf(f.dna) === 'ultra')).toEqual([sunny]);
+  });
+
+  it('is very small, glows like a rainbow sun, and has ten heads, ten tails and a third eye', () => {
+    const { dna } = sunny;
+    expect(dna.size).toBeLessThan(SIZE_RANGE[0] / 2);
+    expect(dna.glow && dna.rainbow && dna.sun).toBe(true);
+    expect(dna.heads).toBe(10);
+    expect(dna.tails).toBe(10);
+    expect(dna.thirdEye).toBe(true);
+  });
+
+  it('never passes on what makes it ultra: its babies are ordinary pets', () => {
+    const random = seeded(5);
+    const seen = new Set<number>();
+    for (let i = 0; i < 3000; i++) {
+      const baby = breed(sunny.dna, i % 2 ? prism.dna : sunny.dna, random);
+      expect(baby.sun).toBeUndefined();
+      expect(baby.thirdEye).toBeUndefined();
+      expect(baby.heads).toBeLessThanOrEqual(BRED_MOST);
+      expect(baby.tails).toBeLessThanOrEqual(BRED_MOST);
+      expect(baby.size).toBeGreaterThanOrEqual(SIZE_RANGE[0]);
+      expect(tierOf(baby)).not.toBe('ultra');
+      seen.add(baby.heads);
+    }
+    // Its ten heads still count as extra heads: a baby may have three.
+    expect(seen).toEqual(new Set([1, 3]));
   });
 });
 

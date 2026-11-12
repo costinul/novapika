@@ -47,9 +47,11 @@
       .tier.epic { background: #7a4fc4; }
       .tier.legendary { background: #b7791f; }
       .tier.mythical { background: linear-gradient(90deg, #d33, #d80, #2a2, #06c, #83c); }
+      .tier.ultra { background: linear-gradient(90deg, #d33, #d80, #2a2, #06c, #83c); box-shadow: 0 0 0 2px #f2b632, 0 0 10px 2px #ffd84a; }
       .pet .follows { color: var(--go); font-weight: 600; }
       .pet.freed img { opacity: 0.55; }
       h3 { font-size: 0.9375rem; margin: 20px 0 0; color: var(--soft); }
+      #present form { margin-top: 12px; }
 
       .talk { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
       .talk li { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
@@ -81,6 +83,7 @@
           <button>Add player</button>
         </form>
         <p id="notice" role="status"></p>
+        <section id="present" class="player"></section>
         <section id="helper" class="player"></section>
         <div id="players"></div>
       </section>

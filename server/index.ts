@@ -1,6 +1,7 @@
-import type { PlacesView } from '../shared/api';
+import type { PlacesView, RoomView } from '../shared/api';
 import { LOBBY_IDS, PROTOCOL } from '../shared/net';
 import { d1Store } from './d1Store';
+import { deps } from './deps';
 import { helperAi } from './helperAi';
 import { LOBBY_HEADER, NICKNAME_HEADER, PLAYER_HEADER } from './lobby';
 import {
@@ -16,6 +17,7 @@ import {
   friendsOf,
   givePet,
   helperOn,
+  isFounder,
   login,
   overview,
   playerForToken,
@@ -28,7 +30,6 @@ import {
   setHelperOn,
   talkView,
 } from './rules';
-import type { Deps } from './rules';
 import type { PlayerRow, Store } from './store';
 
 export { Lobby } from './lobby';
@@ -39,13 +40,6 @@ export { Lobby } from './lobby';
 
 /** Bodies are a few short fields; anything bigger is not ours. */
 const MAX_BODY_BYTES = 2048;
-
-const deps: Deps = {
-  now: () => Date.now(),
-  random: () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32,
-  id: () => crypto.randomUUID(),
-  token: () => Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join(''),
-};
 
 const json = (body: unknown, status = 200): Response =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -82,9 +76,25 @@ async function isAdmin(request: Request, env: Env): Promise<boolean> {
   return crypto.subtle.timingSafeEqual(a, b);
 }
 
+/** Every lobby, with how many players are in it and whether a present is there. Each lobby is asked. */
+async function rooms(env: Env): Promise<RoomView[]> {
+  return Promise.all(LOBBY_IDS.map(async (id) => ({ id, ...(await env.LOBBY.getByName(id).room()) })));
+}
+
 async function admin(request: Request, env: Env, path: string, store: Store): Promise<Response> {
   const method = request.method;
   let match: RegExpExecArray | null;
+
+  if (path === '/rooms' && method === 'GET') return json({ rooms: await rooms(env) });
+  if ((match = /^\/rooms\/([\w-]+)\/present$/.exec(path)) && method === 'POST') {
+    // The owner lets a present go over a lobby, with a fixed pet inside.
+    const lobbyId = match[1];
+    const { founderId } = await fields(request);
+    if (!(LOBBY_IDS as readonly string[]).includes(lobbyId)) throw new Refusal('no-such-room', 404);
+    if (!isFounder(founderId)) throw new Refusal('no-such-founder', 404);
+    if (!(await env.LOBBY.getByName(lobbyId).letGo(founderId))) throw new Refusal('has-present', 409);
+    return json({ rooms: await rooms(env) });
+  }
 
   if (path === '/helper' && (method === 'GET' || method === 'POST')) {
     if (method === 'POST') await setHelperOn(store, (await fields(request)).on);

@@ -1,4 +1,4 @@
-import { COLOR_GENES, hasSpecial, MARK_GENES, SIZE_RANGE, TAIL_RANGE } from './dna';
+import { BRED_MOST, COLOR_GENES, hasSpecial, MARK_GENES, SIZE_RANGE, TAIL_RANGE } from './dna';
 import type { Dna, SpecialGene } from './dna';
 
 /** Every chance used in breeding, in one place. Each is from 0 to 1. */
@@ -66,11 +66,13 @@ export function breed(
     const parents = Number(hasSpecial(a, gene)) + Number(hasSpecial(b, gene));
     return random() < [odds.specialFromNeither, odds.specialFromOne, odds.specialFromBoth][parents];
   };
-  // How many heads or tails: as a parent that has extra ones, or two if neither has.
+  // How many heads or tails: as a parent that has extra ones, or two if neither
+  // has. The ultra mythical pet's ten are its own: its baby has three at most.
   const count = (gene: 'heads' | 'tails'): 1 | 2 | 3 => {
     if (!special(gene)) return 1;
     const extra = [a[gene], b[gene]].filter((n) => n > 1);
-    return extra.length > 0 ? extra[Math.floor(random() * extra.length)] : 2;
+    const n = extra.length > 0 ? extra[Math.floor(random() * extra.length)] : 2;
+    return Math.min(BRED_MOST, n) as 1 | 2 | 3;
   };
 
   return {

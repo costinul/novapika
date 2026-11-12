@@ -1,13 +1,15 @@
 import { FREED_FOR_DAYS, PET_CAP, SEEDS_TO_HATCH, TALK_KEPT_DAYS } from '../../shared/api';
-import type { AdminPlayerView, HelperView, PetView, PlayerView, TalkView } from '../../shared/api';
-import { tierOf } from '../../shared/dna';
+import type { AdminPlayerView, HelperView, PetView, PlayerView, RoomView, TalkView } from '../../shared/api';
+import { TIER_NAMES, tierOf } from '../../shared/dna';
 import type { Dna } from '../../shared/dna';
 import { founders } from '../../shared/founders';
 import { HELPER_NAME } from '../../shared/helper';
+import { LOBBY_NAMES } from '../../shared/net';
 import { petPicture } from './petPicture';
 
 // The owner's page: add players, hand out sign-in codes, give or remove
-// pets, switch the helper parrot on or off and read what was said to it.
+// pets, let a present with a pet in it go over a lobby, switch the helper
+// parrot on or off and read what was said to it.
 // Every call carries the admin password, which is kept only in this
 // page's memory and is gone when the page is closed or reloaded.
 
@@ -17,6 +19,7 @@ const panel = document.querySelector<HTMLElement>('#panel')!;
 const notice = document.querySelector<HTMLElement>('#notice')!;
 const list = document.querySelector<HTMLElement>('#players')!;
 const helper = document.querySelector<HTMLElement>('#helper')!;
+const present = document.querySelector<HTMLElement>('#present')!;
 
 let password = '';
 
@@ -56,6 +59,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
       'slow-down': 'Too many tries. Wait a minute and try again.',
       'bad-nickname': 'A nickname needs 1 to 20 letters.',
       full: `That player has no room: ${PET_CAP} pets is the most, and an egg counts.`,
+      'has-present': 'A present is already there. It stays until a player touches it.',
     }[error ?? ''] ?? `The server refused that (${error || response.status}).`,
   );
 }
@@ -94,17 +98,20 @@ function sayCode(nickname: string, code: string): void {
 
 function traits(dna: Dna): string {
   const has = [
-    dna.glow && 'glows',
-    dna.rainbow && 'rainbow',
+    dna.sun ? 'glows like a rainbow sun' : dna.glow && 'glows',
+    !dna.sun && dna.rainbow && 'rainbow',
     dna.heads > 1 && `${dna.heads} heads`,
     dna.tails > 1 && `${dna.tails} tails`,
     dna.eyeDots > 1 && 'two-dot eyes',
+    dna.thirdEye && 'three eyes',
+    dna.size < 0.5 && 'very small',
   ].filter(Boolean);
   return has.length > 0 ? has.join(', ') : 'no specials';
 }
 
 function petCard(player: PlayerView, pet: PetView): HTMLElement {
-  const tier = tierOf(pet.dna);
+  const kind = tierOf(pet.dna);
+  const tier = TIER_NAMES[kind];
   const remove = el('button', { className: 'danger', type: 'button' }, 'Remove');
   remove.addEventListener('click', () => {
     if (!confirm(`Remove this ${tier} pet from ${player.nickname} for good?`)) return;
@@ -118,7 +125,7 @@ function petCard(player: PlayerView, pet: PetView): HTMLElement {
     'li',
     { className: 'pet' },
     el('img', { src: petPicture(pet.dna), alt: `A ${tier} pet: ${traits(pet.dna)}` }),
-    el('span', { className: `tier ${tier}` }, tier),
+    el('span', { className: `tier ${kind}` }, tier),
     el('p', {}, traits(pet.dna)),
     ...(pet.id === player.followerId ? [el('p', { className: 'follows' }, 'Follows the player')] : []),
     remove,
@@ -127,7 +134,8 @@ function petCard(player: PlayerView, pet: PetView): HTMLElement {
 
 /** A pet that was set free, with a way to bring it back. */
 function freedCard(player: PlayerView, pet: PetView): HTMLElement {
-  const tier = tierOf(pet.dna);
+  const kind = tierOf(pet.dna);
+  const tier = TIER_NAMES[kind];
   const restore = el('button', { className: 'quiet', type: 'button' }, 'Bring back');
   restore.addEventListener('click', () => {
     void attempt(async () => {
@@ -140,7 +148,7 @@ function freedCard(player: PlayerView, pet: PetView): HTMLElement {
     'li',
     { className: 'pet freed' },
     el('img', { src: petPicture(pet.dna), alt: `A ${tier} pet that was set free: ${traits(pet.dna)}` }),
-    el('span', { className: `tier ${tier}` }, tier),
+    el('span', { className: `tier ${kind}` }, tier),
     el('p', {}, traits(pet.dna)),
     restore,
   );
@@ -180,7 +188,7 @@ function playerCard(player: AdminPlayerView): HTMLElement {
   const choice = el(
     'select',
     { ariaLabel: `Pet to give ${player.nickname}` },
-    ...Object.values(founders).map((f) => el('option', { value: f.id }, `${f.name} (${tierOf(f.dna)})`)),
+    ...Object.values(founders).map((f) => el('option', { value: f.id }, `${f.name} (${TIER_NAMES[tierOf(f.dna)]})`)),
   );
   const give = el('form', {}, choice, el('button', {}, 'Give pet'));
   give.addEventListener('submit', (event) => {
@@ -245,13 +253,69 @@ function showHelper(view: HelperView): void {
   );
 }
 
+const roomName = (id: string): string => (LOBBY_NAMES as Record<string, string>)[id] ?? id;
+
+/** A lobby in the list to choose from: who is in it, and whether a present is there already. */
+function roomLabel(room: RoomView): string {
+  const players = room.players === 1 ? '1 player' : `${room.players} players`;
+  return `${roomName(room.id)}: ${players}${room.present ? ', a present is there' : ''}`;
+}
+
+/**
+ * Letting a present go: a box with one of the fixed pets in it comes down
+ * slowly from the sky over a lobby. The first player to touch it gets the pet.
+ */
+function showRooms(rooms: RoomView[]): void {
+  // Keep what was chosen when the list is drawn again.
+  const [petBefore, roomBefore] = Array.from(present.querySelectorAll('select'), (select) => select.value);
+  const pet = el(
+    'select',
+    { ariaLabel: 'Pet in the present' },
+    ...Object.values(founders).map((f) => el('option', { value: f.id }, `${f.name} (${TIER_NAMES[tierOf(f.dna)]})`)),
+  );
+  const room = el('select', { ariaLabel: 'Lobby to let it go over' }, ...rooms.map((r) => el('option', { value: r.id }, roomLabel(r))));
+  if (petBefore) pet.value = petBefore;
+  if (roomBefore) room.value = roomBefore;
+
+  const check = el('button', { className: 'quiet', type: 'button' }, 'Look again');
+  check.addEventListener('click', () => {
+    void attempt(async () => showRooms((await api<{ rooms: RoomView[] }>('GET', '/rooms')).rooms));
+  });
+  const form = el('form', {}, pet, room, el('button', {}, 'Drop the present'));
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void attempt(async () => {
+      const name = founders[pet.value].name;
+      const where = roomName(room.value);
+      showRooms((await api<{ rooms: RoomView[] }>('POST', `/rooms/${room.value}/present`, { founderId: pet.value })).rooms);
+      say(`A present with ${name} in it is coming down in ${where}. The first player to touch it gets ${name}.`);
+    });
+  });
+  present.replaceChildren(
+    el(
+      'header',
+      {},
+      el(
+        'div',
+        {},
+        el('h2', {}, 'Drop a present'),
+        el('p', {}, 'A box with a pet in it comes down slowly from the sky. The first player to touch it gets the pet, and it follows them. The lobby parrots cannot take it.'),
+      ),
+      el('div', { className: 'actions' }, check),
+    ),
+    form,
+  );
+}
+
 async function refresh(): Promise<void> {
-  const [{ players }, view] = await Promise.all([
+  const [{ players }, view, { rooms }] = await Promise.all([
     api<{ players: AdminPlayerView[] }>('GET', '/players'),
     api<HelperView>('GET', '/helper'),
+    api<{ rooms: RoomView[] }>('GET', '/rooms'),
   ]);
   list.replaceChildren(...(players.length > 0 ? players.map(playerCard) : [el('p', {}, 'No players yet.')]));
   showHelper(view);
+  showRooms(rooms);
 }
 
 gate.addEventListener('submit', (event) => {

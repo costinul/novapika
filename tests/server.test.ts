@@ -15,6 +15,7 @@ import {
   helperOn,
   keepTalk,
   login,
+  openPresent,
   overview,
   playerForToken,
   playerView,
@@ -229,6 +230,25 @@ describe('giving and removing pets', () => {
     // A copy: changing it leaves the fixed pet alone.
     pet.dna.colors.head = 0;
     expect(founders.prism.dna.colors.head).not.toBe(0);
+  });
+
+  it('gives the pet in a present to the player who opened it, and makes it follow them at once', async () => {
+    const { player } = await createPlayer(store, deps, 'Alex');
+    const pet = await openPresent(store, deps, player.id, 'sunny');
+    expect(tierOf(pet.dna)).toBe('ultra');
+    const view = await playerView(store, player.id);
+    expect(view.pets.map((p) => p.id)).toContain(pet.id);
+    expect(view.followerId).toBe(pet.id);
+  });
+
+  it('gives nothing from a present to a player with no room, and leaves their follower alone', async () => {
+    const { player } = await createPlayer(store, deps, 'Alex');
+    for (let i = 1; i < PET_CAP; i++) await givePet(store, deps, player.id, 'pip');
+    const before = (await playerView(store, player.id)).followerId;
+    await refused(openPresent(store, deps, player.id, 'sunny'), 'full', 409);
+    const view = await playerView(store, player.id);
+    expect(view.pets).toHaveLength(PET_CAP);
+    expect(view.followerId).toBe(before);
   });
 
   it('refuses a player or fixed pet that does not exist', async () => {

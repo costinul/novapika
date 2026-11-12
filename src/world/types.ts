@@ -177,6 +177,11 @@ export interface LobbyContent {
   gate?: GateDef;
   /** Where the helper parrot lands at each place it can lead a player to. */
   helperPlaces?: HelperPlaces;
+  /**
+   * Where a present let go from the sky comes down: open ground with clear
+   * sky over it. Left out, it is a few metres in front of where players start.
+   */
+  presentSpot?: Vec3;
 }
 
 /** Collision shape of a toy: a ball of radius half[0], or a box of half extents. */

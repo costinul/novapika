@@ -22,6 +22,13 @@ export interface Member extends LobbyPlayer {
   joinedAt: number;
 }
 
+/** A present the owner let go over the lobby: the fixed pet inside it, and when it was let go. */
+export interface Gift {
+  id: string;
+  founderId: string;
+  droppedAt: number;
+}
+
 /** What the rules need to do with a connection of type `C`. */
 export interface Wire<C> {
   send(conn: C, data: string | ArrayBuffer): void;
@@ -37,6 +44,13 @@ export interface Wire<C> {
   heard?(conn: C, member: Member, samples: Uint8Array): void;
   /** A player has come up to the helper parrot without speaking. */
   near?(conn: C, member: Member): void;
+  /**
+   * Give a player the pet in a present. Resolves false if they cannot have
+   * it, such as for want of room. Left out, a present can never be opened.
+   */
+  give?(member: Member, gift: Gift): Promise<boolean>;
+  /** Keep the present that is waiting, so it outlives the lobby's memory; null once it has been opened. */
+  keepGift?(gift: Gift | null): void;
 }
 
 const isText = (value: unknown, max: number): value is string =>
@@ -45,8 +59,31 @@ const isText = (value: unknown, max: number): value is string =>
 export class LobbyRules<C> {
   private readonly members = new Map<C, Member>();
   private world = new LobbyWorld();
+  /** The present that is coming down or waiting, if there is one. It waits for as long as it takes, even with nobody in. */
+  private gift: Gift | null = null;
+  /** Somebody has touched the present, and is being given the pet. Nobody else can have it meanwhile. */
+  private opening = false;
 
   constructor(private readonly wire: Wire<C>) {}
+
+  /** Whether a present is coming down or waiting in the lobby. */
+  get hasGift(): boolean {
+    return this.gift !== null;
+  }
+
+  /** A present that was waiting before the lobby last went to sleep. */
+  restoreGift(gift: Gift): void {
+    this.gift = gift;
+  }
+
+  /** The owner lets a present go over the lobby. False if one is already there: one at a time. */
+  drop(gift: Gift): boolean {
+    if (this.gift) return false;
+    this.gift = gift;
+    this.wire.keepGift?.(gift);
+    this.tellAll({ t: 'present', present: { id: gift.id, age: 0 } });
+    return true;
+  }
 
   get players(): LobbyPlayer[] {
     return [...this.members.values()].map(view).sort((a, b) => a.slot - b.slot);
@@ -83,7 +120,7 @@ export class LobbyRules<C> {
     // The same player again: the new connection takes over from the old.
     for (const [other, member] of this.members) {
       if (member.id !== who.id) continue;
-      this.drop(other);
+      this.remove(other);
       this.wire.close(other, CLOSE_ELSEWHERE, 'elsewhere');
     }
     const taken = new Set([...this.members.values()].map((member) => member.slot));
@@ -97,12 +134,13 @@ export class LobbyRules<C> {
     this.members.set(conn, member);
     this.wire.keep(conn, member);
     this.tell(conn, { t: 'welcome', you: slot, host: this.host, players: this.players, world: this.world.state });
+    if (this.gift) this.tell(conn, { t: 'present', present: { id: this.gift.id, age: Math.max(0, now - this.gift.droppedAt) } });
     this.tellOthers(conn, { t: 'player', player: view(member) });
   }
 
   /** A connection has closed. */
   leave(conn: C): void {
-    this.drop(conn);
+    this.remove(conn);
   }
 
   /** A text message from a player. */
@@ -132,6 +170,11 @@ export class LobbyRules<C> {
     }
     if (message.t === 'near') {
       this.wire.near?.(conn, member);
+      return;
+    }
+    if (message.t === 'open') {
+      if (!isText(message.id, 64)) return this.bad(conn);
+      this.open(conn, member, message.id);
       return;
     }
     if (message.t === 'act') {
@@ -170,7 +213,27 @@ export class LobbyRules<C> {
     for (const other of this.members.keys()) if (other !== conn) this.wire.send(other, data);
   }
 
-  private drop(conn: C): void {
+  /**
+   * A player has touched a present. The first to do so is given the pet in
+   * it; a touch that comes while that is being done, or after, is too late.
+   * Only a player touches: a game never speaks for the parrots it runs.
+   */
+  private open(conn: C, member: Member, id: string): void {
+    const gift = this.gift;
+    if (!gift || gift.id !== id || this.opening) return;
+    this.opening = true;
+    const given = this.wire.give ? this.wire.give(member, gift).catch(() => false) : Promise.resolve(false);
+    void given.then((ok) => {
+      this.opening = false;
+      // No room for it, or it could not be given: the present stays for somebody else.
+      if (!ok) return this.tell(conn, { t: 'shut', id });
+      this.gift = null;
+      this.wire.keepGift?.(null);
+      this.tellAll({ t: 'opened', id, by: member.slot });
+    });
+  }
+
+  private remove(conn: C): void {
     const member = this.members.get(conn);
     if (!member) return;
     const host = this.host;
@@ -199,7 +262,7 @@ export class LobbyRules<C> {
   }
 
   private bad(conn: C): void {
-    this.drop(conn);
+    this.remove(conn);
     this.wire.close(conn, CLOSE_BAD, 'bad');
   }
 

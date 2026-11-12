@@ -480,6 +480,6 @@ describe('greeting a player who comes up to it', () => {
     });
     expect(prompt).not.toContain('<heard>');
     expect(prompt).toContain('Alex came up to Kiki.\nKiki: Hello, Alex!');
-    expect(prompt).toContain('Sam has just come up to you and has not spoken yet.');
+    expect(prompt).toContain('Sam is near you and has not spoken. Say one nice or funny thing to them');
   });
 });

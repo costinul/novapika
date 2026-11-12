@@ -64,6 +64,15 @@ export interface PlacesView {
   counts: Record<string, number>;
 }
 
+/** A lobby as the admin page sees it, for choosing where to let a present go. */
+export interface RoomView {
+  id: string;
+  /** How many players are in it now. */
+  players: number;
+  /** A present is on its way down there, or waiting to be touched. */
+  present: boolean;
+}
+
 /** A player as the admin page sees them. */
 export interface AdminPlayerView extends PlayerView {
   /** Pets set free in the last 30 days, which can still be brought back. */

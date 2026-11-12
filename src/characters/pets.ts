@@ -22,6 +22,8 @@ export function petCharacter(id: string, dna: Dna): CharacterDef {
       heads: dna.heads,
       tails: dna.tails,
       eyeDots: dna.eyeDots,
+      sun: dna.sun,
+      thirdEye: dna.thirdEye,
     },
   };
 }

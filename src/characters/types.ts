@@ -72,6 +72,6 @@ export interface CharacterDef {
   voice: VoiceDef;
   /** A letter worn on a round badge on the chest, to tell this bird from every other. */
   emblem?: string;
-  /** Extras only a pet can have: glow, rainbow, more heads, more tails, two-dot eyes. */
-  specials?: Pick<Dna, SpecialGene>;
+  /** Extras only a pet can have: glow, rainbow, more heads, more tails, two-dot eyes; and the ultra mythical's sun and third eye. */
+  specials?: Pick<Dna, SpecialGene | 'sun' | 'thirdEye'>;
 }

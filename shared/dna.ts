@@ -54,10 +54,20 @@ export interface Dna {
   // Special genes. Each counts as "on" when it is not at its first value.
   glow: boolean;
   rainbow: boolean;
-  heads: 1 | 2 | 3;
-  tails: 1 | 2 | 3;
+  heads: 1 | 2 | 3 | 10;
+  tails: 1 | 2 | 3 | 10;
   eyeDots: 1 | 2;
+
+  // What only the ultra mythical pet has, with its ten heads and ten tails.
+  // None of it is ever passed on to a baby.
+  /** A glow as strong as a sun, in every colour. It is what makes a pet ultra mythical. */
+  sun?: boolean;
+  /** A third eye on the forehead: with the two at the sides, the tips of a triangle. */
+  thirdEye?: boolean;
 }
+
+/** The most heads or tails a bred pet can have. */
+export const BRED_MOST = 3;
 
 /** Limits a bred pet's size and tail length stay within. */
 export const SIZE_RANGE = [0.8, 1.25] as const;
@@ -69,10 +79,25 @@ export function hasSpecial(dna: Dna, gene: SpecialGene): boolean {
 }
 
 /** Rarity, from the most common to the rarest. */
-export const TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythical'] as const;
+export const TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythical', 'ultra'] as const;
 export type Tier = (typeof TIERS)[number];
 
-/** A pet's tier is the number of special genes it has. It is never stored. */
+/** What each tier is called. */
+export const TIER_NAMES: Record<Tier, string> = {
+  common: 'common',
+  uncommon: 'uncommon',
+  rare: 'rare',
+  epic: 'epic',
+  legendary: 'legendary',
+  mythical: 'mythical',
+  ultra: 'ultra mythical',
+};
+
+/**
+ * A pet's tier is the number of special genes it has; the one with the sun is
+ * ultra mythical. It is never stored.
+ */
 export function tierOf(dna: Dna): Tier {
+  if (dna.sun) return 'ultra';
   return TIERS[SPECIAL_GENES.filter((gene) => hasSpecial(dna, gene)).length];
 }

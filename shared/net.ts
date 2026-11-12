@@ -8,6 +8,16 @@ import type { HelperIntent } from './helper';
 /** The lobbies a player can be in. Each is one room on the server. */
 export const LOBBY_IDS = ['aviary', 'downham-market', 'london', 'new-york', 'test-room', 'pet-show'] as const;
 
+/** What the owner's page calls each lobby. */
+export const LOBBY_NAMES: Record<(typeof LOBBY_IDS)[number], string> = {
+  aviary: 'The Aviary',
+  'downham-market': 'Downham Market',
+  london: 'London',
+  'new-york': 'New York',
+  'test-room': 'Test Room',
+  'pet-show': 'Pet Show',
+};
+
 /** The most players in one lobby. */
 export const LOBBY_SIZE = 8;
 
@@ -73,6 +83,17 @@ export interface SharedWorld {
   rings: string[];
 }
 
+/**
+ * A present the owner has let go from the sky over a lobby, with a pet
+ * inside. It comes down slowly; the first player to touch it gets the pet.
+ * What is inside is a surprise, so it is not told.
+ */
+export interface Present {
+  id: string;
+  /** How long ago it was let go, in milliseconds, when this was sent. */
+  age: number;
+}
+
 /** What a player tells the lobby about themself. */
 export interface AboutMe {
   characterId: string;
@@ -92,8 +113,10 @@ export type ClientMessage =
   | { t: 'rtc'; to: number; data: RtcData }
   /** Something this game made happen to the lobby's toys, bells or rings. */
   | { t: 'act'; action: Action }
-  /** This game's player has come up to the helper parrot. It may greet them. */
-  | { t: 'near' };
+  /** This game's player has come up to the helper parrot, or is still by it. It may say something to them. */
+  | { t: 'near' }
+  /** This game's player has touched the present. A game speaks only for its own player, never for a parrot it runs. */
+  | { t: 'open'; id: string };
 
 export type ServerMessage =
   /** The first thing a player hears: who they are here, and who else is in. */
@@ -117,4 +140,10 @@ export type ServerMessage =
   /** The helper parrot heard a phrase and could not answer it. */
   | { t: 'squawk' }
   /** What the helper parrot's body does from now. Every game is told; the host's flies it. */
-  | { t: 'intent'; intent: HelperIntent };
+  | { t: 'intent'; intent: HelperIntent }
+  /** A present is on its way down, or is waiting where it landed. */
+  | { t: 'present'; present: Present }
+  /** The player in place `by` touched the present first: the pet in it is theirs. */
+  | { t: 'opened'; id: string; by: number }
+  /** For the player who touched it only: they could not be given the pet, so the present stays for somebody else. */
+  | { t: 'shut'; id: string };

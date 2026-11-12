@@ -85,6 +85,12 @@ function shape(
 }
 
 const ball = (w = 10, h = 8): SphereGeometry => new SphereGeometry(1, w, h);
+/**
+ * A ball for part of a head. A bird with ten heads has each so small that
+ * coarser shapes look the same, and they keep it cheap to draw.
+ */
+const headBall = (def: CharacterDef, w: number, h: number): SphereGeometry =>
+  (def.specials?.heads ?? 1) > 3 ? ball(Math.max(4, w - 4), Math.max(3, h - 2)) : ball(w, h);
 /** Do something once for each side of the bird: -1 is its left, +1 its right. */
 const bothSides = <T>(make: (side: number) => T): T[] => [make(-1), make(1)];
 
@@ -93,6 +99,9 @@ function merge(parts: BufferGeometry[]): BufferGeometry {
   for (const part of parts) part.dispose();
   return merged;
 }
+
+/** The widest a bird's tails fan out, from the leftmost to the rightmost, radians. */
+const TAIL_FAN = 2.8;
 
 /** Torso, tail and feet. The origin is on the ground between the feet. */
 function bodyParts(def: CharacterDef): BufferGeometry[] {
@@ -111,11 +120,13 @@ function bodyParts(def: CharacterDef): BufferGeometry[] {
   );
 
   // A tail is a fan of three feathers. Extra tails splay out to the sides
-  // and lift a little, so each can be told from the next.
+  // and lift a little, so each can be told from the next. Ten of them close
+  // up into one wide fan, like a peacock's, instead of wrapping round the bird.
   const tails = def.specials?.tails ?? 1;
+  const apart = Math.min(0.6, TAIL_FAN / Math.max(1, tails - 1));
   const tail: BufferGeometry[] = [];
   for (let k = 0; k < tails; k++) {
-    const splay = (k - (tails - 1) / 2) * 0.6;
+    const splay = (k - (tails - 1) / 2) * apart;
     for (const fan of [-0.13, 0, 0.13]) {
       tail.push(
         shape(
@@ -158,7 +169,7 @@ function headParts(def: CharacterDef): BufferGeometry[] {
 
   parts.push(
     shape(
-      ball(12, 10),
+      headBall(def, 12, 10),
       [0, 0, 0],
       [0.17, 0.17, 0.17],
       [0, 0, 0],
@@ -173,9 +184,9 @@ function headParts(def: CharacterDef): BufferGeometry[] {
     ),
   );
   // A short, rounded upper beak with a hooked tip, over a small lower one.
-  parts.push(shape(ball(8, 6), [0, -0.03, -0.155], [0.05, 0.05, 0.055], [0, 0, 0], col.beak));
+  parts.push(shape(headBall(def, 8, 6), [0, -0.03, -0.155], [0.05, 0.05, 0.055], [0, 0, 0], col.beak));
   parts.push(shape(new ConeGeometry(0.035, 0.07, 6), [0, -0.075, -0.185], [1, 1, 1], [Math.PI - 0.25, 0, 0], col.beak));
-  parts.push(shape(ball(6, 4), [0, -0.085, -0.13], [0.035, 0.022, 0.035], [0, 0, 0], col.beak));
+  parts.push(shape(headBall(def, 6, 4), [0, -0.085, -0.13], [0.035, 0.022, 0.035], [0, 0, 0], col.beak));
   if (col.beakStain !== undefined) {
     // A blotch on the front of the upper beak, a little to one side.
     parts.push(shape(ball(6, 5), [0.016, -0.018, -0.2], [0.024, 0.026, 0.014], [0, 0, 0], col.beakStain));
@@ -203,7 +214,7 @@ function headParts(def: CharacterDef): BufferGeometry[] {
         );
       }
     } else {
-      parts.push(shape(ball(8, 6), [side * 0.138, 0.035, -0.097], [0.02, 0.023, 0.023], [0, 0, 0], col.eye));
+      parts.push(shape(headBall(def, 8, 6), [side * 0.138, 0.035, -0.097], [0.02, 0.023, 0.023], [0, 0, 0], col.eye));
     }
     if (col.cheek !== undefined) {
       parts.push(shape(ball(8, 6), [side * 0.146, -0.04, -0.015], [0.032, 0.075, 0.075], [0, 0, 0], col.cheek));
@@ -211,6 +222,12 @@ function headParts(def: CharacterDef): BufferGeometry[] {
     if (col.neckSmudge !== undefined) {
       parts.push(shape(ball(6, 5), [side * 0.135, -0.1, 0.035], [0.03, 0.05, 0.045], [0, 0, 0.2 * side], col.neckSmudge));
     }
+  }
+  if (def.specials?.thirdEye) {
+    // A third eye high on the forehead, lying on the curve of the head. Seen
+    // from the front, the three eyes are the tips of a triangle.
+    parts.push(shape(headBall(def, 8, 6), [0, 0.121, -0.121], [0.03, 0.03, 0.012], [0.78, 0, 0], 0xffffff));
+    parts.push(shape(headBall(def, 6, 5), [0, 0.129, -0.129], [0.017, 0.017, 0.008], [0.78, 0, 0], col.eye));
   }
   return parts;
 }
@@ -242,6 +259,8 @@ interface HeadSeat {
   /** Where the head sits, measured from a lone head's place. */
   x: number;
   y: number;
+  /** Left out, it is level with a lone head. */
+  z?: number;
   /** How far it leans outward, radians. */
   lean: number;
   /** Its size against a lone head. */
@@ -262,6 +281,25 @@ function headSeats(def: CharacterDef): HeadSeat[] {
         { x: 0, y: 0.03, lean: 0, size: 0.75 },
         { x: 0.23, y: -0.07, lean: -0.55, size: 0.75 },
       ];
+    case 10: {
+      // A crown of ten small heads on long necks: six fanned out behind, four in front of them.
+      const seats: HeadSeat[] = [];
+      const row = (heads: number, reach: number, spread: number, z: number): void => {
+        for (let i = 0; i < heads; i++) {
+          const angle = (i / (heads - 1) - 0.5) * 2 * spread;
+          seats.push({
+            x: NECK_ROOT.x + reach * Math.sin(angle),
+            y: NECK_ROOT.y + reach * Math.cos(angle),
+            z,
+            lean: -angle * 0.6,
+            size: 0.44,
+          });
+        }
+      };
+      row(6, 0.4, 1.4, 0.03);
+      row(4, 0.25, 0.94, -0.05);
+      return seats;
+    }
     default:
       return [{ x: 0, y: 0, lean: 0, size: 1 }];
   }
@@ -276,8 +314,8 @@ function neck(def: CharacterDef, seat: HeadSeat): BufferGeometry {
   const dy = NECK_ROOT.y - seat.y;
   const thick = 0.08 * seat.size;
   return shape(
-    ball(8, 6),
-    [seat.x + dx / 2, seat.y + dy / 2, 0.01],
+    headBall(def, 8, 6),
+    [seat.x + dx / 2, seat.y + dy / 2, 0.01 + (seat.z ?? 0) / 2],
     [thick, Math.hypot(dx, dy) / 2 + 0.03, thick],
     [0, 0, Math.atan2(-dx, dy)],
     plumage(def, def.colors.head, HEAD_CENTER.y),
@@ -291,7 +329,7 @@ function allHeads(def: CharacterDef): BufferGeometry {
   const parts: BufferGeometry[] = [];
   for (const seat of headSeats(def)) {
     parts.push(
-      merge(headParts(def)).scale(seat.size, seat.size, seat.size).rotateZ(seat.lean).translate(seat.x, seat.y, 0),
+      merge(headParts(def)).scale(seat.size, seat.size, seat.size).rotateZ(seat.lean).translate(seat.x, seat.y, seat.z ?? 0),
     );
     if (seat.x !== 0) parts.push(neck(def, seat));
   }
@@ -306,7 +344,7 @@ function allCrests(def: CharacterDef): BufferGeometry | null {
       const crest = merge(crestParts(def)).scale(seat.size, seat.size, seat.size).rotateZ(seat.lean);
       // This head's crest root, measured from a lone head's.
       a.copy(CREST_ROOT).multiplyScalar(seat.size).applyAxisAngle(Z_AXIS, seat.lean).sub(CREST_ROOT);
-      return crest.translate(a.x + seat.x, a.y + seat.y, a.z);
+      return crest.translate(a.x + seat.x, a.y + seat.y, a.z + (seat.z ?? 0));
     }),
   );
 }

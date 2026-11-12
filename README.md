@@ -85,8 +85,9 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
 
 - **The pet corner.** A rail on one side of the nest, across from the parrots
   you can be. A signed-in player's pets sit along it, six at a time, each on a
-  band coloured for its tier: grey, green, blue, purple, gold, and a rainbow
-  for a mythical. With more than six pets, orange arrows at the ends of the
+  band coloured for its tier: grey, green, blue, purple, gold, a rainbow
+  for a mythical, and a rainbow with white stripes for the ultra mythical.
+  With more than six pets, orange arrows at the ends of the
   rail turn the page. Signed out, the rail shows a padlock; with no
   connection, a crossed-out cloud.
 - **The follower.** Touch a pet with a hand or your beak and it follows you:
@@ -95,8 +96,25 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
   follows; if it says no, the pet shakes its head and nothing changes. The
   follower is still with you the next time you play.
 - **Pet DNA, tiers, breeding rules and models.** Add `?lobby=pet-show` to the
-  address to look at them: the eight fixed pets stand on the front bar, and
+  address to look at them: the nine fixed pets stand on the front bar, and
   eight babies bred from pairs of them on the bar behind.
+- **The ultra mythical pet,** Sunny: a tier above mythical. It is very small,
+  less than half the size of the smallest pet that can be bred, and shines
+  like a rainbow sun, with ten heads, ten tails and three eyes on each head,
+  set as the tips of a triangle. It is a fixed pet only: breeding never makes
+  one. Its babies are ordinary pets, with three heads and three tails at
+  most, and without the sun or the third eye.
+- **A present from the sky.** On the admin page the owner chooses a fixed pet
+  and a lobby, and lets a present go: a wrapped box under a little parachute
+  comes down slowly, in 20 seconds, and waits where it lands. The first
+  player to touch it with a hand or the beak gets the pet, which flies out
+  and follows them. The lobby's own parrots and Kiki cannot take it: a game
+  asks only for its own player, and the lobby server decides who was first.
+  A player with no room for another pet hears a "no", and the present stays
+  for somebody else. One present at a time in each lobby; it waits for as
+  long as it takes, even with nobody there. It lands on the grass between
+  the home tree and the gate in the Aviary, and a few metres in front of
+  where players start in the other places.
 - **A small server** that keeps players and their pets.
 - **Sign-in.** Nobody plays without signing in. Signed out, the play button
   shows a key and opens a number pad for a player's 6-digit code. It is typed
@@ -106,7 +124,9 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
   for the admin password, then lets you add and delete players, regenerate
   their codes, give or remove pets, and bring back a pet that was set free.
   A code is shown once, when it is made. Deleting a player takes their pets
-  with them and cannot be undone.
+  with them and cannot be undone. "Drop a present" lets a present go over a
+  lobby; the list says how many players are in each lobby now, and whether a
+  present is there already.
 
 ### Running the server on this PC
 
@@ -183,12 +203,16 @@ questions about the game, such as how to hatch an egg.
   back to its stump. It cannot carry anything. The host's game flies it, as it
   does the other lobby parrots.
 - **Starting a chat.** When you come up to Kiki, whichever way you face, it
-  greets you or asks a kind question: at most once in five minutes for each
-  player, and never within half a minute of its last greeting. With nothing
-  asked of it, Kiki also flies over to a player every two or three minutes,
-  stays half a minute, and flies back. Nothing is heard for a greeting; your
-  game only tells the server that you are near. A greeting is checked, counted
-  and recorded like any reply.
+  says hello. While you stay by it, it says something nice or funny now and
+  then: a kind word, a little joke, or a fun thing to try. That is at most
+  once in three minutes for each player, and never within half a minute of
+  the last time, for anybody. With nothing asked of it, Kiki also flies over
+  to a player every two or three minutes, any player in the lobby in turn,
+  lands to one side and a little ahead of them, where they see it, stays
+  about half a minute, and flies back. Nothing is heard for this; your game
+  only tells the server that you are near, every 15 seconds while you are.
+  What Kiki says of its own accord is checked, counted and recorded like any
+  reply.
 - **What happens to a phrase.** The game cuts one phrase of at most 8 seconds
   from the microphone, only while you are close to Kiki and facing it, and
   sends it to the game's server. The server has Cloudflare turn it into text
@@ -527,6 +551,7 @@ microphone is used for three things:
 | `src/voice/` | Voice between the players in a lobby |
 | `src/account/` | Signing in: the number pad on the start screen and the token the device keeps |
 | `src/pets/` | The pet corner in the nest, and the pet that follows the player |
+| `src/present/` | The present that comes down from the sky with a pet inside |
 | `src/helper/` | The game's side of the helper parrot: when it listens, and playing its voice |
 | `src/menu/` | The player's own menu board, and the picture buttons on it |
 | `src/admin/`, `admin.html` | The owner's admin page |

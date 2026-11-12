@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LobbyRules } from '../server/lobbyRules';
-import type { Member } from '../server/lobbyRules';
+import type { Gift, Member } from '../server/lobbyRules';
 import type { Action } from '../shared/actions';
 import { MAX_HEARD_BYTES, SOUND_HEAD } from '../shared/helper';
 import {
@@ -530,5 +530,138 @@ describe('a lobby with no helper parrot', () => {
     rules.text(sam, JSON.stringify({ t: 'near' }));
     expect(sam.closed).toBeNull();
     expect(alex.frames).toEqual([]);
+  });
+});
+
+describe('a present let go over the lobby', () => {
+  /** Who was given which pet, in order. */
+  let given: string[];
+  /** Players with no room for another pet. */
+  let full: Set<string>;
+  /** What the lobby kept of the present each time; null is forgetting it. */
+  let kept: (Gift | null)[];
+  const gift = (id = 'gift-1'): Gift => ({ id, founderId: 'sunny', droppedAt: 0 });
+  const open = (c: Conn, id = 'gift-1'): void => rules.text(c, JSON.stringify({ t: 'open', id }));
+  /** Let the giving of the pet finish. */
+  const done = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+  const about = (c: Conn): ServerMessage[] => c.heard.filter((m) => m.t === 'present' || m.t === 'opened' || m.t === 'shut');
+
+  beforeEach(() => {
+    given = [];
+    full = new Set();
+    kept = [];
+    rules = new LobbyRules<Conn>({
+      send: (c, data) => {
+        if (typeof data === 'string') c.heard.push(JSON.parse(data));
+      },
+      close: (c, code) => void (c.closed = code),
+      keep: () => {},
+      give: async (member, present) => {
+        if (full.has(member.id)) return false;
+        given.push(`${member.nickname}:${present.founderId}`);
+        return true;
+      },
+      keepGift: (present) => void kept.push(present),
+    });
+  });
+
+  it('is told to everybody who is in, and kept', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    expect(rules.hasGift).toBe(false);
+    expect(rules.drop(gift())).toBe(true);
+    expect(rules.hasGift).toBe(true);
+    // What is inside is a surprise: only that it is there, and for how long.
+    expect(about(alex)).toEqual([{ t: 'present', present: { id: 'gift-1', age: 0 } }]);
+    expect(about(sam)).toEqual(about(alex));
+    expect(kept).toEqual([gift()]);
+  });
+
+  it('is one at a time', () => {
+    const alex = join('Alex');
+    rules.drop(gift());
+    expect(rules.drop(gift('gift-2'))).toBe(false);
+    expect(about(alex)).toHaveLength(1);
+  });
+
+  it('waits for as long as it takes, and is told to whoever comes in later with how long ago it was let go', () => {
+    // Nobody is in: it comes down all the same.
+    expect(rules.drop(gift())).toBe(true);
+    const alex = join('Alex');
+    expect(about(alex)).toEqual([{ t: 'present', present: { id: 'gift-1', age: clock } }]);
+    rules.leave(alex);
+    clock += 5000;
+    const sam = join('Sam');
+    expect(about(sam)).toEqual([{ t: 'present', present: { id: 'gift-1', age: clock } }]);
+  });
+
+  it('gives the pet to the first player to touch it, and tells everybody who that was', async () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    rules.drop(gift());
+    open(sam);
+    // Alex touches it while Sam is being given the pet: too late.
+    open(alex);
+    await done();
+    open(alex);
+    await done();
+    expect(given).toEqual(['Sam:sunny']);
+    expect(about(alex).at(-1)).toEqual({ t: 'opened', id: 'gift-1', by: 1 });
+    expect(about(sam).at(-1)).toEqual({ t: 'opened', id: 'gift-1', by: 1 });
+    expect(rules.hasGift).toBe(false);
+    expect(kept.at(-1)).toBeNull();
+    // And another can be let go.
+    expect(rules.drop(gift('gift-2'))).toBe(true);
+  });
+
+  it('stays for somebody else when the player who touched it has no room', async () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    full.add('id-Alex');
+    rules.drop(gift());
+    open(alex);
+    await done();
+    expect(given).toEqual([]);
+    // Only Alex is told no.
+    expect(about(alex).at(-1)).toEqual({ t: 'shut', id: 'gift-1' });
+    expect(about(sam)).toHaveLength(1);
+    expect(rules.hasGift).toBe(true);
+    open(sam);
+    await done();
+    expect(given).toEqual(['Sam:sunny']);
+  });
+
+  it('takes no touch of a present that is not there, and nothing from somebody who is not in', async () => {
+    const alex = join('Alex');
+    open(alex);
+    rules.drop(gift());
+    open(alex, 'gift-9');
+    open(conn('stranger'));
+    await done();
+    expect(given).toEqual([]);
+    expect(alex.closed).toBeNull();
+    // A touch with no present named is not ours.
+    rules.text(alex, JSON.stringify({ t: 'open' }));
+    expect(alex.closed).toBe(CLOSE_BAD);
+  });
+
+  it('can never be opened in a lobby that has no way to give a pet', async () => {
+    rules = new LobbyRules<Conn>({
+      send: (c, data) => void (typeof data === 'string' && c.heard.push(JSON.parse(data))),
+      close: () => {},
+      keep: () => {},
+    });
+    const alex = join('Alex');
+    rules.drop(gift());
+    open(alex);
+    await done();
+    expect(about(alex).at(-1)).toEqual({ t: 'shut', id: 'gift-1' });
+    expect(rules.hasGift).toBe(true);
+  });
+
+  it('is there again after the lobby has slept', () => {
+    rules.restoreGift({ ...gift(), droppedAt: -30_000 });
+    const alex = join('Alex');
+    expect(about(alex)).toEqual([{ t: 'present', present: { id: 'gift-1', age: clock + 30_000 } }]);
   });
 });

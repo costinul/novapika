@@ -23,9 +23,13 @@ const REMEMBERED = 6;
  * comes in later what it is doing.
  */
 export const INTENT_FOR = 90_000; // ms
-/** The helper greets a player who comes up to it only if it has not greeted or answered them for this long. */
-export const GREET_EVERY = 5 * 60_000; // ms
-/** And never sooner than this after its last greeting, to anybody. */
+/**
+ * The helper says something of its own accord to a player who is by it, a
+ * greeting or a nice or funny word, only if it has not spoken to them for
+ * this long.
+ */
+export const GREET_EVERY = 3 * 60_000; // ms
+/** And never sooner than this after it last did so, to anybody. */
 export const GREET_GAP = 30_000; // ms
 const MINUTE = 60_000;
 
@@ -45,7 +49,7 @@ export interface Exchange {
 /** What the helper is given to answer with. */
 export interface ThinkInput {
   speaker: string;
-  /** What the speaker said. Empty: they have only come up to the helper, and it may greet them. */
+  /** What the speaker said. Empty: they are by the helper and have not spoken, and it may say something to them. */
   heard: string;
   /** The speaker's pets and egg, in words. */
   about: string;
@@ -73,7 +77,7 @@ export function thinkPrompt({ speaker, heard, about, players, history }: ThinkIn
     ...(before.length > 0 ? ['Said just before:', ...before] : []),
     heard
       ? `${plain(speaker)} says:\n<heard>${plain(heard)}</heard>`
-      : `${plain(speaker)} has just come up to you and has not spoken yet. Greet them, or ask one kind question about what they are doing in the game.`,
+      : `${plain(speaker)} is near you and has not spoken. Say one nice or funny thing to them: a warm hello if you have not talked with them yet, and otherwise a kind word, a little joke a small child would laugh at, or a fun thing to try in the game. Do not say again what you said before.`,
   ].join('\n\n');
 }
 
@@ -236,9 +240,9 @@ export class HelperMind {
   }
 
   /**
-   * A player has come up to the helper without speaking. It greets them,
-   * unless it greeted or answered them a little while ago, or has only just
-   * greeted somebody else.
+   * A player has come up to the helper without speaking, or is still by it.
+   * It says something nice or funny to them, unless it spoke to them a
+   * little while ago, or has only just done so to somebody else.
    */
   async near(speaker: Speaker, players: string[]): Promise<Heard> {
     const now = this.deps.now();

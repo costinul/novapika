@@ -161,6 +161,17 @@ export class Pets {
     if (!wasIn && account.status === 'in') this.askIn = 0;
   }
 
+  /**
+   * Something about the players' pets has changed out in the lobby: ask the
+   * server now, without waiting for the next time. `start` is where a new
+   * follower sets out from, as for `setAccount`.
+   */
+  hearNow(start: Vector3 | 'beside' = 'beside'): void {
+    if (this.account.status !== 'in') return;
+    this.askIn = ASK_EVERY;
+    void this.hear(this.corner, start);
+  }
+
   /** One fixed simulation step for the pets that are out. `owner` is the player they belong to. */
   step(dt: number, owner: Player | null): void {
     const corner = this.corner;
@@ -469,7 +480,7 @@ export class Pets {
   }
 
   /** Ask the server what has changed: a friend's answer, a new request, the friends' pets. */
-  private async hear(corner: PetCorner | null): Promise<void> {
+  private async hear(corner: PetCorner | null, start: Vector3 | 'beside' = 'beside'): Promise<void> {
     const [account, friends] = await Promise.all([this.deps.api.account(), this.deps.api.friends()]);
     // An answer that comes back late, or while something else is being asked, is dropped.
     if (this.corner !== corner || this.busy || this.feeding) return;
@@ -478,7 +489,7 @@ export class Pets {
       corner?.setFriends(friends);
     }
     // With no connection the game carries on with what it last knew.
-    if (account.status !== 'offline') this.setAccount(account);
+    if (account.status !== 'offline') this.setAccount(account, start);
     else if (corner) this.refresh(corner);
     if (account.status === 'out') this.deps.onSignedOut?.();
   }

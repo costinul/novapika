@@ -2,7 +2,7 @@ import { Group, Vector3 } from 'three';
 import type { PetView } from '../../shared/api';
 import { SOUND_HEAD } from '../../shared/helper';
 import { FRAME_HEAD, FRAME_HEARD, FRAME_POSES, FRAME_SPEECH } from '../../shared/net';
-import type { AboutMe, LobbyPlayer, RtcData, ServerMessage, SharedWorld } from '../../shared/net';
+import type { AboutMe, LobbyPlayer, Present, RtcData, ServerMessage, SharedWorld } from '../../shared/net';
 import type { FeatherBatch } from '../characters/FeatherBatch';
 import type { Helper } from '../helper/Helper';
 import type { Player } from '../player/Player';
@@ -48,6 +48,15 @@ export interface MultiplayerDeps {
   voice?: Pick<Voice, 'call' | 'signal' | 'remove' | 'clear' | 'place'>;
   /** The lobby's helper parrot: what the lobby says of it, and its voice. Left out, it is never heard. */
   helper?: Pick<Helper, 'setListens' | 'setIntent' | 'speech' | 'squawk' | 'clear'>;
+  /** A present let go from the sky over the lobby. Left out, none is ever shown. */
+  present?: {
+    /** One is on its way down or waiting; null: there is none any more. */
+    show(present: Present | null): void;
+    /** Somebody touched it first and has the pet: `mine` if that was the local player. */
+    opened(id: string, mine: boolean): void;
+    /** The lobby would not give the local player the pet. */
+    shut(id: string): void;
+  };
   /** The time in seconds. Left out, the browser's clock. */
   now?(): number;
 }
@@ -136,6 +145,11 @@ export class Multiplayer {
     this.link?.send({ t: 'near' });
   }
 
+  /** Tell the lobby the local player has touched the present. Never sent for a parrot this game runs. */
+  sendOpen(id: string): void {
+    this.link?.send({ t: 'open', id });
+  }
+
   /** Tell the others what parrot the local player is and which pet follows them, if that is news. */
   private tellAbout(force = false): void {
     const me = this.deps.about();
@@ -202,6 +216,7 @@ export class Multiplayer {
     this.deps.world.unshare();
     this.deps.voice?.clear();
     this.deps.helper?.clear();
+    this.deps.present?.show(null);
   }
 
   /** Somebody else is in the lobby, or has changed parrot. */
@@ -258,6 +273,15 @@ export class Multiplayer {
         this.deps.helper?.setIntent(intent.do === 'follow' ? { ...intent, playerId: this.inwardId(intent.playerId) } : intent);
         break;
       }
+      case 'present':
+        this.deps.present?.show(message.present);
+        break;
+      case 'opened':
+        this.deps.present?.opened(message.id, message.by === this.slot);
+        break;
+      case 'shut':
+        this.deps.present?.shut(message.id);
+        break;
     }
   }
 

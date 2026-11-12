@@ -3,12 +3,13 @@ import { HELPER_LOBBIES, SOUND_HEAD } from '../shared/helper';
 import { FRAME_SPEECH, PROTOCOL } from '../shared/net';
 import type { SharedWorld } from '../shared/net';
 import { d1Store } from './d1Store';
+import { deps } from './deps';
 import { HelperMind } from './helper';
 import type { Usage } from './helper';
 import { helperAi } from './helperAi';
 import { LobbyRules } from './lobbyRules';
-import type { Member } from './lobbyRules';
-import { aboutPlayer, helperOn, keepTalk } from './rules';
+import type { Gift, Member } from './lobbyRules';
+import { aboutPlayer, helperOn, keepTalk, openPresent, Refusal } from './rules';
 
 // One lobby on Cloudflare: a Durable Object that every player in the lobby
 // holds a WebSocket to. The rules are in lobbyRules.ts; this only connects
@@ -25,6 +26,8 @@ const WORLD_KEY = 'world';
 /** Where the lobby keeps its own name, and how many phrases the helper parrot has answered today. */
 const NAME_KEY = 'name';
 const USAGE_KEY = 'helper-usage';
+/** Where the lobby keeps the present that is waiting in it, if there is one. */
+const GIFT_KEY = 'gift';
 /** How long the owner's switch for the helper parrot is trusted before it is read again. */
 const SWITCH_FOR = 30_000; // ms
 
@@ -85,7 +88,31 @@ export class Lobby extends DurableObject<Env> {
       if (!mind) return;
       const players = this.rules.players.map((player) => player.nickname);
       const started = Date.now();
-      this.ctx.waitUntil(mind.near({ id: member.id, nickname: member.nickname }, players).then((result) => turned('greeting', result, started)));
+      this.ctx.waitUntil(
+        mind.near({ id: member.id, nickname: member.nickname }, players).then((result) => {
+          // A game says so every little while for as long as its player stays: only what came of it is worth a line.
+          if (result !== 'nothing') turned('greeting', result, started);
+        }),
+      );
+    },
+    give: async (member, gift) => {
+      try {
+        await openPresent(d1Store(this.env.DB), deps, member.id, gift.founderId);
+        return true;
+      } catch (error) {
+        // A player with no room for it is no fault; anything else is.
+        if (!(error instanceof Refusal)) fault('present not given', error);
+        return false;
+      }
+    },
+    keepGift: (gift) => {
+      try {
+        if (gift) this.ctx.storage.kv.put(GIFT_KEY, gift);
+        else this.ctx.storage.kv.delete(GIFT_KEY);
+      } catch (error) {
+        // The lobby carries on from memory; only a sleep would lose the present.
+        fault('present not kept', error);
+      }
     },
   });
 
@@ -103,6 +130,8 @@ export class Lobby extends DurableObject<Env> {
     }
     const world = ctx.storage.kv.get<SharedWorld>(WORLD_KEY);
     if (world) this.rules.restoreWorld(world);
+    const gift = ctx.storage.kv.get<Gift>(GIFT_KEY);
+    if (gift) this.rules.restoreGift(gift);
     this.name = ctx.storage.kv.get<string>(NAME_KEY) ?? '';
   }
 
@@ -137,6 +166,19 @@ export class Lobby extends DurableObject<Env> {
   /** How many players are in the lobby now. The Worker asks, for the boards by the gates. */
   count(): number {
     return this.rules.players.length;
+  }
+
+  /** How many players are in, and whether a present is there. The Worker asks, for the owner's page. */
+  room(): { players: number; present: boolean } {
+    return { players: this.rules.players.length, present: this.rules.hasGift };
+  }
+
+  /**
+   * The owner lets a present go from the sky over the lobby, with this fixed
+   * pet inside. False if one is already there.
+   */
+  letGo(founderId: string): boolean {
+    return this.rules.drop({ id: crypto.randomUUID(), founderId, droppedAt: Date.now() });
   }
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {

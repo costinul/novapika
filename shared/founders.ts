@@ -14,6 +14,7 @@ const PLAIN = { glow: false, rainbow: false, heads: 1, tails: 1, eyeDots: 1 } as
  * The fixed pets, each with its own hand-written DNA. The owner gives them to
  * players on the admin page, and every other pet is bred from them. There is
  * at least one for each tier. To add a fixed pet, add an entry here.
+ * Only a fixed pet can be ultra mythical: breeding never makes one.
  */
 export const founders: Record<string, Founder> = {
   // --- Common: no special genes ---------------------------------------------
@@ -225,6 +226,38 @@ export const founders: Record<string, Founder> = {
       heads: 3,
       tails: 3,
       eyeDots: 2,
+    },
+  },
+
+  // --- Ultra mythical: a tiny rainbow sun, with ten heads, ten tails and a third eye ---
+  sunny: {
+    id: 'sunny',
+    name: 'Sunny',
+    dna: {
+      colors: {
+        head: 0xfff6c8,
+        back: 0xffd84a,
+        chest: 0xffffff,
+        belly: 0xffe9a0,
+        wing: 0xffc23a,
+        wingTip: 0xff8a2a,
+        tail: 0xffd84a,
+        beak: 0xff9a2e,
+        feet: 0xf2c14e,
+        eye: EYE,
+      },
+      marks: {},
+      // Very small: less than half of the smallest pet that can be bred.
+      size: 0.38,
+      tailLength: 0.8,
+      crest: null,
+      glow: true,
+      rainbow: true,
+      heads: 10,
+      tails: 10,
+      eyeDots: 1,
+      sun: true,
+      thirdEye: true,
     },
   },
 };

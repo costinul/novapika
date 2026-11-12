@@ -328,3 +328,42 @@ All four steps are built, each committed and pushed to main.
   such as a platform beside it.
 - The lobby parrots no longer have a perching spot inside the nest; theirs
   moved to a branch just under it, to keep the nest clear.
+
+## 16. Added later: the ultra mythical pet, and presents
+
+Nov 12, 2026 · asked for by the owner after the four steps were built.
+
+**The ultra mythical pet.** A seventh tier, above mythical, with one fixed
+pet: Sunny. It is very small (size 0.38, where a bred pet is 0.8 to 1.25),
+glows like a rainbow sun, and has ten heads, ten tails and a third eye on
+each forehead, so that each head's three eyes are the tips of a triangle.
+
+- Its DNA has two genes no other pet has, `sun` and `thirdEye`, and 10 for
+  heads and tails. A pet with `sun` is ultra mythical; every other tier is
+  still counted from the five special genes.
+- Breeding never makes one. A baby of Sunny's gets neither new gene, three
+  heads and three tails at most, and a size within the usual limits.
+- Its band on the rail is a rainbow with white stripes.
+- Its ten heads are built from coarser shapes, so that it stays under 4,000
+  triangles like every other fixed pet.
+
+**Presents.** The owner lets a present go over a lobby from the admin page:
+a box with a fixed pet in it, which comes down slowly on a parachute. The
+first player to touch it gets the pet, and it follows them at once.
+
+| Question | Decision |
+| --- | --- |
+| Who decides who was first | The lobby's Durable Object. A game only says its own player touched it |
+| The lobby's own parrots, Kiki, pets | Never: no game asks for a parrot it runs |
+| A player with 24 pets | Told no; the present stays for somebody else |
+| How many at once | One in each lobby. A second is refused until the first is opened |
+| Nobody in the lobby | It waits, kept in the lobby's own storage |
+| What the games are told | That a present is there and how long ago it was let go. Not what is inside |
+| Where it lands | A place each lobby may name; otherwise 6 m in front of the first start point |
+
+API: `GET /api/admin/rooms` lists the lobbies with how many players are in
+each and whether a present is there. `POST /api/admin/rooms/:id/present`
+with a fixed pet's id lets one go. Over the lobby socket: `present`, `open`
+(from a game), `opened` and `shut`.
+
+Not built: taking a present back, and choosing where in the lobby it lands.

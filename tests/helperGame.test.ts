@@ -187,6 +187,29 @@ describe('coming up to the helper parrot', () => {
     expect(nears).toEqual(['Sam', 'Sam']);
   });
 
+  it('is told again every so often for as long as the player stays by it, but not across an answer', async () => {
+    const sam = game('id-sam', 'Sam');
+    sam.net.join('aviary');
+    await settle();
+    tellListens(true);
+    stand(sam, 2, 180);
+    frames(sam, 1);
+    expect(nears).toEqual(['Sam']);
+    frames(sam, 10);
+    expect(nears).toEqual(['Sam']);
+    frames(sam, 5);
+    expect(nears).toEqual(['Sam', 'Sam']);
+
+    // They say something: nothing more is told until the answer has come, or been given up on.
+    stand(sam, 2);
+    frames(sam, 0.1);
+    sam.say(new Int16Array(800));
+    frames(sam, 11);
+    expect(nears).toEqual(['Sam', 'Sam']);
+    frames(sam, 6);
+    expect(nears).toEqual(['Sam', 'Sam', 'Sam']);
+  });
+
   it('counts when the helper parrot flies over to the player, too', async () => {
     const sam = game('id-sam', 'Sam');
     sam.net.join('aviary');

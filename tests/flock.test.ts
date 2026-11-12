@@ -314,6 +314,26 @@ describe('flock', () => {
     expect(closestInFront).toBeGreaterThan(0.8);
   });
 
+  it('has a helper parrot that visits a player across the Aviary while another sits beside it, and lands where they see it', () => {
+    const helper = flock.helper!;
+    // One player stays by its stump. It was only ever the nearest player that got a visit.
+    human.head.position.copy(helper.head.position).add(new Vector3(1.2, 0.3, 0.8));
+    const far = new Player('remote-1', 'pika');
+    far.head.position.set(-10, cfg.bodyHeight.value, -9);
+    world.players.set(far.id, far);
+
+    // Come to rest, not only touched down on the way.
+    const brain = flock.brains.find((b) => b.def.helper)!;
+    const came = run(240, () => brain.state === 'perched' && helper.position.distanceTo(far.head.position) < 4);
+    expect(came, 'came to the far player').toBe(true);
+    // The far player faces -z: it is in front of them, off to one side, and not in their face.
+    const to = helper.position.clone().sub(far.head.position).setY(0);
+    expect(to.z).toBeLessThan(-0.3);
+    expect(Math.abs(to.x)).toBeGreaterThan(0.5);
+    expect(to.length()).toBeGreaterThan(1.2);
+    expect(run(120, () => helper.grounded && helper.position.distanceTo(new Vector3(...HELPER_STUMP)) < 1.6), 'went home').toBe(true);
+  });
+
   it('has a helper parrot that goes back to its stump when the player it follows is gone', () => {
     const helper = flock.helper!;
     const stump = new Vector3(...HELPER_STUMP);
