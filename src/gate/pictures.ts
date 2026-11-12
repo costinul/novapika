@@ -141,6 +141,50 @@ export const PICTURES: Record<string, (g: G) => void> = {
     blob(g, '#25272b', 168, 198, 8);
     blob(g, '#25272b', 216, 198, 8);
   },
+
+  /** New York: tall buildings, bright billboards and a yellow taxi. */
+  'new-york'(g) {
+    g.fillStyle = '#c9e4f7';
+    g.fillRect(0, 0, SIZE, SIZE);
+    // The Empire State Building, stepping in to its mast.
+    g.fillStyle = '#cfc6b4';
+    g.fillRect(98, 96, 60, 110);
+    g.fillRect(108, 52, 40, 46);
+    g.fillRect(118, 28, 20, 26);
+    g.fillRect(126, 6, 4, 24);
+    g.fillStyle = '#3d5266';
+    for (const x of [106, 122, 138]) g.fillRect(x, 104, 8, 96);
+    // Buildings either side, with billboards in plain colours.
+    g.fillStyle = '#4a4f5c';
+    g.fillRect(0, 70, 84, 136);
+    g.fillRect(172, 44, 84, 162);
+    for (const [color, x, y, w, h] of [
+      ['#ff3fa4', 8, 82, 68, 34],
+      ['#2fd6e6', 8, 124, 30, 34],
+      ['#ffd23f', 46, 124, 30, 34],
+      ['#8be04e', 180, 56, 68, 36],
+      ['#ff8a2a', 180, 100, 68, 36],
+      ['#8a5cf6', 180, 144, 68, 30],
+    ] as const) {
+      g.fillStyle = color;
+      g.fillRect(x, y, w, h);
+    }
+    blob(g, '#ffffff', 42, 99, 11);
+    blob(g, '#ffffff', 214, 118, 11);
+
+    // The street, and a yellow taxi on it.
+    g.fillStyle = '#5f6066';
+    g.fillRect(0, 204, SIZE, 52);
+    g.fillStyle = '#f7c531';
+    g.fillRect(84, 196, 96, 26);
+    g.fillRect(104, 178, 52, 20);
+    g.fillStyle = '#3d5266';
+    g.fillRect(110, 182, 40, 13);
+    g.fillStyle = '#25272b';
+    for (let x = 88; x < 176; x += 16) g.fillRect(x, 206, 8, 6);
+    blob(g, '#25272b', 104, 224, 10);
+    blob(g, '#25272b', 160, 224, 10);
+  },
 };
 
 /** The picture of a place, to draw on a flat sheet. Free it with `dispose` when done. */

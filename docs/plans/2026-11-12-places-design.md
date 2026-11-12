@@ -157,7 +157,9 @@ Each step is committed and pushed to main.
    several round patches of water side by side. The Eye does not turn. The
    building helpers the two towns share moved to `src/lobbies/town.ts` and
    `townScenery.ts`.
-5. New York.
+5. New York. Built: `src/lobbies/newYork/`. The harbour is the east
+   edge, so there are houses on three sides only. The billboards show plain
+   shapes: no words and nobody's brand.
 
 ## 7. Tests
 

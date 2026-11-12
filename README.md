@@ -249,12 +249,12 @@ microphone and a headset: the whole path from a spoken phrase to Kiki's voice,
 how well small children are heard, how long an answer takes, and how its
 voice sounds. Everything else was tested with unit tests and the desktop emulator.
 
-## Places (being built)
+## Places
 
 Design: [docs/plans/2026-11-12-places-design.md](docs/plans/2026-11-12-places-design.md).
-Steps 1 to 4 of 5 are built: the gate, its board and the trip; the pet that
-comes along; the counts of who is where; and two new places, Downham Market
-and London. New York is not built yet.
+All five steps are built: the gate, its board and the trip; the pet that
+comes along; the counts of who is where; and three new places, Downham
+Market, London and New York.
 
 - **Downham Market.** A toy town, not a map, about 100 m across. In the middle
   of the market place stands the clock tower: black and white, with an
@@ -289,6 +289,23 @@ and London. New York is not built yet.
   Ben's roof, on a walkway of Tower Bridge, on the Eye's top capsule and on
   the bus), a bird table in the park, a toy box on the south bank, and five
   parrots that live there.
+- **New York.** A toy New York, not a map, about 140 m across and 60 m high.
+  An avenue runs north from the gate and a street crosses it; where they
+  meet is Times Square. Four tall buildings there are covered in bright
+  billboards, which show plain shapes only: no words and nobody's brand. At
+  its north end are a narrow tower of billboards with a ball on a pole, and
+  red steps to climb. Yellow taxis stand in the streets. To the north-west
+  is the Empire State Building, 58 m to the top of its mast: it steps in as
+  it rises, and every step leaves a ledge to land on. The harbour is the
+  east side, shallow enough to stand and splash in, and the Statue of
+  Liberty stands on an island in it, green, with her torch held up.
+- **To do in New York.** A course of ten rings goes up the avenue through
+  Times Square, round the Empire State Building, over the park and out round
+  the statue. There are five bells (one near the top of the Empire State
+  Building, one on the statue's island), four hidden bottle caps (on top of
+  the Empire State Building, on the tower with the ball, at the statue's
+  feet and on the tallest roof in Times Square), a bird table in the park, a
+  toy box, and five parrots that live there.
 - **The gate.** The big stone gate against the Aviary's far netting is open.
   With no place picked the sheet in it is dim, and going through does nothing.
 - **The board.** A small board stands on the grass to the left of the gate,
@@ -343,7 +360,7 @@ npm run dev:local
 ```
 
 The game opens in the Aviary. Add `?lobby=test-room` to the address to load
-the small test room instead, or `?lobby=downham-market` or `?lobby=london` to start in a town;
+the small test room instead, or `?lobby=downham-market`, `?lobby=london` or `?lobby=new-york` to start in a town;
 lobbies are picked by id from `src/lobbies/registry.ts`. The test room has a
 gate of its own, but is on no board.
 

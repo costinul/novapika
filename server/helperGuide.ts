@@ -41,6 +41,7 @@ THINGS TO DO
 - The big stone gate by the net leads to other places. A small board stands on the grass beside it, with a picture of each place. Touch a picture with a hand or your beak and the gate lights up. Then fly or walk through the gate to go there. To come home, do the same at the gate there: touch the picture of the nest.
 - One of the places is Downham Market, a town with a black and white clock tower, market stalls, a town hall, a pond and a bird table. It has rings to fly through round the tower, bells and bottle caps of its own.
 - Another place is London, with Big Ben, the river Thames, Tower Bridge, the London Eye and a red bus. A great bell hangs at the top of Big Ben, and you can splash in the river.
+- Another place is New York, with Times Square and its bright signs, yellow taxis, red steps to climb, the Empire State Building, and the Statue of Liberty on an island in the water. You can land on the ledges of the Empire State Building all the way up.
 
 THE OTHER PARROTS
 - Seven parrots live in the Aviary: three budgies, two cockatoos and two macaws. They fly about, sit, preen and call.

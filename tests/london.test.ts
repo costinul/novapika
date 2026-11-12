@@ -29,7 +29,7 @@ import { lobbyRegistry } from '../src/lobbies/registry';
 import { roofTop } from '../src/lobbies/town';
 import { placeAt, stepMovement } from '../src/movement/step';
 import type { MoveInput } from '../src/movement/types';
-import { Player } from '../src/player/Player';
+import { HANDS, Player } from '../src/player/Player';
 import { ActionLayer } from '../src/world/actions';
 import type { Action } from '../src/world/actions';
 import type { Vec3 } from '../src/world/types';
@@ -72,6 +72,13 @@ function newInput(): MoveInput {
 
 function simulate(player: Player, input: MoveInput, seconds: number): void {
   for (let t = 0; t < seconds; t += DT) stepMovement(player, input, physics, cfg, DT);
+}
+
+/** Give a player the head and hands the movement was run with, so that what they touch can be worked out. */
+function pose(player: Player, input: MoveInput): void {
+  player.input.head.position.copy(input.head);
+  for (const h of HANDS) player.input.hands[h].grip.position.copy(input.hands[h].position);
+  player.updateWorldPoses();
 }
 
 /** Put a player down from a little above a point, and say how high their feet come to rest. */
@@ -163,7 +170,7 @@ describe('the Thames', () => {
     simulate(player, input, 2);
     expect(player.movementState).toBe('standing');
     expect(player.position.y + HEAD_Y - cfg.bodyHeight.value).toBeCloseTo(WATER_Y, 1);
-    player.updateWorldPoses();
+    pose(player, input);
     river.updateInteractions(wading, DT);
     expect(seen.some((action) => action.type === 'splash')).toBe(true);
   });
@@ -181,7 +188,7 @@ describe('the Thames', () => {
     placeAt(player, input, cfg, new Vector3(TOWER_BRIDGE.x, 0.3, 0));
     simulate(player, input, 2);
     expect(player.position.y + HEAD_Y - cfg.bodyHeight.value).toBeCloseTo(0, 1);
-    player.updateWorldPoses();
+    pose(player, input);
     river.updateInteractions(crossing, DT);
     expect(seen.some((action) => action.type === 'splash')).toBe(false);
   });

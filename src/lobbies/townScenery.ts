@@ -1,3 +1,4 @@
+import type { Vec3 } from '../world/types';
 import type { StaticBuilder } from './build';
 import { ROOF } from './town';
 import type { Building, Facing } from './town';
@@ -30,6 +31,11 @@ export function front(b: StaticBuilder, building: Building) {
   const rz = -Math.sin(out.yaw);
   return {
     width,
+    /** A point on the front: `u` to the right of its middle, at height `y`, `proud` of the wall. */
+    point(u: number, y: number, proud = 0): Vec3 {
+      const d = depth / 2 + proud;
+      return [building.x + out.x * d + rx * u, y, building.z + out.z * d + rz * u];
+    },
     /** A flat panel on the front: `u` to the right of its middle, `y` the height of its middle, standing `proud` of the wall. */
     panel(color: number, u: number, y: number, w: number, h: number, proud = 0.04): void {
       const d = depth / 2 + proud / 2;
