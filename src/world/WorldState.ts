@@ -345,6 +345,8 @@ export class WorldState {
     for (const player of this.players.values()) {
       const toy = player.carriedItemId ? this.toys.get(player.carriedItemId) : undefined;
       if (toy) this.carry(toy, player, dt);
+      // What a parrot run elsewhere touches is for its own game to say.
+      if (!player.simulatedHere) continue;
 
       beakPosition(player.head, this.beak);
       for (const peckable of this.peckables.values()) {

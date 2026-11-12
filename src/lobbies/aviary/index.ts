@@ -18,7 +18,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { StaticBuilder } from '../build';
 import { howToBoard } from './howTo';
 import type { LobbyModule } from '../types';
-import { CONTENT, HALF, HEIGHT, SPAWN } from './layout';
+import { CONTENT, HALF, HEIGHT, SPAWNS } from './layout';
 import { buildScenery } from './scenery';
 
 const NET_CELL = 1; // m, size of one square of netting
@@ -89,7 +89,7 @@ const aviary: LobbyModule = {
   id: 'aviary',
   name: 'The Aviary',
   skyColor: 0xcfeeff,
-  spawnPoints: [{ position: SPAWN }],
+  spawnPoints: SPAWNS.map((position) => ({ position })),
   content: CONTENT,
   ambience: { leaves: true, birds: true },
 

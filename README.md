@@ -12,6 +12,21 @@ moves, comfort settings and movement that fits short arms.
 Not yet checked on a real headset by the author of the code: every milestone
 was tested with unit tests and a desktop WebXR emulator only.
 
+## Multiplayer (being built)
+
+Up to eight signed-in players share a lobby. Built so far:
+
+- **Seeing each other.** Everyone playing in the same lobby sees the others'
+  parrots move: head, wings, claws and body. Each game runs its own player and
+  sends their pose fifteen times a second; the others are drawn a tenth of a
+  second behind, so they move smoothly. Each player starts at their own place
+  in the nest.
+- **The lobby server.** One Cloudflare Durable Object per lobby, which every
+  player there holds a WebSocket to, signed in with the same token as the
+  rest. It only passes messages on; it keeps nothing once the lobby is empty.
+
+Still to come: voice, shared lobby parrots and followers, shared toys.
+
 ## Pets (being built)
 
 Design: [docs/plans/2026-11-11-pets-design.md](docs/plans/2026-11-11-pets-design.md).
@@ -256,12 +271,13 @@ dropped. Nothing is stored and nothing leaves the headset.
 | `src/lobbies/` | Lobby registry and one folder per lobby |
 | `src/debug/` | In-headset debug panel |
 | `src/dev/` | Desktop WebXR emulator (development builds only) |
-| `src/net/`, `src/voice/` | Reserved for multiplayer and voice; empty in v1 |
+| `src/net/` | Multiplayer: the line to the lobby server, the other players, and how a pose travels |
+| `src/voice/` | Reserved for voice |
 | `src/account/` | Signing in: the number pad on the start screen and the token the device keeps |
 | `src/pets/` | The pet corner in the nest, and the pet that follows the player |
 | `src/admin/`, `admin.html` | The owner's admin page |
-| `shared/` | Pet DNA, tiers, breeding rules, the fixed pets, and what the server sends; used by game and server |
-| `server/` | The API on Cloudflare: rules, database layer and migrations |
+| `shared/` | Pet DNA, tiers, breeding rules, the fixed pets, what the server sends, and what the game and the lobby say to each other; used by game and server |
+| `server/` | The API on Cloudflare: rules, database layer and migrations; the lobby's rules and its Durable Object |
 | `tests/` | Vitest unit tests |
 
 ## Art and audio sources

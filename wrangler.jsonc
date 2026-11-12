@@ -19,6 +19,12 @@
       "migrations_dir": "server/migrations"
     }
   ],
+  // One Durable Object per lobby: the room every player there holds a
+  // WebSocket to. It keeps nothing once the lobby is empty.
+  "durable_objects": {
+    "bindings": [{ "name": "LOBBY", "class_name": "Lobby" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Lobby"] }],
   // Requests allowed per address per minute, so that sign-in codes and the
   // admin password cannot be guessed. Counted per Cloudflare location, so
   // the limits are approximate.

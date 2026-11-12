@@ -1,4 +1,6 @@
+import { LOBBY_IDS, PROTOCOL } from '../shared/net';
 import { d1Store } from './d1Store';
+import { NICKNAME_HEADER, PLAYER_HEADER } from './lobby';
 import {
   answer,
   askFor,
@@ -22,6 +24,8 @@ import {
 } from './rules';
 import type { Deps } from './rules';
 import type { PlayerRow, Store } from './store';
+
+export { Lobby } from './lobby';
 
 // The game's API, at /api/*. It turns HTTP requests into calls to the rules
 // in rules.ts and their answers into JSON. Everything else on the site is a
@@ -145,6 +149,25 @@ async function mine(request: Request, path: string, store: Store, player: Player
   return refuse('not-found', 404);
 }
 
+/**
+ * Open a player's WebSocket to a lobby. The token rides in the list of
+ * protocols, as a browser cannot put a header on a WebSocket and it must
+ * never be in the address.
+ */
+async function lobby(request: Request, env: Env, store: Store, lobbyId: string): Promise<Response> {
+  if (request.headers.get('Upgrade') !== 'websocket') return refuse('not-a-socket', 426);
+  if (!(LOBBY_IDS as readonly string[]).includes(lobbyId)) return refuse('not-found', 404);
+  const [protocol, token] = (request.headers.get('Sec-WebSocket-Protocol') ?? '').split(',').map((part) => part.trim());
+  const player = protocol === PROTOCOL ? await playerForToken(store, token ?? null) : null;
+  if (!player) return refuse('signed-out', 401);
+
+  // The lobby is told who this is by the Worker, never by the caller.
+  const headers = new Headers(request.headers);
+  headers.set(PLAYER_HEADER, player.id);
+  headers.set(NICKNAME_HEADER, encodeURIComponent(player.nickname));
+  return env.LOBBY.getByName(lobbyId).fetch(new Request(request, { headers }));
+}
+
 async function route(request: Request, env: Env): Promise<Response> {
   const path = new URL(request.url).pathname.replace(/\/+$/, '');
   if (!path.startsWith('/api/')) return refuse('not-found', 404);
@@ -165,6 +188,9 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (!(await isAdmin(request, env))) return refuse('not-admin', 401);
     return admin(request, rest.slice('/admin'.length), store);
   }
+
+  const room = /^\/lobby\/([\w-]+)$/.exec(rest);
+  if (room && request.method === 'GET') return lobby(request, env, store, room[1]);
 
   const player = await playerForToken(store, bearer(request));
   if (!player) return refuse('signed-out', 401);

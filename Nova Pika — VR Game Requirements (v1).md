@@ -33,7 +33,7 @@ These choices are fixed. Do not substitute alternatives without asking the owner
 | Tests | Vitest | Movement maths tested with synthetic hand traces, no headset needed |
 | Desktop testing | A WebXR emulator in the desktop browser | So the agent can run and check the game without a headset |
 | Hosting | Cloudflare: static files, plus a Worker API with a D1 database | The API keeps players and pets only; the game plays without it. See `docs/plans/2026-11-11-pets-design.md` |
-| Later: multiplayer | Cloudflare Durable Objects with WebSockets | Not built yet |
+| Multiplayer | Cloudflare Durable Objects with WebSockets | Being built: see the README |
 | Later: voice | WebRTC | Not in v1 |
 | Later: store | Packaged as a PWA for the Meta Horizon Store | Not in v1 |
 

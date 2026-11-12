@@ -38,8 +38,8 @@ export interface FlockView {
   spotTaken(index: number): boolean;
   /** How many parrots are after the player's food right now. */
   foodSeekers(): number;
-  /** The human to pay attention to, if there is one. */
-  human(): Player | null;
+  /** The human nearest to `near`, if there is one: the one to pay attention to. */
+  human(near: Vector3): Player | null;
   /** Toy types that count as food. */
   isFood(toyType: string): boolean;
   /** A parrot calls out. */
@@ -137,7 +137,7 @@ export class Brain {
       this.flock.call(this);
     }
 
-    const human = this.flock.human();
+    const human = this.flock.human(this.player.position);
     this.followTime = Math.max(0, this.followTime - dt);
     // Sitting close to a player with a seed: it may be taken from here.
     if (human && this.wantsFoodStill(human) && !this.player.carriedItemId && this.tryTake(human, dt)) return;
@@ -164,7 +164,7 @@ export class Brain {
   private followTime = 0;
 
   private wantsFood(): boolean {
-    const human = this.flock.human();
+    const human = this.flock.human(this.player.position);
     if (!human?.carriedItemId || this.player.carriedItemId) return false;
     const toy = this.world.toys.get(human.carriedItemId);
     if (!toy || !this.flock.isFood(toy.type)) return false;
@@ -209,7 +209,7 @@ export class Brain {
 
   /** Set `target` for the current errand. False if the errand cannot be done. */
   private chooseTarget(): boolean {
-    const human = this.flock.human();
+    const human = this.flock.human(this.player.position);
     switch (this.errand) {
       case 'hop': {
         const angle = this.random() * Math.PI * 2;
@@ -257,7 +257,7 @@ export class Brain {
 
   /** Claim a free perching spot that is not in the player's face. */
   private randomSpot(): boolean {
-    const human = this.flock.human();
+    const human = this.flock.human(this.player.position);
     for (let attempt = 0; attempt < 12; attempt++) {
       const index = Math.floor(this.random() * this.flock.spots.length);
       const spot = this.flock.spots[index];
@@ -308,7 +308,7 @@ export class Brain {
   }
 
   private fly(dt: number): void {
-    const human = this.flock.human();
+    const human = this.flock.human(this.player.position);
     this.airTime += dt;
     this.followTime = Math.max(0, this.followTime - dt);
 

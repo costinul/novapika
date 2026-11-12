@@ -121,6 +121,15 @@ const PERCH_ARC = -62.5;
 const [spawnX, spawnZ] = polar(PERCH_ARC, 1.2);
 /** In the nest, between the trunk and the perches. */
 export const SPAWN: Vec3 = [spawnX, NEST_Y, spawnZ];
+/**
+ * Where each player in the lobby starts, so that nobody starts inside
+ * anybody else: the first at `SPAWN`, the rest beside it round the
+ * trunk, a little under half a metre apart, clear of the shelves.
+ */
+export const SPAWNS: Vec3[] = [0, 1, -1, 2, -2, 3, 4, 5].map((step) => {
+  const [x, z] = polar(PERCH_ARC + step * 22, 1.2);
+  return [x, NEST_Y, z];
+});
 
 /** Height of a perch's bar above the nest floor: the row in front, and the tall one behind. */
 export const PERCH_HEIGHT = 0.4;

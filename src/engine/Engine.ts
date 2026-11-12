@@ -24,6 +24,8 @@ import type { PanelPointer } from '../debug/DebugPanel';
 import { lobbyRegistry } from '../lobbies/registry';
 import type { LobbyInstance, LobbyModule } from '../lobbies/types';
 import { newMoveInput, toMoveInput } from '../movement/input';
+import { connectLobby } from '../net/LobbyClient';
+import { Multiplayer } from '../net/Multiplayer';
 import { Pets } from '../pets/Pets';
 import { bodyCenter, clawCorrection, placeAt, stepMovement } from '../movement/step';
 import { HANDS, Player } from '../player/Player';
@@ -85,13 +87,18 @@ export class Engine {
   private readonly actions: ActionLayer;
   private readonly worldView: WorldView;
   private readonly sounds = new Sounds();
-  private readonly feathers = new FeatherBatch();
+  /** Room for forty parrots' wings: the players, their followers and the lobby's own. */
+  private readonly feathers = new FeatherBatch(560);
   private readonly mimicry = new Mimicry();
   private readonly flock: Flock;
   /** A signed-in player's pets. Tell it who is signed in with `pets.setAccount`. */
   readonly pets: Pets;
   /** Called when the server stops taking this device's sign-in in the middle of a game. */
   onSignedOut: (() => void) | null = null;
+  private readonly multiplayer: Multiplayer;
+  private wantOnline = false;
+  /** Somebody has just started playing: seat them at their own place once the lobby says which it is. */
+  private seatWhenIn = false;
   /** Simulation steps run so far. The flock and the pets are stepped on every second one. */
   private simSteps = 0;
   private readonly stunts = createRecognisers();
@@ -181,6 +188,7 @@ export class Engine {
       if (action.type === 'chooseCharacter' && mine) {
         this.sounds.setVoice(character(action.characterId).voice);
         rememberCharacter(action.characterId);
+        this.multiplayer.aboutChanged();
       }
       if (action.type === 'passRing' && mine) this.stuntSample.passedRing = true;
       if (action.type === 'place') this.pets.onPlaced(action.toyId, action.targetId);
@@ -213,6 +221,26 @@ export class Engine {
     });
     this.scene.add(this.pets.object);
 
+    this.multiplayer = new Multiplayer({
+      world: this.world,
+      feathers: this.feathers,
+      local: this.localPlayer,
+      connect: connectLobby,
+      about: () => ({
+        characterId: this.localPlayer.characterId,
+        followerPetId: this.pets.corner?.player?.followerId ?? null,
+      }),
+      onRefused: () =>
+        void petsApi.account().then((account) => {
+          if (account.status === 'out') this.onSignedOut?.();
+        }),
+      onJoined: () => {
+        if (this.seatWhenIn) this.needsSpawn = true;
+        this.seatWhenIn = false;
+      },
+    });
+    this.scene.add(this.multiplayer.object);
+
     // Head height changes when a session starts or ends, so re-seat the player.
     this.renderer.xr.addEventListener('sessionstart', () => (this.needsSpawn = true));
     this.renderer.xr.addEventListener('sessionend', () => (this.needsSpawn = true));
@@ -233,6 +261,7 @@ export class Engine {
     if (this.lobby) {
       this.scene.remove(this.lobby.instance.root);
       disposeTree(this.lobby.instance.root);
+      this.multiplayer.leave();
       this.flock.clear();
       this.pets.clear();
       this.world.clear();
@@ -250,13 +279,24 @@ export class Engine {
     this.lobby = { module, instance };
 
     this.needsSpawn = true;
+    if (this.wantOnline) this.multiplayer.join(module.id);
+  }
+
+  /** Join the other players in this lobby, or leave them. Call with true once somebody is playing. */
+  setOnline(on: boolean): void {
+    this.wantOnline = on;
+    this.seatWhenIn = on;
+    if (!on) this.multiplayer.leave();
+    else if (this.lobby) this.multiplayer.join(this.lobby.module.id);
   }
 
   /** Put the local player at rest on the lobby's spawn point. */
   private respawn(): void {
     if (!this.lobby) return;
     const player = this.localPlayer;
-    this.scratch.fromArray(this.lobby.module.spawnPoints[0].position);
+    // Each player in the lobby has their own place to start, where the lobby has enough.
+    const points = this.lobby.module.spawnPoints;
+    this.scratch.fromArray(points[Math.max(0, this.multiplayer.slot) % points.length].position);
     placeAt(player, this.moveNow, movementConfig, this.scratch);
     toMoveInput(player.input, this.movePrev);
     player.updateWorldPoses();
@@ -332,6 +372,7 @@ export class Engine {
     const between = ((this.simSteps % FLOCK_EVERY) + this.stepper.alpha) / FLOCK_EVERY;
     this.flock.frame(dt, between);
     this.pets.frame(dt, between, player);
+    this.multiplayer.frame(dt);
     this.feathers.end();
     this.updateBeak(dt);
     this.updateStunts(dt);

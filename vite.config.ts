@@ -4,7 +4,8 @@ import { defineConfig } from 'vitest/config';
 // `npm run dev` serves HTTPS on the local network so the headset can connect
 // (WebXR needs a secure context). `npm run dev:local` serves plain HTTP on
 // localhost for desktop work. The certificate comes from `npm run cert`.
-const API_PROXY = { '/api': 'http://localhost:8787' };
+// `ws` passes the lobby's WebSocket through as well.
+const API_PROXY = { '/api': { target: 'http://localhost:8787', ws: true } };
 
 export default defineConfig(({ mode }) => {
   const haveCert = existsSync('.cert/key.pem') && existsSync('.cert/cert.pem');

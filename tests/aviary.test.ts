@@ -1,10 +1,11 @@
 import { Vector3 } from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { PhysicsWorld } from '../src/engine/physics';
-import { CONTENT, HALF, HEIGHT, NEST_Y, SPAWN, TREES, BELL_HOOKS } from '../src/lobbies/aviary/layout';
+import { CHARACTER_PERCHES, CONTENT, HALF, HEIGHT, NEST_Y, SPAWN, SPAWNS, TREES, BELL_HOOKS } from '../src/lobbies/aviary/layout';
 import { buildScenery } from '../src/lobbies/aviary/scenery';
 import { StaticBuilder } from '../src/lobbies/build';
 import { lobbyRegistry } from '../src/lobbies/registry';
+import { LOBBY_SIZE } from '../shared/net';
 import { placeAt, stepMovement } from '../src/movement/step';
 import type { MoveInput } from '../src/movement/types';
 import { Player } from '../src/player/Player';
@@ -143,6 +144,28 @@ describe('the player', () => {
     simulate(player, input, 1);
     expect(player.movementState).toBe('standing');
     expect(player.position.y + HEAD_Y - cfg.bodyHeight.value).toBeCloseTo(NEST_Y, 1);
+  });
+
+  it('has a place of their own to start for everyone a lobby holds', () => {
+    expect(SPAWNS).toHaveLength(LOBBY_SIZE);
+    expect(SPAWNS[0]).toEqual(SPAWN);
+    for (const [i, spawn] of SPAWNS.entries()) {
+      // Standing in the nest, not inside anything.
+      const player = new Player('p', 'nova');
+      const input = newInput();
+      placeAt(player, input, cfg, v(spawn));
+      simulate(player, input, 1);
+      expect(player.movementState, `place ${i}`).toBe('standing');
+      expect(player.position.y + HEAD_Y - cfg.bodyHeight.value, `place ${i}`).toBeCloseTo(NEST_Y, 1);
+      const head = player.position.clone().add(input.head);
+      expect(Math.hypot(head.x - spawn[0], head.z - spawn[2]), `place ${i}`).toBeLessThan(0.05);
+      // Not close enough to a perch to turn into its parrot by standing there.
+      for (const perch of CHARACTER_PERCHES) {
+        expect(Math.hypot(perch.position[0] - spawn[0], perch.position[2] - spawn[2]), `place ${i}`).toBeGreaterThan(0.7);
+      }
+      // And not inside anybody else.
+      for (const other of SPAWNS.slice(i + 1)) expect(v(other).distanceTo(v(spawn)), `place ${i}`).toBeGreaterThan(0.4);
+    }
   });
 
   it('can never fly out through the netting or the roof', () => {

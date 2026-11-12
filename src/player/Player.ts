@@ -104,6 +104,8 @@ export class Player implements MoveState {
   excitement = 0;
   /** False for the lobby's own parrots, which a behaviour script drives. */
   human = true;
+  /** False for a parrot another player's game runs: here it is only moved to where that game says. */
+  simulatedHere = true;
   readonly catchVelocity = new Vector3();
   catchDecel = 0;
 

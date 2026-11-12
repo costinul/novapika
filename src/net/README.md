@@ -1,14 +1,18 @@
-# net (reserved, empty in v1)
+# net
 
-Multiplayer goes here later: a WebSocket client for a lobby server on
-Cloudflare Durable Objects, signed in with the same token as `src/account/`.
+Multiplayer: up to eight signed-in players in one lobby.
 
-How it plugs in without a rewrite:
+The rule everything follows: each game **simulates some parrots and only
+shows the rest**. It always simulates its own player. For those it sends a
+pose many times a second; everyone else is moved to the poses that arrive.
+`Player.simulatedHere` says which is which.
 
-- A remote player is the same `Player` class as the local one. A network
-  `InputSource` fills its `PlayerInput` instead of the headset.
-- World changes (pick up, drop, place, ring) pass through one action layer
-  keyed by stable object ids (built in milestone 4). The server approves or
-  rejects them there.
+- `LobbyClient.ts`: the WebSocket to the lobby server (`server/lobby.ts`),
+  signed in with the same token as `src/account/`. It reconnects by itself.
+- `pose.ts`: the bytes one parrot's pose travels as, and `PoseTrack`, which
+  draws a parrot a tenth of a second behind, between the two poses either side.
+- `RemotePlayers.ts`: the other people in the lobby, each an ordinary `Player`
+  drawn by the ordinary `PlayerView`.
+- `Multiplayer.ts`: joins a lobby, sends this game's poses and hears the rest.
 
-No networking code is written in v1.
+What the game and the server say to each other is in `shared/net.ts`.

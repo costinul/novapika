@@ -29,13 +29,19 @@ function show(): void {
   button.setAttribute('aria-label', label);
 }
 
+/** Somebody starts or stops playing: the start screen goes or comes back, and so do the other players. */
+function playing(on: boolean): void {
+  start.hidden = on;
+  engine?.setOnline(on);
+}
+
 const signIn = setUpSignIn((next) => {
   account = next;
   engine?.pets.setAccount(next);
   if (next.status === 'out') {
     // Signed out in the middle of a game: back to the start screen.
     void engine?.renderer.xr.getSession()?.end();
-    start.hidden = false;
+    playing(false);
   }
   show();
 });
@@ -59,7 +65,7 @@ button.addEventListener('click', (event) => {
 });
 // No headset here: once signed in, the game can still be looked at on the flat screen.
 start.addEventListener('click', () => {
-  if (vr === false && account?.status === 'in') start.hidden = true;
+  if (vr === false && account?.status === 'in') playing(true);
 });
 
 engine = await Engine.create(canvas);
@@ -72,7 +78,7 @@ engine.start();
 // Development only: lets the console and test scripts inspect the game.
 if (import.meta.env.DEV) (window as unknown as { engine: Engine }).engine = engine;
 
-engine.renderer.xr.addEventListener('sessionstart', () => (start.hidden = true));
-engine.renderer.xr.addEventListener('sessionend', () => (start.hidden = false));
+engine.renderer.xr.addEventListener('sessionstart', () => playing(true));
+engine.renderer.xr.addEventListener('sessionend', () => playing(false));
 vr = await engine.isVRSupported();
 show();

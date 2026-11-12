@@ -147,7 +147,7 @@ export class Flock implements FlockView {
    * last two simulation steps.
    */
   frame(dt: number, alpha: number): void {
-    const human = this.human();
+    const human = this.listener();
     for (const member of this.members) {
       const { player, brain } = member;
       member.drawnAt.lerpVectors(member.previous, player.position, alpha);
@@ -173,8 +173,23 @@ export class Flock implements FlockView {
     return this.members.filter((m) => m.brain.isSeekingFood).length;
   }
 
-  human(): Player | null {
-    for (const player of this.world.players.values()) if (player.human) return player;
+  human(near: Vector3): Player | null {
+    let nearest: Player | null = null;
+    let least = Infinity;
+    for (const player of this.world.players.values()) {
+      if (!player.human) continue;
+      const distance = player.head.position.distanceToSquared(near);
+      if (distance < least) {
+        nearest = player;
+        least = distance;
+      }
+    }
+    return nearest;
+  }
+
+  /** The player this game is played by: the one who hears the flock, and whom a mimic hears. */
+  private listener(): Player | null {
+    for (const player of this.world.players.values()) if (player.human && player.simulatedHere) return player;
     return null;
   }
 
@@ -208,7 +223,7 @@ export class Flock implements FlockView {
 
   /** Quieter the further the parrot is from the player. */
   private loudnessOf(member: Member): number {
-    const human = this.human();
+    const human = this.listener();
     if (!human) return 0;
     const distance = human.head.position.distanceTo(member.player.position);
     return Math.max(0.06, 1 / (1 + distance / 5));
