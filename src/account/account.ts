@@ -1,4 +1,4 @@
-import type { PlayerView } from '../../shared/api';
+import type { FriendView, PlayerView } from '../../shared/api';
 
 // Signing in. A player types their 6-digit code once; the server swaps it
 // for a token, which is all this device keeps. The game plays the same
@@ -76,21 +76,63 @@ export async function loadAccount(): Promise<Account> {
 }
 
 /**
- * Ask the server to make one of the player's pets follow them. Gives the
- * player as the server now has them, or null if it refused or was not reached.
+ * Call the server as the signed-in player. Gives its answer, or null if it
+ * refused, could not be reached, or nobody is signed in.
  */
-export async function follow(petId: string): Promise<PlayerView | null> {
+async function call<T>(method: string, path: string, body?: object): Promise<T | null> {
   const token = savedToken();
   if (!token) return null;
   try {
-    const response = await fetch('/api/me/follower', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ petId }),
+    const response = await fetch(`/api${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) return null;
-    return ((await response.json()) as { player: PlayerView }).player;
+    return (await response.json()) as T;
   } catch {
     return null;
   }
 }
+
+/** A change that answers with the player as the server now has them. */
+const change = async (method: string, path: string, body?: object): Promise<PlayerView | null> =>
+  (await call<{ player: PlayerView }>(method, path, body))?.player ?? null;
+
+/**
+ * Everything the game asks the server about pets. Each gives null when the
+ * server refuses or cannot be reached; nothing in the game changes until the
+ * server has agreed.
+ */
+export interface PetsApi {
+  /** Who is signed in, read afresh. */
+  account(): Promise<Account>;
+  /** The other players and their pets. */
+  friends(): Promise<FriendView[] | null>;
+  /** Make one of the player's pets follow them. */
+  follow(petId: string): Promise<PlayerView | null>;
+  /** Two of the player's own pets make an egg. */
+  breed(petA: string, petB: string): Promise<PlayerView | null>;
+  /** Ask a friend for the DNA of their pet, to pair with one of the player's. */
+  ask(myPetId: string, theirPetId: string): Promise<PlayerView | null>;
+  /** Say yes or no to a friend's request. */
+  answer(requestId: string, accept: boolean): Promise<PlayerView | null>;
+  /** Take back the player's own request. */
+  cancel(requestId: string): Promise<PlayerView | null>;
+  /** Feed the egg one seed. `hatched` is the pet that came out, if this was the last. */
+  feed(): Promise<{ player: PlayerView; hatched: string | null } | null>;
+  /** Set a pet free. */
+  free(petId: string): Promise<PlayerView | null>;
+}
+
+export const petsApi: PetsApi = {
+  account: loadAccount,
+  friends: async () => (await call<{ friends: FriendView[] }>('GET', '/friends'))?.friends ?? null,
+  follow: (petId) => change('POST', '/me/follower', { petId }),
+  breed: (petA, petB) => change('POST', '/breed', { petA, petB }),
+  ask: (myPetId, theirPetId) => change('POST', '/requests', { myPetId, theirPetId }),
+  answer: (requestId, accept) => change('POST', `/requests/${requestId}`, { accept }),
+  cancel: (requestId) => change('DELETE', `/requests/${requestId}`),
+  feed: () => call('POST', '/egg/feed', {}),
+  free: (petId) => change('POST', `/pets/${petId}/free`, {}),
+};

@@ -45,9 +45,6 @@ function clawGeometry(): BufferGeometry {
  * follow the arms and spread as the arms go out. For the local player the
  * head and body are left out (the camera is inside them); they see their
  * wings, their claws on a surface and the tip of their beak.
- *
- * A pet is flown as a parrot of ordinary size and drawn small: everything is
- * shrunk toward the point its feet stand on, by the size in its character.
  */
 export class PlayerView {
   readonly object = new Group();
@@ -77,15 +74,11 @@ export class PlayerView {
   private readonly normal = new Vector3();
   private readonly tip = new Color();
   private readonly hue = new Color();
-  /** Where the player's own space sits in the world, as drawn this frame. */
-  private readonly origin = new Vector3();
-  private readonly headAt = new Vector3();
-  private readonly handAt = new Vector3();
   private time = 0;
 
   /**
-   * `pet` is the character of a pet, which is not in the roster; with it the
-   * parrot is drawn small. Left out, the parrot is whoever the player is.
+   * `pet` is the character of a pet, which is not in the roster. Left out,
+   * the parrot is whoever the player is.
    */
   constructor(
     private readonly player: Player,
@@ -144,10 +137,6 @@ export class PlayerView {
     const head = player.head;
     const airborne = AIRBORNE.has(player.movementState);
     this.time += dt;
-    // A pet's head and hands are drawn nearer its feet, by its size.
-    const shrink = this.pet ? def.scale : 1;
-    this.origin.copy(head.position).sub(player.input.head.position);
-    const headAt = this.headAt.copy(player.input.head.position).multiplyScalar(shrink).add(this.origin);
 
     // Which way the bird faces: where the head looks, flattened.
     this.dir.set(0, 0, -1).applyQuaternion(head.quaternion).setY(0);
@@ -155,7 +144,7 @@ export class PlayerView {
     this.yaw.setFromUnitVectors(this.dir.set(0, 0, -1), this.forward);
 
     // Head, with the crest up when flying fast or showing off, down at rest.
-    this.headPivot.position.copy(headAt);
+    this.headPivot.position.copy(head.position);
     this.headPivot.quaternion.copy(head.quaternion);
     this.headPivot.scale.setScalar(height);
     const excited = airborne ? Math.max(0.25, player.velocity.length() / 6) : 0.15;
@@ -175,9 +164,9 @@ export class PlayerView {
       .copy(HEAD_CENTER)
       .multiplyScalar(-height)
       .applyQuaternion(this.bodyTurn)
-      .add(headAt);
+      .add(head.position);
 
-    this.beakTip.position.copy(BEAK_OFFSET).applyQuaternion(head.quaternion).add(headAt);
+    this.beakTip.position.copy(BEAK_OFFSET).applyQuaternion(head.quaternion).add(head.position);
     this.beakTip.quaternion.copy(head.quaternion);
     this.beakTip.rotateX(-0.4); // hooked slightly downward
 
@@ -189,18 +178,17 @@ export class PlayerView {
     this.back.copy(this.forward).negate();
     HANDS.forEach((h, index) => {
       const side = h === 'left' ? -1 : 1;
-      const grip = player.hands[h].grip.position;
-      const hand = this.handAt.copy(player.input.hands[h].grip.position).multiplyScalar(shrink).add(this.origin);
+      const hand = player.hands[h].grip.position;
       this.shoulder
         .set(side * SHOULDER.x, SHOULDER.y, SHOULDER.z)
         .multiplyScalar(height)
         .applyQuaternion(this.yaw)
-        .add(headAt);
+        .add(head.position);
       this.arm.copy(hand).sub(this.shoulder);
       this.armDir.copy(this.arm).normalize();
 
       // How far out the arm is, the same way the glide measures it.
-      const out = Math.hypot(grip.x - head.position.x, grip.z - head.position.z);
+      const out = Math.hypot(hand.x - head.position.x, hand.z - head.position.z);
       const tuck = movementConfig.wingTuckDistance.value * player.reachScale;
       const full = movementConfig.wingSpreadDistance.value * player.reachScale;
       const spread = saturate((out - tuck) / Math.max(0.01, full - tuck));

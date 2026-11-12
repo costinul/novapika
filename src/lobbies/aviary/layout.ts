@@ -175,13 +175,55 @@ function onPetRail(steps: number, lift = 0): Stand {
   return { position: [x, NEST_Y + PET_RAIL_HEIGHT + lift, z], yaw: Math.atan2(x, z) };
 }
 
-/** A signed-in player's pets sit along a rail, left to right. Touch one and it follows you. */
+/** A place in the nest, at an angle round it and a distance from its middle, facing the middle. */
+function inNest(angleDeg: number, distance: number, height: number): Stand {
+  const [x, z] = polar(angleDeg, distance);
+  return { position: [x, NEST_Y + height, z], yaw: Math.atan2(x, z) };
+}
+
+/** A place `right` metres to the right of another and `up` above it, as seen from the middle of the nest. */
+function beside(stand: Stand, right: number, up = 0): Stand {
+  const [x, y, z] = stand.position;
+  return { position: [x - Math.cos(stand.yaw) * right, y + up, z + Math.sin(stand.yaw) * right], yaw: stand.yaw };
+}
+
+/** Height of the top of a perch for a pet, above the nest floor. */
+const PET_PERCH = PET_RAIL_HEIGHT + 0.03;
+/** The egg cup, with a heart perch to each side: between the pet rail and the character perches. */
+const EGG_CUP = inNest(238, 1.9, 0);
+export const EGG_CUP_SIZE: Vec3 = [0.46, 0.1, 0.46];
+/** The friends' board stands on the rim between the pet rail and the egg cup. This is the foot of its front. */
+const BOARD = inNest(195, 2.2, 0);
+/** Heights of the board's two shelves above the nest floor, top one first. */
+export const BOARD_SHELVES = [0.8, 0.38];
+/** A friend's request shows over the middle of the pet rail. */
+const MAIL = onPetRail(0, 0.52);
+/** The goodbye perch stands alone, on the far side of the pet rail from everything else. */
+const GOODBYE = inNest(51, 2.15, PET_PERCH);
+
+/**
+ * Everything to do with a signed-in player's pets. Their pets sit along a
+ * rail, left to right; touch one and it follows you.
+ */
 export const PET_CORNER: PetCornerDef = {
   perches: Array.from({ length: PETS_PER_PAGE }, (_, i) => onPetRail(i - (PETS_PER_PAGE - 1) / 2, 0.03)),
   previous: onPetRail(-PETS_PER_PAGE / 2 - 0.25, 0.2),
   next: onPetRail(PETS_PER_PAGE / 2 + 0.25, 0.2),
   sign: onPetRail(0, 0.4),
+  hearts: [inNest(238 - 14, 2.1, PET_PERCH), inNest(238 + 14, 2.1, PET_PERCH)],
+  eggCup: { position: EGG_CUP.position, targetId: 'egg-cup' },
+  board: {
+    // Two shelves of three, read left to right and top to bottom.
+    places: BOARD_SHELVES.flatMap((shelf) => [-1, 0, 1].map((column) => beside(BOARD, column * 0.34, shelf))),
+    previous: beside(BOARD, -0.7, 0.62),
+    next: beside(BOARD, 0.7, 0.62),
+    name: beside(BOARD, 0, 1.22),
+  },
+  mail: { theirs: beside(MAIL, -0.17), mine: beside(MAIL, 0.17), yes: beside(MAIL, -0.5, 0.06), no: beside(MAIL, 0.5, 0.06) },
+  goodbye: { perch: GOODBYE, pads: [beside(GOODBYE, -0.34), beside(GOODBYE, 0.34)] },
 };
+/** The foot of the friends' board, for the scenery to build it on. */
+export const PET_BOARD: Stand = BOARD;
 /** Points along the top of the rail, end to end, for the scenery to build it through. */
 export const PET_RAIL: Vec3[] = Array.from(
   { length: PETS_PER_PAGE + 1 },
@@ -301,6 +343,16 @@ const shelves: TargetDef[] = [
 const targets: TargetDef[] = [
   { id: 'toy-box', kind: 'toyBox', position: TOY_BOX, size: [1.6, 0.35, 1.1], color: 0x4fc7b5, accepts: TOYS_ONLY },
   { id: 'feeder', kind: 'feeder', position: FEEDER, size: [1.1, 0.1, 1.1], color: 0xf2c14e, accepts: FOOD },
+  // Seeds and millet dropped here feed the egg.
+  {
+    id: PET_CORNER.eggCup.targetId,
+    kind: 'eggCup',
+    position: EGG_CUP.position,
+    size: EGG_CUP_SIZE,
+    yaw: EGG_CUP.yaw,
+    color: 0xd9b98a,
+    accepts: FOOD,
+  },
   ...shelves,
 ];
 
@@ -326,7 +378,7 @@ const toys: ToyDef[] = [
   // Rope knots.
   { id: 'knot-1', type: 'ropeKnot', position: [GYM[0] + 0.5, 0.08, GYM[2] + 1.8] },
   { id: 'knot-2', type: 'ropeKnot', position: ground(225, 19, 0.08) },
-  { id: 'knot-3', type: 'ropeKnot', position: [-1.0, NEST_Y + 0.08, -1.4] },
+  { id: 'knot-3', type: 'ropeKnot', position: [1.5, NEST_Y + 0.08, -0.45] },
   { id: 'knot-4', type: 'ropeKnot', position: ground(330, 19, 0.08) },
   // Shiny bottle caps, hidden in hard-to-reach places.
   { id: 'cap-1', type: 'bottleCap', position: above(PADS[0], 0.06) },
@@ -350,20 +402,22 @@ const toys: ToyDef[] = [
 // --- The lobby's own parrots -------------------------------------------------
 
 /** Places for the flock to perch: on every tree branch, and a few other spots. */
+/** A little over half way out along a branch, on top of it. */
+const onBranch = ({ a, b, radiusA, radiusB }: Limb): Vec3 => {
+  const t = 0.55;
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t + (radiusA + radiusB) / 2 + 0.02,
+    a[2] + (b[2] - a[2]) * t,
+  ];
+};
+
 const flockSpots: Vec3[] = [
-  // A little over half way out along each branch, on top of it.
-  ...TREES.flatMap((tree) =>
-    tree.branches.map(({ a, b, radiusA, radiusB }): Vec3 => {
-      const t = 0.55;
-      return [
-        a[0] + (b[0] - a[0]) * t,
-        a[1] + (b[1] - a[1]) * t + (radiusA + radiusB) / 2 + 0.02,
-        a[2] + (b[2] - a[2]) * t,
-      ];
-    }),
-  ),
+  ...TREES.flatMap((tree) => tree.branches.map(onBranch)),
   [GYM[0], GYM_HEIGHT + 0.13, GYM[2]], // middle of the gym's top beam
-  [-1.3, NEST_Y, -1.3], // in the nest, away from the character perches and the pet rail
+  // On a big branch of the home tree, just under the nest. The nest itself
+  // is kept clear for the player and their pets.
+  onBranch(HOME_LOW_BRANCHES[2]),
   [PORTAL[0] + 1.6, 0.4, PORTAL[2] + 0.6], // on the portal's step
   [LOOKOUT[0], LOOKOUT[1], LOOKOUT[2]],
   // On the grass.

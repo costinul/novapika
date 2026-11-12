@@ -1,5 +1,5 @@
 import type { Dna } from '../shared/dna';
-import type { PetRow, PetStage, PlayerRow, Store } from './store';
+import type { PetRow, PetStage, PlayerRow, RequestRow, Store } from './store';
 
 // The Store, kept in a Cloudflare D1 database. The tables are made by the
 // files in server/migrations.
@@ -44,10 +44,35 @@ const toPet = (r: PetRecord): PetRow => ({
   freedAt: r.freed_at,
 });
 
+interface RequestRecord {
+  id: string;
+  asker_id: string;
+  asker_pet_id: string;
+  owner_id: string;
+  asked_pet_id: string;
+  created_at: number;
+}
+
+const toRequest = (r: RequestRecord): RequestRow => ({
+  id: r.id,
+  askerId: r.asker_id,
+  askerPetId: r.asker_pet_id,
+  ownerId: r.owner_id,
+  askedPetId: r.asked_pet_id,
+  createdAt: r.created_at,
+});
+
 export function d1Store(db: D1Database): Store {
   const onePlayer = async (where: string, value: string): Promise<PlayerRow | null> => {
     const record = await db.prepare(`SELECT * FROM players WHERE ${where} = ?`).bind(value).first<PlayerRecord>();
     return record ? toPlayer(record) : null;
+  };
+  const requests = async (where: 'asker_id' | 'owner_id', value: string): Promise<RequestRow[]> => {
+    const { results } = await db
+      .prepare(`SELECT * FROM requests WHERE ${where} = ? ORDER BY created_at`)
+      .bind(value)
+      .all<RequestRecord>();
+    return results.map(toRequest);
   };
 
   return {
@@ -110,8 +135,45 @@ export function d1Store(db: D1Database): Store {
       const { results } = await db.prepare('SELECT * FROM pets ORDER BY created_at').all<PetRecord>();
       return results.map(toPet);
     },
+    async updatePet(id, changes) {
+      // Only these three columns ever change; each is set only if it was given.
+      const sets: string[] = [];
+      const values: (string | number | null)[] = [];
+      if (changes.stage !== undefined) sets.push('stage = ?'), values.push(changes.stage);
+      if (changes.seeds !== undefined) sets.push('seeds = ?'), values.push(changes.seeds);
+      if (changes.freedAt !== undefined) sets.push('freed_at = ?'), values.push(changes.freedAt);
+      if (sets.length === 0) return;
+      await db
+        .prepare(`UPDATE pets SET ${sets.join(', ')} WHERE id = ?`)
+        .bind(...values, id)
+        .run();
+    },
     async removePet(id) {
       await db.prepare('DELETE FROM pets WHERE id = ?').bind(id).run();
+    },
+    async removeFreedBefore(time) {
+      await db.prepare("DELETE FROM pets WHERE stage = 'freed' AND freed_at < ?").bind(time).run();
+    },
+
+    async addRequest(r) {
+      await db
+        .prepare(
+          'INSERT INTO requests (id, asker_id, asker_pet_id, owner_id, asked_pet_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        )
+        .bind(r.id, r.askerId, r.askerPetId, r.ownerId, r.askedPetId, r.createdAt)
+        .run();
+    },
+    async request(id) {
+      const record = await db.prepare('SELECT * FROM requests WHERE id = ?').bind(id).first<RequestRecord>();
+      return record ? toRequest(record) : null;
+    },
+    requestsBy: (askerId) => requests('asker_id', askerId),
+    requestsOf: (ownerId) => requests('owner_id', ownerId),
+    async removeRequest(id) {
+      await db.prepare('DELETE FROM requests WHERE id = ?').bind(id).run();
+    },
+    async removeRequestsNaming(petId) {
+      await db.prepare('DELETE FROM requests WHERE asker_pet_id = ? OR asked_pet_id = ?').bind(petId, petId).run();
     },
   };
 }

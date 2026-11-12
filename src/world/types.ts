@@ -35,12 +35,13 @@ export interface ToyDef {
 
 /**
  * A place toys can be put.
- * - toyBox, feeder: an open-topped tray; `size` is its outer width, wall height and depth.
+ * - toyBox, feeder, eggCup: an open-topped tray; `size` is its outer width, wall height and depth.
  * - shelf: a flat board; `size` is its width, the height of the space above it, and its depth.
+ * Food put in an egg cup is eaten by the egg, if there is one.
  */
 export interface TargetDef {
   id: string;
-  kind: 'toyBox' | 'feeder' | 'shelf';
+  kind: 'toyBox' | 'feeder' | 'shelf' | 'eggCup';
   /** Centre of the underside. */
   position: Vec3;
   size: Vec3;
@@ -130,6 +131,16 @@ export interface PetCornerDef {
   next: Stand;
   /** A picture shown when there are no pets to show: signed out, or no connection. */
   sign: Stand;
+  /** The perches for the two parents of an egg, left and right of the cup. */
+  hearts: readonly [Stand, Stand];
+  /** The cup the egg lies in. `targetId` is the place in `targets` that takes its food. */
+  eggCup: { position: Vec3; targetId: string };
+  /** Friends' pets, one page at a time, with arrows to turn the page and a plate for the friend's name. */
+  board: { places: readonly Stand[]; previous: Stand; next: Stand; name: Stand };
+  /** A friend's request waiting for an answer: their pet, the pet asked for, and pads for yes and no. */
+  mail: { theirs: Stand; mine: Stand; yes: Stand; no: Stand };
+  /** Where a pet is set free: the perch it sits on, and the two pads held down to let it go. */
+  goodbye: { perch: Stand; pads: readonly [Stand, Stand] };
 }
 
 export interface LobbyContent {

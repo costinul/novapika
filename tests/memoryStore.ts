@@ -1,4 +1,4 @@
-import type { PetRow, PlayerRow, Store } from '../server/store';
+import type { PetRow, PlayerRow, RequestRow, Store } from '../server/store';
 
 /** A Store kept in memory, for testing the server's rules without a database. */
 export class MemoryStore implements Store {
@@ -6,6 +6,7 @@ export class MemoryStore implements Store {
   /** Token hash to player id. */
   readonly sessions = new Map<string, string>();
   readonly petRows = new Map<string, PetRow>();
+  readonly requestRows = new Map<string, RequestRow>();
 
   async addPlayer(player: PlayerRow): Promise<void> {
     this.playerRows.set(player.id, structuredClone(player));
@@ -47,7 +48,36 @@ export class MemoryStore implements Store {
   async allPets(): Promise<PetRow[]> {
     return structuredClone([...this.petRows.values()]);
   }
+  async updatePet(id: string, changes: Partial<Pick<PetRow, 'stage' | 'seeds' | 'freedAt'>>): Promise<void> {
+    Object.assign(this.petRows.get(id)!, changes);
+  }
   async removePet(id: string): Promise<void> {
     this.petRows.delete(id);
+  }
+  async removeFreedBefore(time: number): Promise<void> {
+    for (const pet of this.petRows.values()) {
+      if (pet.stage === 'freed' && pet.freedAt !== null && pet.freedAt < time) this.petRows.delete(pet.id);
+    }
+  }
+
+  async addRequest(request: RequestRow): Promise<void> {
+    this.requestRows.set(request.id, structuredClone(request));
+  }
+  async request(id: string): Promise<RequestRow | null> {
+    return structuredClone(this.requestRows.get(id) ?? null);
+  }
+  async requestsBy(askerId: string): Promise<RequestRow[]> {
+    return structuredClone([...this.requestRows.values()].filter((r) => r.askerId === askerId));
+  }
+  async requestsOf(ownerId: string): Promise<RequestRow[]> {
+    return structuredClone([...this.requestRows.values()].filter((r) => r.ownerId === ownerId));
+  }
+  async removeRequest(id: string): Promise<void> {
+    this.requestRows.delete(id);
+  }
+  async removeRequestsNaming(petId: string): Promise<void> {
+    for (const request of this.requestRows.values()) {
+      if (request.askerPetId === petId || request.askedPetId === petId) this.requestRows.delete(request.id);
+    }
   }
 }

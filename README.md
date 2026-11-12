@@ -15,8 +15,25 @@ was tested with unit tests and a desktop WebXR emulator only.
 ## Pets (being built)
 
 Design: [docs/plans/2026-11-11-pets-design.md](docs/plans/2026-11-11-pets-design.md).
-Steps 1 to 3 of 4 are built. A signed-in player has pets in the Aviary, and
-one follows them. Breeding, eggs and setting a pet free are still to come.
+All four steps are built. A signed-in player has pets in the Aviary: one
+follows them, two can be bred into an egg, and the egg hatches when it is fed.
+
+- **Breeding.** Two pink heart perches stand either side of an egg cup. Touch
+  one and your follower lands on it; choose another pet to follow you and land
+  that on the other. An egg appears in the cup. The parents are not used up.
+- **A friend's pet.** The friends' board shows one friend's pets at a time.
+  With one of your own pets on a heart perch, touch a friend's pet: a
+  see-through copy of it sits on the other perch with an hourglass until the
+  friend answers. Touch it to take the request back.
+- **Answering.** A friend's request shows over the middle of the rail: their
+  pet, yours, a green tick and a red cross. Saying yes costs you nothing.
+- **Hatching.** Carry three seeds or millet to the egg cup. The egg rocks and
+  cracks with each, and hatches on the third. The baby flies to the rail.
+- **Setting a pet free.** Three steps, so it cannot happen by accident: make
+  the pet your follower, touch the goodbye perch so that it lands there, then
+  hold a hand on each of the two pads for three seconds while a ring fills.
+  The pet flies away. For 30 days the admin page can bring it back. A
+  player's last pet can never be set free.
 
 - **The pet corner.** A rail on one side of the nest, across from the parrots
   you can be. A signed-in player's pets sit along it, six at a time, each on a
@@ -37,8 +54,9 @@ one follows them. Breeding, eggs and setting a pet free are still to come.
   pad for a player's 6-digit code. It is typed once; the headset then stays
   signed in. The game plays the same signed out, without pets.
 - **The admin page**, at `/admin` (`/admin.html` on the dev server). It asks
-  for the admin password, then lets you add players, see and replace their
-  codes, and give or remove pets. A code is shown once, when it is made.
+  for the admin password, then lets you add players, replace their codes,
+  give or remove pets, and bring back a pet that was set free. A code is
+  shown once, when it is made.
 
 ### Running the server on this PC
 

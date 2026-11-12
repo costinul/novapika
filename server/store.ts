@@ -29,6 +29,18 @@ export interface PetRow {
   freedAt: number | null;
 }
 
+/** One player asking another for the DNA of one of their pets. It lasts until it is answered or dropped. */
+export interface RequestRow {
+  id: string;
+  /** Who asks, and the pet of theirs that would be the other parent. */
+  askerId: string;
+  askerPetId: string;
+  /** Who is asked, and for which of their pets. */
+  ownerId: string;
+  askedPetId: string;
+  createdAt: number;
+}
+
 export interface Store {
   addPlayer(player: PlayerRow): Promise<void>;
   players(): Promise<PlayerRow[]>;
@@ -45,5 +57,18 @@ export interface Store {
   pet(id: string): Promise<PetRow | null>;
   petsOf(ownerId: string): Promise<PetRow[]>;
   allPets(): Promise<PetRow[]>;
+  /** Change an egg into a hatched pet, a pet into a freed one, and so on. */
+  updatePet(id: string, changes: Partial<Pick<PetRow, 'stage' | 'seeds' | 'freedAt'>>): Promise<void>;
   removePet(id: string): Promise<void>;
+  /** Remove for good the pets that were set free before this time. */
+  removeFreedBefore(time: number): Promise<void>;
+
+  addRequest(request: RequestRow): Promise<void>;
+  request(id: string): Promise<RequestRow | null>;
+  /** Requests a player has made, and requests made of them, oldest first. */
+  requestsBy(askerId: string): Promise<RequestRow[]>;
+  requestsOf(ownerId: string): Promise<RequestRow[]>;
+  removeRequest(id: string): Promise<void>;
+  /** Drop every request that names this pet, on either side. */
+  removeRequestsNaming(petId: string): Promise<void>;
 }

@@ -8,6 +8,8 @@ export type Action =
   | { type: 'pickUp'; playerId: string; toyId: string }
   | { type: 'drop'; playerId: string }
   | { type: 'place'; toyId: string; targetId: string }
+  /** Food was eaten: the toy goes back to where it started. */
+  | { type: 'eat'; toyId: string }
   | { type: 'ring'; objectId: string; playerId: string }
   | { type: 'passRing'; ringId: string; playerId: string }
   | { type: 'splash'; waterId: string; playerId: string }

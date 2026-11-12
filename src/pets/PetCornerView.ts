@@ -1,5 +1,4 @@
 import {
-  CanvasTexture,
   Color,
   ConeGeometry,
   CylinderGeometry,
@@ -8,21 +7,17 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
-  PlaneGeometry,
   SRGBColorSpace,
 } from 'three';
-import type { BufferGeometry } from 'three';
+import type { BufferGeometry, CanvasTexture } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { tierOf } from '../../shared/dna';
 import type { Tier } from '../../shared/dna';
-import { buildStatue } from '../characters/parrotGeometry';
-import { parrotAura, parrotMaterial } from '../characters/parrotMaterial';
-import { petCharacter } from '../characters/pets';
-import { PARROT_HEIGHT } from '../player/PlayerView';
 import type { Stand } from '../world/types';
 import type { PetCorner } from './PetCorner';
+import { noConnection, padlock, petStatue, picture, sign } from './pictures';
 
-// Draws the pet corner: a model of each pet on the page, a coloured sleeve on
+// Draws the pet rail: a model of each pet on the page, a coloured sleeve on
 // the rail under it for its tier, arrows to turn the page, and a picture when
 // there are no pets to show.
 
@@ -37,7 +32,7 @@ const TIER_COLOR: Record<Exclude<Tier, 'mythical'>, number> = {
 const SLEEVE_LENGTH = 0.34; // m along the rail
 const SLEEVE_RADIUS = 0.045; // m, a little fatter than the rail
 const RAIL_RADIUS = 0.03; // m, the perch position is the top of the rail
-const ARROW = 0xff7a1a;
+export const ARROW_COLOR = 0xff7a1a;
 const SHAKE_FOR = 0.5; // s a perch shakes when the server says no
 const SIGN_SIZE = 0.5; // m
 
@@ -59,59 +54,16 @@ function sleeve(tier: Tier): BufferGeometry {
   return geometry;
 }
 
-type Draw = (g: CanvasRenderingContext2D) => void;
-
-/** A padlock: nobody is signed in. */
-const padlock: Draw = (g) => {
-  g.strokeStyle = '#39424e';
-  g.lineWidth = 22;
-  g.lineCap = 'round';
-  g.beginPath();
-  g.arc(128, 104, 46, Math.PI, 0);
-  g.lineTo(174, 128);
-  g.moveTo(82, 104);
-  g.lineTo(82, 128);
-  g.stroke();
-  g.fillStyle = '#f2c14e';
-  g.beginPath();
-  g.roundRect(56, 122, 144, 104, 22);
-  g.fill();
-  g.fillStyle = '#39424e';
-  g.beginPath();
-  g.arc(128, 164, 15, 0, Math.PI * 2);
-  g.fill();
-  g.fillRect(120, 164, 16, 34);
-};
-
-/** A cloud with a line through it: the server cannot be reached. */
-const noConnection: Draw = (g) => {
-  g.fillStyle = '#ffffff';
-  g.strokeStyle = '#39424e';
-  g.lineWidth = 14;
-  g.lineJoin = 'round';
-  g.beginPath();
-  g.arc(92, 150, 42, Math.PI * 0.5, Math.PI * 1.5);
-  g.arc(132, 108, 50, Math.PI * 1.1, Math.PI * 1.9);
-  g.arc(176, 150, 42, Math.PI * 1.5, Math.PI * 0.5);
-  g.closePath();
-  g.fill();
-  g.stroke();
-  g.strokeStyle = '#e0352b';
-  g.lineWidth = 20;
-  g.lineCap = 'round';
-  g.beginPath();
-  g.moveTo(56, 222);
-  g.lineTo(204, 50);
-  g.stroke();
-};
-
-function picture(draw: Draw): CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 256;
-  draw(canvas.getContext('2d')!);
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  return texture;
+/**
+ * A flat arrowhead to touch, pointing left (-1) or right (1) as seen from
+ * the middle of the nest.
+ */
+export function arrow(stand: Stand, points: -1 | 1, material: MeshLambertMaterial): Mesh {
+  // Turned to face the middle of the nest, a model's own +X is to the viewer's left.
+  const mesh = new Mesh(new ConeGeometry(0.11, 0.2, 3).scale(1, 1, 0.35).rotateZ((points * Math.PI) / 2), material);
+  mesh.position.set(...stand.position);
+  mesh.rotation.y = stand.yaw;
+  return mesh;
 }
 
 export class PetCornerView {
@@ -119,7 +71,7 @@ export class PetCornerView {
   /** Everything that changes with the page, redrawn together. */
   private readonly page = new Group();
   private readonly sleeveMaterial = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
-  private readonly arrowMaterial = new MeshLambertMaterial({ color: ARROW, flatShading: true });
+  private readonly arrowMaterial = new MeshLambertMaterial({ color: ARROW_COLOR, flatShading: true });
   private readonly statues: (Mesh | null)[] = [];
   private readonly arrows: Mesh[];
   private readonly sign: Mesh;
@@ -130,25 +82,9 @@ export class PetCornerView {
   constructor(private readonly corner: PetCorner) {
     const { def } = corner;
     this.shaking = def.perches.map(() => 0);
-
-    // A flat arrowhead pointing along the rail, away from the pets.
-    const arrow = (stand: Stand, turn: number): Mesh => {
-      const mesh = new Mesh(new ConeGeometry(0.11, 0.2, 3).scale(1, 1, 0.35).rotateZ(turn), this.arrowMaterial);
-      mesh.position.set(...stand.position);
-      mesh.rotation.y = stand.yaw;
-      return mesh;
-    };
-    // Turned to face the middle of the nest, a model's own +X is to the viewer's left.
-    this.arrows = [arrow(def.previous, -Math.PI / 2), arrow(def.next, Math.PI / 2)];
-
+    this.arrows = [arrow(def.previous, -1, this.arrowMaterial), arrow(def.next, 1, this.arrowMaterial)];
     this.pictures = { out: picture(padlock), offline: picture(noConnection) };
-    this.sign = new Mesh(
-      new PlaneGeometry(SIGN_SIZE, SIGN_SIZE),
-      new MeshBasicMaterial({ map: this.pictures.out, transparent: true }),
-    );
-    this.sign.position.set(...def.sign.position);
-    this.sign.rotation.y = def.sign.yaw + Math.PI;
-
+    this.sign = sign(this.pictures.out, def.sign, SIGN_SIZE);
     this.object.add(this.page, ...this.arrows, this.sign);
     this.rebuild();
   }
@@ -164,13 +100,7 @@ export class PetCornerView {
       this.statues[slot] = null;
       if (!pet) return;
       const stand = corner.def.perches[slot];
-      const who = petCharacter(pet.id, pet.dna);
-      const statue = new Mesh(buildStatue(who), parrotMaterial(who));
-      statue.position.set(...stand.position);
-      statue.rotation.y = stand.yaw;
-      statue.scale.setScalar(PARROT_HEIGHT * who.scale);
-      const aura = parrotAura(who);
-      if (aura) statue.add(aura);
+      const statue = petStatue(pet, stand);
       this.page.add(statue);
       this.statues[slot] = statue;
 
@@ -182,7 +112,7 @@ export class PetCornerView {
       for (const part of sleeves) part.dispose();
     }
 
-    for (const arrow of this.arrows) arrow.visible = corner.pages > 1;
+    for (const mesh of this.arrows) mesh.visible = corner.pages > 1;
     const { status } = corner.account;
     this.sign.visible = status !== 'in';
     if (status !== 'in') (this.sign.material as MeshBasicMaterial).map = this.pictures[status];
@@ -201,13 +131,13 @@ export class PetCornerView {
       statue.rotation.z = left > 0 ? 0.35 * (left / SHAKE_FOR) * Math.sin(left * 45) : 0;
     });
     // The arrows nod a little, so they read as something to touch.
-    this.arrows.forEach((arrow, i) => (arrow.scale.setScalar(1 + 0.08 * Math.sin(this.time * 4 + i))));
+    this.arrows.forEach((mesh, i) => mesh.scale.setScalar(1 + 0.08 * Math.sin(this.time * 4 + i)));
   }
 
   /** Free what was made for drawing. Call when the lobby is unloaded. */
   dispose(): void {
     for (const child of this.page.children) (child as Mesh).geometry.dispose();
-    for (const arrow of this.arrows) arrow.geometry.dispose();
+    for (const mesh of this.arrows) mesh.geometry.dispose();
     this.arrowMaterial.dispose();
     this.sleeveMaterial.dispose();
     this.sign.geometry.dispose();

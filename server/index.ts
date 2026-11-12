@@ -1,7 +1,14 @@
 import { d1Store } from './d1Store';
 import {
+  answer,
+  askFor,
+  breedOwn,
+  cancelRequest,
   chooseFollower,
   createPlayer,
+  feedEgg,
+  freePet,
+  friendsOf,
   givePet,
   login,
   overview,
@@ -10,9 +17,10 @@ import {
   Refusal,
   removePet,
   resetCode,
+  restorePet,
 } from './rules';
 import type { Deps } from './rules';
-import type { Store } from './store';
+import type { PlayerRow, Store } from './store';
 
 // The game's API, at /api/*. It turns HTTP requests into calls to the rules
 // in rules.ts and their answers into JSON. Everything else on the site is a
@@ -67,11 +75,11 @@ async function admin(request: Request, path: string, store: Store): Promise<Resp
   const method = request.method;
   let match: RegExpExecArray | null;
 
-  if (path === '/players' && method === 'GET') return json({ players: await overview(store) });
+  if (path === '/players' && method === 'GET') return json({ players: await overview(store, deps) });
   if (path === '/players' && method === 'POST') {
     const { nickname } = await fields(request);
     const { player, code } = await createPlayer(store, deps, nickname);
-    return json({ player: await playerView(store, player), code });
+    return json({ player: await playerView(store, player.id), code });
   }
   if ((match = /^\/players\/([\w-]+)\/code$/.exec(path)) && method === 'POST') {
     return json(await resetCode(store, deps, match[1]));
@@ -84,41 +92,78 @@ async function admin(request: Request, path: string, store: Store): Promise<Resp
     await removePet(store, match[1]);
     return json({});
   }
+  if ((match = /^\/pets\/([\w-]+)\/restore$/.exec(path)) && method === 'POST') {
+    await restorePet(store, match[1]);
+    return json({});
+  }
+  return refuse('not-found', 404);
+}
+
+/** What a signed-in player may do. Every change answers with the player as they now are. */
+async function mine(request: Request, path: string, store: Store, player: PlayerRow): Promise<Response> {
+  const method = request.method;
+  const me = async (extra: object = {}): Promise<Response> =>
+    json({ player: await playerView(store, player.id), ...extra });
+  let match: RegExpExecArray | null;
+
+  if (path === '/me' && method === 'GET') return me();
+  if (path === '/friends' && method === 'GET') return json({ friends: await friendsOf(store, player) });
+
+  if (method === 'POST') {
+    const body = await fields(request);
+    if (path === '/me/follower') {
+      await chooseFollower(store, player, body.petId);
+      return me();
+    }
+    if (path === '/breed') {
+      await breedOwn(store, deps, player, body.petA, body.petB);
+      return me();
+    }
+    if (path === '/requests') {
+      await askFor(store, deps, player, body.myPetId, body.theirPetId);
+      return me();
+    }
+    if ((match = /^\/requests\/([\w-]+)$/.exec(path))) {
+      await answer(store, deps, player, match[1], body.accept);
+      return me();
+    }
+    if (path === '/egg/feed') return me({ hatched: await feedEgg(store, player) });
+    if ((match = /^\/pets\/([\w-]+)\/free$/.exec(path))) {
+      await freePet(store, deps, player, match[1]);
+      return me();
+    }
+  }
+  if ((match = /^\/requests\/([\w-]+)$/.exec(path)) && method === 'DELETE') {
+    await cancelRequest(store, player, match[1]);
+    return me();
+  }
   return refuse('not-found', 404);
 }
 
 async function route(request: Request, env: Env): Promise<Response> {
   const path = new URL(request.url).pathname.replace(/\/+$/, '');
-  const method = request.method;
+  if (!path.startsWith('/api/')) return refuse('not-found', 404);
+  const rest = path.slice('/api'.length);
   const store = d1Store(env.DB);
   const address = request.headers.get('CF-Connecting-IP') ?? 'unknown';
 
-  if (path === '/api/login' && method === 'POST') {
+  if (rest === '/login' && request.method === 'POST') {
     // Every try counts, right or wrong, so that codes cannot be guessed.
     if (!(await env.LOGIN_LIMITER.limit({ key: address })).success) return refuse('slow-down', 429);
     const { code } = await fields(request);
     const { token, player } = await login(store, deps, code);
-    return json({ token, player: await playerView(store, player) });
+    return json({ token, player: await playerView(store, player.id) });
   }
 
-  if (path === '/api/me' || path.startsWith('/api/me/')) {
-    const player = await playerForToken(store, bearer(request));
-    if (!player) return refuse('signed-out', 401);
-    if (path === '/api/me' && method === 'GET') return json({ player: await playerView(store, player) });
-    if (path === '/api/me/follower' && method === 'POST') {
-      const { petId } = await fields(request);
-      return json({ player: await playerView(store, await chooseFollower(store, player, petId)) });
-    }
-    return refuse('not-found', 404);
-  }
-
-  if (path.startsWith('/api/admin/')) {
+  if (rest.startsWith('/admin/')) {
     if (!(await env.ADMIN_LIMITER.limit({ key: address })).success) return refuse('slow-down', 429);
     if (!(await isAdmin(request, env))) return refuse('not-admin', 401);
-    return admin(request, path.slice('/api/admin'.length), store);
+    return admin(request, rest.slice('/admin'.length), store);
   }
 
-  return refuse('not-found', 404);
+  const player = await playerForToken(store, bearer(request));
+  if (!player) return refuse('signed-out', 401);
+  return mine(request, rest, store, player);
 }
 
 export default {

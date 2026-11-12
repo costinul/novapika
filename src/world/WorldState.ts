@@ -219,6 +219,10 @@ export class WorldState {
         const target = this.targets.get(action.targetId);
         return !!toy && !!target && toy.holderId === null && accepts(target, toy);
       }
+      case 'eat': {
+        const toy = this.toys.get(action.toyId);
+        return !!toy && toy.holderId === null;
+      }
       case 'ring':
         return this.peckables.has(action.objectId);
       case 'passRing':
@@ -274,6 +278,9 @@ export class WorldState {
       }
       case 'place':
         this.toys.get(action.toyId)!.placedIn = action.targetId;
+        break;
+      case 'eat':
+        this.sendHome(this.toys.get(action.toyId)!);
         break;
       case 'ring':
         this.bellsRung.add(action.objectId);

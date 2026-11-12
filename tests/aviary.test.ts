@@ -63,7 +63,7 @@ describe('contents', () => {
       ['bellBall', 'bottleCap', 'feather', 'millet', 'ropeKnot', 'seed', 'woodBlock'],
     );
     const kinds = new Set(CONTENT.targets.map((t) => t.kind));
-    expect([...kinds].sort()).toEqual(['feeder', 'shelf', 'toyBox']);
+    expect([...kinds].sort()).toEqual(['eggCup', 'feeder', 'shelf', 'toyBox']);
     expect(CONTENT.rings.length).toBeGreaterThanOrEqual(8);
     expect(CONTENT.peckables.length).toBeGreaterThanOrEqual(4);
     expect(CONTENT.water).toHaveLength(1);

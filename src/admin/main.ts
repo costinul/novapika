@@ -1,5 +1,5 @@
-import { PET_CAP } from '../../shared/api';
-import type { PetView, PlayerView } from '../../shared/api';
+import { FREED_FOR_DAYS, PET_CAP, SEEDS_TO_HATCH } from '../../shared/api';
+import type { AdminPlayerView, PetView, PlayerView } from '../../shared/api';
 import { tierOf } from '../../shared/dna';
 import type { Dna } from '../../shared/dna';
 import { founders } from '../../shared/founders';
@@ -52,7 +52,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
     {
       'slow-down': 'Too many tries. Wait a minute and try again.',
       'bad-nickname': 'A nickname needs 1 to 20 letters.',
-      full: `That player already has ${PET_CAP} pets.`,
+      full: `That player has no room: ${PET_CAP} pets is the most, and an egg counts.`,
     }[error ?? ''] ?? `The server refused that (${error || response.status}).`,
   );
 }
@@ -122,7 +122,37 @@ function petCard(player: PlayerView, pet: PetView): HTMLElement {
   );
 }
 
-function playerCard(player: PlayerView): HTMLElement {
+/** A pet that was set free, with a way to bring it back. */
+function freedCard(player: PlayerView, pet: PetView): HTMLElement {
+  const tier = tierOf(pet.dna);
+  const restore = el('button', { className: 'quiet', type: 'button' }, 'Bring back');
+  restore.addEventListener('click', () => {
+    void attempt(async () => {
+      await api('POST', `/pets/${pet.id}/restore`);
+      say(`Brought a ${tier} pet back to ${player.nickname}.`);
+      await refresh();
+    });
+  });
+  return el(
+    'li',
+    { className: 'pet freed' },
+    el('img', { src: petPicture(pet.dna), alt: `A ${tier} pet that was set free: ${traits(pet.dna)}` }),
+    el('span', { className: `tier ${tier}` }, tier),
+    el('p', {}, traits(pet.dna)),
+    restore,
+  );
+}
+
+/** What else is going on in a player's nest, in words. */
+function news(player: AdminPlayerView): string[] {
+  const lines: string[] = [];
+  if (player.egg) lines.push(`Has an egg, fed ${player.egg.seeds} of ${SEEDS_TO_HATCH} seeds.`);
+  if (player.asking) lines.push(`Is waiting for ${player.asking.friend} to answer a request for DNA.`);
+  for (const request of player.asked) lines.push(`${request.friend} has asked for the DNA of one of these pets.`);
+  return lines;
+}
+
+function playerCard(player: AdminPlayerView): HTMLElement {
   const newCode = el('button', { className: 'quiet', type: 'button' }, 'New code');
   newCode.addEventListener('click', () => {
     if (!confirm(`Give ${player.nickname} a new code? Their headset will be signed out.`)) return;
@@ -153,16 +183,22 @@ function playerCard(player: PlayerView): HTMLElement {
     el(
       'header',
       {},
-      el('div', {}, el('h2', {}, player.nickname), el('p', {}, `${player.pets.length} of ${PET_CAP} pets`)),
+      el('div', {}, el('h2', {}, player.nickname), el('p', {}, `${player.pets.length} of ${PET_CAP} pets`), ...news(player).map((line) => el('p', {}, line))),
       newCode,
     ),
     el('ul', { className: 'pets' }, ...player.pets.map((pet) => petCard(player, pet))),
     give,
+    ...(player.freed.length > 0
+      ? [
+          el('h3', {}, `Set free in the last ${FREED_FOR_DAYS} days`),
+          el('ul', { className: 'pets' }, ...player.freed.map((pet) => freedCard(player, pet))),
+        ]
+      : []),
   );
 }
 
 async function refresh(): Promise<void> {
-  const { players } = await api<{ players: PlayerView[] }>('GET', '/players');
+  const { players } = await api<{ players: AdminPlayerView[] }>('GET', '/players');
   list.replaceChildren(...(players.length > 0 ? players.map(playerCard) : [el('p', {}, 'No players yet.')]));
 }
 

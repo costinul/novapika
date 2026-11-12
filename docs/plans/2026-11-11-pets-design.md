@@ -150,10 +150,15 @@ pet corner of the nest, opposite the character perches.
 
 - The follower flies after you, lands to one side and a little ahead, where
   you can see it, and keeps out of your face.
-- It is flown as a parrot of ordinary size, by the pilot the lobby parrots
-  use, and only drawn small. So it flies as well as they do.
+- It is flown by the pilot the lobby parrots use, at its own small size: its
+  body and arms are the size of the bird. The wing rules measure arm
+  movements against reach, so it flies as well as a big parrot, and it fits
+  under and between things as it looks it should.
 - It feels ahead for trunks and branches and goes round them.
-- If it cannot reach you in 25 seconds it is put down beside you.
+- It lands only where there is a clear way to it from you, so never in the
+  egg cup or behind a perch.
+- If it cannot reach you in 25 seconds, or 8 for a short trip, it is put down
+  beside you.
 - A pet that was already following when the game starts begins beside you.
   One you have just touched begins on its perch.
 - Not built: it has no shadow, and does not ring bells or touch toys.
@@ -161,20 +166,32 @@ pet corner of the nest, opposite the character perches.
 **Breeding**
 
 - An egg cup with a heart perch on each side. Fill both and an egg appears.
-- Your own pet: touch a heart perch and your follower lands on it.
-- A friend's pet: touch its picture on the friends' board. A see-through copy
-  appears on the free heart perch with an hourglass. That is the request.
-- Touch an occupied heart perch to cancel.
+- Your own pet: touch a heart perch and your follower lands on it. Then
+  choose another pet to follow you, and land that on the other perch.
+- A friend's pet: with one of your own on a heart perch, touch the friend's
+  pet on the friends' board. A see-through copy appears on the free heart
+  perch with an hourglass. That is the request.
+- Touch an occupied heart perch to cancel. Touching the friend's pet takes
+  the request back and leaves yours in place; touching your own takes it off
+  the perch as well.
+- Which pet sits on a heart perch is known only to the game until it leads
+  to an egg or a request. A request is remembered by the server, so the two
+  pets are back on the perches the next time the game starts.
+- The game asks the server what has changed every 20 seconds. That is how a
+  friend's answer, or a new request, arrives.
 
 **Friends' board**
 
-- A picture board showing one friend's pets at a time, with arrows to flip
-  between friends.
+- A board with two shelves showing one friend's pets at a time, six to a
+  page, with the friend's name on a plate and arrows to turn the page.
 
 **Answering a request**
 
-- An envelope floats over the asked pet's perch, showing the asker's parrot,
-  with a green tick pad and a red cross pad. Giving DNA costs nothing.
+- A request shows over the middle of the rail, one at a time and oldest
+  first: the friend's pet and the pet asked for, a heart between them, a green
+  tick to one side and a red cross to the other. Giving DNA costs nothing.
+- It shows there, and not over the asked pet's own perch, so that it is seen
+  whichever page the rail is on.
 
 **Hatching**
 
@@ -183,7 +200,8 @@ pet corner of the nest, opposite the character perches.
 - Drop 3 seeds or millet into the cup. Each makes it wobble and crack. On the
   third it hatches with a chirp and a feather puff, and the baby flies to a
   free perch.
-- The egg cup is a new kind of target place that accepts food.
+- The egg cup is a new kind of target place that accepts food. Food dropped
+  in it goes back where it came from, whether or not there is an egg.
 
 **Setting a pet free**
 
@@ -202,7 +220,7 @@ it.
 
 **Other states**
 
-- At 24 pets the heart perches show a "full" picture.
+- At 24 pets a "no room" picture shows over the egg cup.
 - Signed out, the pet corner shows a padlock.
 
 ## 10. Admin page
@@ -228,7 +246,7 @@ fails if the password has not been set.
 | `players` | id, nickname, code hash, current follower |
 | `sessions` | token hash, player |
 | `pets` | id, owner, DNA, both parents, stage (egg, hatched, freed), seeds fed, dates |
-| `requests` | asker, asker's pet, asked pet, status |
+| `requests` | asker, asker's pet, asked pet. A row is a request still waiting; it is deleted when answered or taken back |
 
 **API**
 
@@ -290,7 +308,7 @@ Vitest, with no new dependencies.
 
 ## 14. Build order
 
-Each step is committed and pushed to main when the owner has checked it.
+All four steps are built, each committed and pushed to main.
 
 1. Shared DNA, and drawing the five specials.
 2. Server, sign-in and the admin page.
@@ -301,5 +319,10 @@ Each step is committed and pushed to main when the owner has checked it.
 
 - The owner's sentence "we have to put the source for this" was cut off. It
   was read as "the backend source lives in this repo".
-- The follower moves by the same wing rules as every parrot. At 40% size it
-  may need its own tuning.
+- Nothing here has been tried in a headset. Every touch was made by a script
+  in tests or in the desktop emulator. Reach, the heights of the perches and
+  pads, and how the nest feels with so much in it, all need the owner's test.
+- The nest is now full. Another station would need a second place to stand,
+  such as a platform beside it.
+- The lobby parrots no longer have a perching spot inside the nest; theirs
+  moved to a branch just under it, to keep the nest clear.

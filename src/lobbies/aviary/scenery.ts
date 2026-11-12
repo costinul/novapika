@@ -18,6 +18,8 @@ import {
   NEST_RADIUS,
   NEST_Y,
   PADS,
+  BOARD_SHELVES,
+  PET_BOARD,
   PET_RAIL,
   POND,
   POND_RADIUS,
@@ -36,6 +38,7 @@ const LEAF = [0x5dbb4a, 0x74c95a, 0x4aa63c, 0x8ad468];
 const GRASS = 0x8fd46a;
 const GRASS_DARK = 0x7cc558;
 const WOOD = 0xd9a05b;
+const HEART = 0xf06292; // the two perches for the parents of an egg
 const ROPE = 0xf0e2c0;
 const POST = 0xb9c2cc;
 const STONE = 0xb5b0a8;
@@ -112,6 +115,38 @@ export function buildScenery(b: StaticBuilder): void {
   PET_RAIL.slice(1).forEach((to, i) => b.limb(WOOD, PET_RAIL[i], to, 0.03, 0.03, { sides: 6 }));
   for (const [x, y, z] of [PET_RAIL[0], PET_RAIL[PET_RAIL.length >> 1], PET_RAIL[PET_RAIL.length - 1]]) {
     b.limb(WOOD, [x, NEST_Y, z], [x, y, z], 0.035, 0.035, { sides: 6 });
+  }
+  // Perches for one pet each: the two heart perches by the egg cup, and the
+  // goodbye perch. A post and a bar, like the character perches.
+  const { hearts, goodbye, board } = CONTENT.petCorner!;
+  for (const [stand, paint] of [[hearts[0], HEART], [hearts[1], HEART], [goodbye.perch, WOOD]] as const) {
+    const [x, y, z] = stand.position;
+    const top = y - 0.03;
+    b.limb(paint, [x, NEST_Y, z], [x, top, z], 0.035, 0.035, { sides: 6 });
+    const dx = Math.cos(stand.yaw) * 0.17;
+    const dz = -Math.sin(stand.yaw) * 0.17;
+    b.limb(paint, [x - dx, top, z - dz], [x + dx, top, z + dz], 0.03, 0.03, { sides: 6 });
+  }
+  // A short post under each of the two pads that are held to set a pet free.
+  for (const { position: [x, y, z] } of goodbye.pads) {
+    b.limb(WOOD, [x, NEST_Y, z], [x, y - 0.02, z], 0.03, 0.03, { sides: 6 });
+  }
+  // The friends' board: a back, and two shelves for their pets to stand on.
+  {
+    const [x, , z] = PET_BOARD.position;
+    // A unit vector away from the middle of the nest.
+    const out: Vec3 = [Math.sin(PET_BOARD.yaw), 0, Math.cos(PET_BOARD.yaw)];
+    b.box(WOOD, [x + out[0] * 0.14, NEST_Y + 0.7, z + out[2] * 0.14], [1.2, 1.3, 0.05], { yaw: PET_BOARD.yaw });
+    for (const shelf of BOARD_SHELVES) {
+      b.box(0xb9884f, [x + out[0] * 0.02, NEST_Y + shelf - 0.015, z + out[2] * 0.02], [1.14, 0.03, 0.22], {
+        yaw: PET_BOARD.yaw,
+        solid: false,
+      });
+    }
+    // Posts for the two page arrows, one at each side.
+    for (const { position: [ax, ay, az] } of [board.previous, board.next]) {
+      b.limb(WOOD, [ax, NEST_Y, az], [ax, ay - 0.14, az], 0.03, 0.03, { sides: 6 });
+    }
   }
   // Wooden back and two posts for the picture board of the moves.
   {

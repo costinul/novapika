@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
+import type { MovementConfig } from '../config/movement';
 import { flockConfig } from './config';
 import { HANDS } from '../player/Player';
 import type { Player } from '../player/Player';
@@ -7,6 +8,10 @@ import type { Player } from '../player/Player';
 // pilot only writes the head and hand poses a headset would, and the normal
 // claw and wing rules do the rest. To climb it flaps both "hands" down
 // together, to glide it holds them out, and to turn it banks them.
+//
+// A smaller bird is flown the same way with everything about its arms made
+// smaller by its size, and its Player's reachScale set to match: the wing
+// rules measure arm movements against reach, so it flies just as well.
 //
 // Nothing in the wing rules slows a glide, but every flap pushes the way the
 // head faces. So a landing is flown as a bird flies one: glide in, pull the
@@ -47,7 +52,7 @@ export class Pilot {
   private timer = 0;
   private stroke = FULL_STROKE;
   /** Hands in the parrot's own frame: x to its right, y up from its feet, z forward. */
-  private readonly hand = { left: new Vector3(-0.14, 0.3, 0), right: new Vector3(0.14, 0.3, 0) };
+  private readonly hand: { left: Vector3; right: Vector3 };
   private readonly want = new Vector3();
   private readonly toTarget = new Vector3();
   private readonly desired = new Vector3();
@@ -56,9 +61,21 @@ export class Pilot {
   private readonly bodyTurn = new Quaternion();
   private readonly q = new Quaternion();
 
+  /**
+   * `cfg` is the movement rules the bird flies by, and `size` its size
+   * against a lobby parrot. A bird of another size needs its own rules, with
+   * its body made to match, and its Player's reachScale set to the same size.
+   */
+  constructor(
+    private readonly cfg: MovementConfig = flockConfig,
+    private readonly size = 1,
+  ) {
+    this.hand = { left: new Vector3(-0.14 * size, 0.3 * size, 0), right: new Vector3(0.14 * size, 0.3 * size, 0) };
+  }
+
   /** Height of the parrot's head above its feet in its own tracking space. */
   private get headHeight(): number {
-    return flockConfig.bodyHeight.value;
+    return this.cfg.bodyHeight.value;
   }
 
   /** Fold the wings and stand still. */
@@ -87,7 +104,7 @@ export class Pilot {
     this.toTarget.y = 0;
     const distance = this.toTarget.length();
     const speed = Math.hypot(v.x, v.z);
-    const rise = v.y > 0 ? (v.y * v.y) / (2 * flockConfig.gravity.value) : 0;
+    const rise = v.y > 0 ? (v.y * v.y) / (2 * this.cfg.gravity.value) : 0;
 
     // --- On something solid. --------------------------------------------------
     if (player.grounded) {
@@ -224,20 +241,21 @@ export class Pilot {
     else hand.addScaledVector(this.want, step / distance);
   }
 
-  private both(x: number, y: number, z: number, speed: number, dt: number): void {
-    this.moveHand('left', -x, y, z, speed, dt);
-    this.moveHand('right', x, y, z, speed, dt);
+  /** Move both hands, mirrored. `out` and `speed` are for a lobby parrot, and are made to fit this bird. */
+  private both(out: number, y: number, z: number, speed: number, dt: number): void {
+    this.moveHand('left', -out * this.size, y, z, speed * this.size, dt);
+    this.moveHand('right', out * this.size, y, z, speed * this.size, dt);
   }
 
   private fold(dt: number): void {
-    this.both(0.14, this.headHeight - 0.3, 0, GENTLE, dt);
+    this.both(0.14, this.headHeight - 0.3 * this.size, 0, GENTLE, dt);
   }
 
   /** Full flaps for climbing: arms stay out, so the upstroke glides. */
   private flap(dt: number): void {
     this.phase = (this.phase + dt) % (FLAP_DOWN + FLAP_UP);
-    const top = this.headHeight + FLAP_TOP;
-    const bottom = top - FULL_STROKE;
+    const top = this.headHeight + FLAP_TOP * this.size;
+    const bottom = top - FULL_STROKE * this.size;
     const y =
       this.phase < FLAP_DOWN
         ? top + (bottom - top) * (this.phase / FLAP_DOWN)
@@ -253,8 +271,8 @@ export class Pilot {
    */
   private hoverFlap(dt: number): void {
     this.phase = (this.phase + dt) % (FLAP_DOWN + FLAP_UP);
-    const top = this.headHeight + FLAP_TOP;
-    const bottom = top - this.stroke;
+    const top = this.headHeight + FLAP_TOP * this.size;
+    const bottom = top - this.stroke * this.size;
     const y =
       this.phase < FLAP_DOWN
         ? top + (bottom - top) * (this.phase / FLAP_DOWN)
@@ -265,13 +283,14 @@ export class Pilot {
   /** Wings in at the top of the stroke: sinking, ready to flap. */
   private holdTucked(dt: number): void {
     this.phase = 0;
-    this.both(TUCK, this.headHeight + FLAP_TOP, 0, GENTLE, dt);
+    this.both(TUCK, this.headHeight + FLAP_TOP * this.size, 0, GENTLE, dt);
   }
 
   private glide(bank: number, droop: number, dt: number): void {
-    const level = this.headHeight - 0.3 - 0.25 * droop;
-    this.moveHand('left', -ARM, level - 0.3 * bank, 0, GENTLE, dt);
-    this.moveHand('right', ARM, level + 0.3 * bank, 0, GENTLE, dt);
+    const s = this.size;
+    const level = this.headHeight - 0.3 * s - 0.25 * droop * s;
+    this.moveHand('left', -ARM * s, level - 0.3 * bank * s, 0, GENTLE * s, dt);
+    this.moveHand('right', ARM * s, level + 0.3 * bank * s, 0, GENTLE * s, dt);
   }
 
   /** Write the head and hands into the player's input, as a headset would. */

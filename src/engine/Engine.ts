@@ -9,7 +9,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { Material, Mesh, Object3D, Texture } from 'three';
-import { follow } from '../account/account';
+import { petsApi } from '../account/account';
 import { Mimicry } from '../audio/Mimicry';
 import { Sounds } from '../audio/Sounds';
 import { FeatherBatch } from '../characters/FeatherBatch';
@@ -181,6 +181,7 @@ export class Engine {
         rememberCharacter(action.characterId);
       }
       if (action.type === 'passRing' && mine) this.stuntSample.passedRing = true;
+      if (action.type === 'place') this.pets.onPlaced(action.toyId, action.targetId);
       this.worldView.onAction(action);
       this.sounds.onAction(action);
     });
@@ -190,17 +191,20 @@ export class Engine {
     this.pets = new Pets({
       physics: this.physics,
       feathers: this.feathers,
-      follow,
+      api: petsApi,
       spots: () => this.flock.spots,
+      eat: (toyId) => void this.actions.dispatch({ type: 'eat', toyId }),
       onEvent: (event) => {
         if (event.type === 'call') {
           const distance = this.localPlayer.head.position.distanceTo(event.at);
           this.sounds.call(event.voice, Math.max(0.1, 1 / (1 + distance / 5)));
         } else if (event.type === 'refused') {
           this.sounds.refuse();
+          this.worldView.burst(event.at, 0xff6a5f);
         } else {
-          if (event.type === 'chosen') this.sounds.chirp();
-          this.worldView.burst(event.at, 0xfff27a);
+          // A pet coming home is quiet; anything else is cheered.
+          if (event.type !== 'home') this.sounds.chirp();
+          this.worldView.burst(event.at, event.type === 'home' ? 0xffffff : 0xfff27a);
         }
       },
     });

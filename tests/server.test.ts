@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  answer,
+  askFor,
+  breedOwn,
+  cancelRequest,
   chooseFollower,
   createPlayer,
+  feedEgg,
+  freePet,
+  friendsOf,
   givePet,
   login,
   overview,
@@ -10,10 +17,12 @@ import {
   Refusal,
   removePet,
   resetCode,
+  restorePet,
   sha256,
 } from '../server/rules';
 import type { Deps } from '../server/rules';
-import { PET_CAP } from '../shared/api';
+import type { PlayerRow } from '../server/store';
+import { PET_CAP, SEEDS_TO_HATCH } from '../shared/api';
 import { tierOf } from '../shared/dna';
 import { founders } from '../shared/founders';
 import { MemoryStore } from './memoryStore';
@@ -70,9 +79,8 @@ describe('adding a player', () => {
   it('starts the player with one common pet, which follows them', async () => {
     for (let i = 0; i < 20; i++) {
       const { player } = await createPlayer(store, deps, `Player ${i}`);
-      const view = await playerView(store, player);
+      const view = await playerView(store, player.id);
       expect(view.pets).toHaveLength(1);
-      expect(view.pets[0].stage).toBe('hatched');
       expect(tierOf(view.pets[0].dna)).toBe('common');
       expect(view.followerId).toBe(view.pets[0].id);
     }
@@ -173,9 +181,8 @@ describe('choosing a follower', () => {
   it('makes one of the player’s own pets follow them', async () => {
     const { player } = await createPlayer(store, deps, 'Alex');
     const given = await givePet(store, deps, player.id, 'ember');
-    const after = await chooseFollower(store, player, given.id);
-    expect(after.followerId).toBe(given.id);
-    expect((await playerView(store, (await store.player(player.id))!)).followerId).toBe(given.id);
+    await chooseFollower(store, player, given.id);
+    expect((await playerView(store, player.id)).followerId).toBe(given.id);
   });
 
   it('refuses a pet that is missing, somebody else’s, an egg or set free', async () => {
@@ -206,7 +213,7 @@ describe('giving and removing pets', () => {
     expect(pet.dna).toEqual(founders.prism.dna);
     expect(tierOf(pet.dna)).toBe('mythical');
 
-    const view = await playerView(store, player);
+    const view = await playerView(store, player.id);
     expect(view.pets.map((p) => p.id)).toContain(pet.id);
     expect(view.pets).toHaveLength(2);
     // The starter pet still follows.
@@ -230,23 +237,23 @@ describe('giving and removing pets', () => {
     expect(PET_CAP).toBe(24);
     const { player } = await createPlayer(store, deps, 'Alex');
     for (let i = 1; i < PET_CAP; i++) await givePet(store, deps, player.id, 'pip');
-    expect((await playerView(store, player)).pets).toHaveLength(PET_CAP);
+    expect((await playerView(store, player.id)).pets).toHaveLength(PET_CAP);
     await refused(givePet(store, deps, player.id, 'pip'), 'full', 409);
-    expect((await playerView(store, player)).pets).toHaveLength(PET_CAP);
+    expect((await playerView(store, player.id)).pets).toHaveLength(PET_CAP);
   });
 
   it('removes a pet, and stops it following if it was the follower', async () => {
     const { player } = await createPlayer(store, deps, 'Alex');
     const given = await givePet(store, deps, player.id, 'sky');
-    const starter = (await playerView(store, player)).followerId!;
+    const starter = (await playerView(store, player.id)).followerId!;
 
     await removePet(store, given.id);
-    let view = await playerView(store, (await store.player(player.id))!);
+    let view = await playerView(store, player.id);
     expect(view.pets.map((p) => p.id)).toEqual([starter]);
     expect(view.followerId).toBe(starter);
 
     await removePet(store, starter);
-    view = await playerView(store, (await store.player(player.id))!);
+    view = await playerView(store, player.id);
     expect(view.pets).toEqual([]);
     expect(view.followerId).toBeNull();
 
@@ -258,7 +265,7 @@ describe('giving and removing pets', () => {
     const sam = await createPlayer(store, deps, 'Sam');
     await givePet(store, deps, sam.player.id, 'ember');
 
-    const all = await overview(store);
+    const all = await overview(store, deps);
     expect(all.map((p) => p.nickname)).toEqual(['Alex', 'Sam']);
     expect(all.find((p) => p.id === alex.player.id)!.pets).toHaveLength(1);
     expect(all.find((p) => p.id === sam.player.id)!.pets).toHaveLength(2);
@@ -270,9 +277,300 @@ describe('giving and removing pets', () => {
     const { player } = await createPlayer(store, deps, 'Alex');
     const given = await givePet(store, deps, player.id, 'sky');
     store.petRows.get(given.id)!.stage = 'freed';
-    expect((await playerView(store, player)).pets.map((p) => p.id)).not.toContain(given.id);
+    expect((await playerView(store, player.id)).pets.map((p) => p.id)).not.toContain(given.id);
     // A freed pet does not count towards the cap.
     for (let i = 1; i < PET_CAP; i++) await givePet(store, deps, player.id, 'pip');
     await refused(givePet(store, deps, player.id, 'pip'), 'full', 409);
+  });
+});
+
+/** A player with a number of hatched pets, the first being their starter. */
+async function playerWith(name: string, pets: number): Promise<{ player: PlayerRow; ids: string[] }> {
+  const { player } = await createPlayer(store, deps, name);
+  for (let i = 1; i < pets; i++) await givePet(store, deps, player.id, i % 2 ? 'ember' : 'tango');
+  return { player, ids: (await playerView(store, player.id)).pets.map((pet) => pet.id) };
+}
+
+describe('breeding two of your own pets', () => {
+  it('lays one egg, telling its shell but not what is inside', async () => {
+    const { player, ids } = await playerWith('Alex', 2);
+    await breedOwn(store, deps, player, ids[0], ids[1]);
+
+    const view = await playerView(store, player.id);
+    expect(view.pets.map((pet) => pet.id)).toEqual(ids);
+    expect(view.egg).not.toBeNull();
+    expect(view.egg!.seeds).toBe(0);
+    expect(view.egg!.shell).toHaveLength(2);
+    expect(JSON.stringify(view.egg)).not.toContain('glow');
+
+    // What will hatch is fixed on the server from the start.
+    const row = store.petRows.get(view.egg!.id)!;
+    expect(row.stage).toBe('egg');
+    expect([row.parentA, row.parentB]).toEqual(ids);
+    expect(row.dna.colors).toBeDefined();
+  });
+
+  it('refuses a pet bred with itself, or with a pet that is not the player\'s', async () => {
+    const alex = await playerWith('Alex', 2);
+    const sam = await playerWith('Sam', 1);
+    await refused(breedOwn(store, deps, alex.player, alex.ids[0], alex.ids[0]), 'same-pet', 400);
+    await refused(breedOwn(store, deps, alex.player, alex.ids[0], sam.ids[0]), 'no-such-pet', 404);
+    await refused(breedOwn(store, deps, alex.player, alex.ids[0], undefined), 'no-such-pet', 404);
+    expect((await playerView(store, alex.player.id)).egg).toBeNull();
+  });
+
+  it('allows only one egg at a time', async () => {
+    const { player, ids } = await playerWith('Alex', 3);
+    await breedOwn(store, deps, player, ids[0], ids[1]);
+    await refused(breedOwn(store, deps, player, ids[1], ids[2]), 'has-egg', 409);
+  });
+
+  it('counts the egg towards the 24', async () => {
+    const full = await playerWith('Full', PET_CAP);
+    await refused(breedOwn(store, deps, full.player, full.ids[0], full.ids[1]), 'full', 409);
+
+    const nearly = await playerWith('Nearly', PET_CAP - 1);
+    await breedOwn(store, deps, nearly.player, nearly.ids[0], nearly.ids[1]);
+    await refused(givePet(store, deps, nearly.player.id, 'pip'), 'full', 409);
+  });
+});
+
+describe('asking a friend for DNA', () => {
+  let alex: { player: PlayerRow; ids: string[] };
+  let sam: { player: PlayerRow; ids: string[] };
+  beforeEach(async () => {
+    alex = await playerWith('Alex', 2);
+    sam = await playerWith('Sam', 2);
+  });
+
+  it('shows the request to both players, each from their own side', async () => {
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[1]);
+
+    const asking = (await playerView(store, alex.player.id)).asking!;
+    expect(asking.myPetId).toBe(alex.ids[0]);
+    expect(asking.friend).toBe('Sam');
+    expect(asking.theirPet.id).toBe(sam.ids[1]);
+
+    const asked = (await playerView(store, sam.player.id)).asked;
+    expect(asked).toHaveLength(1);
+    expect(asked[0].id).toBe(asking.id);
+    expect(asked[0].myPetId).toBe(sam.ids[1]);
+    expect(asked[0].friend).toBe('Alex');
+    expect(asked[0].theirPet.id).toBe(alex.ids[0]);
+  });
+
+  it('refuses a pet that is the player\'s own, missing, an egg or set free', async () => {
+    await refused(askFor(store, deps, alex.player, alex.ids[0], alex.ids[1]), 'no-such-pet', 404);
+    await refused(askFor(store, deps, alex.player, alex.ids[0], 'nothing'), 'no-such-pet', 404);
+    await refused(askFor(store, deps, alex.player, sam.ids[0], sam.ids[1]), 'no-such-pet', 404);
+    store.petRows.get(sam.ids[1])!.stage = 'freed';
+    await refused(askFor(store, deps, alex.player, alex.ids[0], sam.ids[1]), 'no-such-pet', 404);
+    expect(store.requestRows.size).toBe(0);
+  });
+
+  it('holds the place for the egg while waiting for the answer', async () => {
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[0]);
+    // No second request, and no egg of the player's own, until it is answered.
+    await refused(askFor(store, deps, alex.player, alex.ids[1], sam.ids[1]), 'has-egg', 409);
+    await refused(breedOwn(store, deps, alex.player, alex.ids[0], alex.ids[1]), 'has-egg', 409);
+
+    // With 23 pets and a request out, a 24th pet would leave no room for the egg.
+    const nearly = await playerWith('Nearly', PET_CAP - 1);
+    await askFor(store, deps, nearly.player, nearly.ids[0], sam.ids[0]);
+    await refused(givePet(store, deps, nearly.player.id, 'pip'), 'full', 409);
+  });
+
+  it('cannot be made by a player who has an egg, or who is full', async () => {
+    await breedOwn(store, deps, alex.player, alex.ids[0], alex.ids[1]);
+    await refused(askFor(store, deps, alex.player, alex.ids[0], sam.ids[0]), 'has-egg', 409);
+    const full = await playerWith('Full', PET_CAP);
+    await refused(askFor(store, deps, full.player, full.ids[0], sam.ids[0]), 'full', 409);
+  });
+
+  it('lays the egg in the asker\'s nest on a yes, at no cost to the giver', async () => {
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[1]);
+    const { id } = (await playerView(store, sam.player.id)).asked[0];
+    await answer(store, deps, sam.player, id, true);
+
+    const asker = await playerView(store, alex.player.id);
+    expect(asker.asking).toBeNull();
+    expect(asker.egg).not.toBeNull();
+    const row = store.petRows.get(asker.egg!.id)!;
+    expect(row.ownerId).toBe(alex.player.id);
+    expect([row.parentA, row.parentB]).toEqual([alex.ids[0], sam.ids[1]]);
+
+    const giver = await playerView(store, sam.player.id);
+    expect(giver.asked).toEqual([]);
+    expect(giver.egg).toBeNull();
+    expect(giver.pets.map((pet) => pet.id)).toEqual(sam.ids);
+  });
+
+  it('lays nothing on a no, and frees the asker to ask again', async () => {
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[1]);
+    const { id } = (await playerView(store, sam.player.id)).asked[0];
+    await answer(store, deps, sam.player, id, false);
+    const asker = await playerView(store, alex.player.id);
+    expect(asker.asking).toBeNull();
+    expect(asker.egg).toBeNull();
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[0]);
+    expect((await playerView(store, alex.player.id)).asking).not.toBeNull();
+  });
+
+  it('takes anything but a plain yes as a no', async () => {
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[1]);
+    const { id } = (await playerView(store, sam.player.id)).asked[0];
+    await answer(store, deps, sam.player, id, 'yes');
+    expect((await playerView(store, alex.player.id)).egg).toBeNull();
+  });
+
+  it('can be answered only by the player who was asked', async () => {
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[1]);
+    const { id } = (await playerView(store, sam.player.id)).asked[0];
+    const pat = await playerWith('Pat', 1);
+    await refused(answer(store, deps, alex.player, id, true), 'no-such-request', 404);
+    await refused(answer(store, deps, pat.player, id, true), 'no-such-request', 404);
+    await refused(answer(store, deps, sam.player, 'nothing', true), 'no-such-request', 404);
+    expect((await playerView(store, alex.player.id)).egg).toBeNull();
+    expect(store.requestRows.size).toBe(1);
+  });
+
+  it('can be taken back by the asker, and by nobody else', async () => {
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[1]);
+    const { id } = (await playerView(store, alex.player.id)).asking!;
+    await refused(cancelRequest(store, sam.player, id), 'no-such-request', 404);
+    await cancelRequest(store, alex.player, id);
+    expect((await playerView(store, alex.player.id)).asking).toBeNull();
+    expect((await playerView(store, sam.player.id)).asked).toEqual([]);
+  });
+
+  it('lets several friends ask for the same pet, oldest first', async () => {
+    const pat = await playerWith('Pat', 1);
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[0]);
+    await askFor(store, deps, pat.player, pat.ids[0], sam.ids[0]);
+    const asked = (await playerView(store, sam.player.id)).asked;
+    expect(asked.map((request) => request.friend)).toEqual(['Alex', 'Pat']);
+  });
+});
+
+describe('feeding the egg', () => {
+  it('hatches it on the third seed, into the pet it was always going to be', async () => {
+    const { player, ids } = await playerWith('Alex', 2);
+    await breedOwn(store, deps, player, ids[0], ids[1]);
+    const egg = (await playerView(store, player.id)).egg!;
+    const inside = structuredClone(store.petRows.get(egg.id)!.dna);
+    expect(SEEDS_TO_HATCH).toBe(3);
+
+    expect(await feedEgg(store, player)).toBeNull();
+    expect((await playerView(store, player.id)).egg!.seeds).toBe(1);
+    expect(await feedEgg(store, player)).toBeNull();
+    expect((await playerView(store, player.id)).egg!.seeds).toBe(2);
+    expect(await feedEgg(store, player)).toBe(egg.id);
+
+    const view = await playerView(store, player.id);
+    expect(view.egg).toBeNull();
+    expect(view.pets.map((pet) => pet.id)).toEqual([...ids, egg.id]);
+    expect(view.pets[2].dna).toEqual(inside);
+  });
+
+  it('refuses when there is no egg', async () => {
+    const { player } = await playerWith('Alex', 2);
+    await refused(feedEgg(store, player), 'no-egg', 404);
+  });
+
+  it('leaves room for the next egg once it has hatched', async () => {
+    const { player, ids } = await playerWith('Alex', 2);
+    await breedOwn(store, deps, player, ids[0], ids[1]);
+    for (let i = 0; i < SEEDS_TO_HATCH; i++) await feedEgg(store, player);
+    await breedOwn(store, deps, player, ids[0], ids[1]);
+    expect((await playerView(store, player.id)).egg).not.toBeNull();
+  });
+});
+
+describe('setting a pet free', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it('takes the pet away, stops it following, and drops requests that name it', async () => {
+    const alex = await playerWith('Alex', 3);
+    const sam = await playerWith('Sam', 2);
+    const pat = await playerWith('Pat', 1);
+    const follower = alex.player.followerId!;
+    await askFor(store, deps, alex.player, follower, sam.ids[0]); // names it as the asker's pet
+    await askFor(store, deps, pat.player, pat.ids[0], follower); // names it as the pet asked for
+
+    await freePet(store, deps, alex.player, follower);
+    const view = await playerView(store, alex.player.id);
+    expect(view.pets.map((pet) => pet.id)).not.toContain(follower);
+    expect(view.followerId).toBeNull();
+    expect(view.asking).toBeNull();
+    expect(view.asked).toEqual([]);
+    expect(store.requestRows.size).toBe(0);
+    // Kept, not deleted.
+    expect(store.petRows.get(follower)!.stage).toBe('freed');
+    expect(store.petRows.get(follower)!.freedAt).toBeGreaterThan(0);
+  });
+
+  it('never frees a player\'s last pet, an egg, or somebody else\'s pet', async () => {
+    const alex = await playerWith('Alex', 2);
+    const sam = await playerWith('Sam', 1);
+    await refused(freePet(store, deps, sam.player, sam.ids[0]), 'last-pet', 409);
+    await refused(freePet(store, deps, alex.player, sam.ids[0]), 'no-such-pet', 404);
+
+    await breedOwn(store, deps, alex.player, alex.ids[0], alex.ids[1]);
+    const egg = (await playerView(store, alex.player.id)).egg!;
+    await refused(freePet(store, deps, alex.player, egg.id), 'no-such-pet', 404);
+
+    // An egg is not a pet to be left with.
+    await freePet(store, deps, alex.player, alex.ids[1]);
+    await refused(freePet(store, deps, alex.player, alex.ids[0]), 'last-pet', 409);
+  });
+
+  it('can be undone by the owner of the game for 30 days', async () => {
+    const { player, ids } = await playerWith('Alex', 2);
+    await freePet(store, deps, player, ids[1]);
+
+    let [admin] = await overview(store, deps);
+    expect(admin.pets.map((pet) => pet.id)).toEqual([ids[0]]);
+    expect(admin.freed.map((pet) => pet.id)).toEqual([ids[1]]);
+
+    await restorePet(store, ids[1]);
+    [admin] = await overview(store, deps);
+    expect(admin.pets.map((pet) => pet.id)).toEqual(ids);
+    expect(admin.freed).toEqual([]);
+    await refused(restorePet(store, ids[1]), 'no-such-pet', 404);
+  });
+
+  it('forgets a freed pet after 30 days', async () => {
+    const { player, ids } = await playerWith('Alex', 3);
+    await freePet(store, deps, player, ids[1]);
+    await freePet(store, deps, player, ids[2]);
+    store.petRows.get(ids[1])!.freedAt = deps.now() - 31 * DAY;
+    store.petRows.get(ids[2])!.freedAt = deps.now() - 29 * DAY;
+
+    const [admin] = await overview(store, deps);
+    expect(admin.freed.map((pet) => pet.id)).toEqual([ids[2]]);
+    expect(store.petRows.has(ids[1])).toBe(false);
+    await refused(restorePet(store, ids[1]), 'no-such-pet', 404);
+  });
+
+  it('cannot be undone into a full nest', async () => {
+    const { player, ids } = await playerWith('Alex', PET_CAP);
+    await freePet(store, deps, player, ids[5]);
+    await givePet(store, deps, player.id, 'pip');
+    await refused(restorePet(store, ids[5]), 'full', 409);
+  });
+});
+
+describe('friends', () => {
+  it('lists the other players with their hatched pets, and never the player themself', async () => {
+    const alex = await playerWith('Alex', 2);
+    const sam = await playerWith('Sam', 3);
+    await playerWith('Pat', 1);
+    await breedOwn(store, deps, sam.player, sam.ids[0], sam.ids[1]);
+    await freePet(store, deps, sam.player, sam.ids[2]);
+
+    const friends = await friendsOf(store, alex.player);
+    expect(friends.map((friend) => friend.nickname)).toEqual(['Sam', 'Pat']);
+    expect(friends[0].pets.map((pet) => pet.id)).toEqual([sam.ids[0], sam.ids[1]]);
+    expect(JSON.stringify(friends)).not.toContain('codeHash');
   });
 });
