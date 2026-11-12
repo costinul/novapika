@@ -37,6 +37,7 @@ import { createRecognisers } from '../stunts/recognisers';
 import { Voice } from '../voice/Voice';
 import type { StuntSample } from '../stunts/recognisers';
 import { ActionLayer } from '../world/actions';
+import type { Action } from '../world/actions';
 import { beakPosition } from '../world/beak';
 import { WorldState } from '../world/WorldState';
 import type { Toy } from '../world/WorldState';
@@ -187,16 +188,19 @@ export class Engine {
     this.worldView = new WorldView(this.world, this.physics);
     this.scene.add(this.worldView.object);
     this.sounds.setVoice(character(this.localPlayer.characterId).voice);
-    this.actions.onApplied((action) => {
+    this.actions.onApplied((action, remote) => {
       const mine = 'playerId' in action && action.playerId === this.localPlayer.id;
       if (action.type === 'chooseCharacter' && mine) {
         this.sounds.setVoice(character(action.characterId).voice);
         rememberCharacter(action.characterId);
       }
       if (action.type === 'passRing' && mine) this.stuntSample.passedRing = true;
-      if (action.type === 'place') this.pets.onPlaced(action.toyId, action.targetId);
+      // Food in the egg cup feeds the egg of whoever carried it there.
+      if (action.type === 'place' && this.world.toys.get(action.toyId)?.lastHolderId === this.localPlayer.id) {
+        this.pets.onPlaced(action.toyId, action.targetId);
+      }
       this.worldView.onAction(action);
-      this.sounds.onAction(action);
+      this.playAction(action, remote);
     });
     this.world.onJingle = (_toy, strength) => this.sounds.jingle(strength);
     this.flock = new Flock(this.world, this.actions, this.physics, this.feathers, this.sounds, this.mimicry);
@@ -234,6 +238,7 @@ export class Engine {
       world: this.world,
       feathers: this.feathers,
       local: this.localPlayer,
+      actions: this.actions,
       connect: connectLobby,
       about: () => ({
         characterId: this.localPlayer.characterId,
@@ -414,6 +419,21 @@ export class Engine {
       this.pets.step(dt * FLOCK_EVERY, this.localPlayer);
     }
     this.world.step(dt, this.actions);
+  }
+
+  /** The sound of an action. One another player's game made happen is quieter the further off it was. */
+  private playAction(action: Action, remote: boolean): void {
+    if (!remote) return this.sounds.onAction(action);
+    const who = 'playerId' in action ? this.world.players.get(action.playerId) : undefined;
+    const where =
+      who?.head.position ??
+      ('toyId' in action ? this.world.toys.get(action.toyId)?.position : undefined) ??
+      ('objectId' in action ? this.world.peckables.get(action.objectId)?.position : undefined);
+    const loudness = where ? Math.max(0.06, 1 / (1 + this.localPlayer.head.position.distanceTo(where) / 5)) : 1;
+    // A cheer is in the voice of the parrot that cheers.
+    if (who && (action.type === 'stunt' || action.type === 'chooseCharacter')) {
+      this.sounds.call(character(who.characterId).voice, loudness);
+    } else this.sounds.onAction(action, loudness);
   }
 
   /** Learn the player's arm reach from how far out they hold their hands. */

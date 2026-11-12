@@ -33,7 +33,7 @@ These choices are fixed. Do not substitute alternatives without asking the owner
 | Tests | Vitest | Movement maths tested with synthetic hand traces, no headset needed |
 | Desktop testing | A WebXR emulator in the desktop browser | So the agent can run and check the game without a headset |
 | Hosting | Cloudflare: static files, plus a Worker API with a D1 database | The API keeps players and pets only; the game plays without it. See `docs/plans/2026-11-11-pets-design.md` |
-| Multiplayer | Cloudflare Durable Objects with WebSockets | Being built: see the README |
+| Multiplayer | Cloudflare Durable Objects with WebSockets | Built: see the README |
 | Voice | WebRTC, headset to headset | Built: see the README |
 | Later: store | Packaged as a PWA for the Meta Horizon Store | Not in v1 |
 
@@ -314,8 +314,7 @@ The lobby has 6 to 8 parrots of mixed species that live there on their own, so i
 
 Do not build these yet. The architecture in section 3 keeps the door open for each.
 
-- Multiplayer and tag game modes
-- Voice chat
+- Tag game modes
 - Additional lobbies
 - Different abilities per species
 - Talking parrots driven by a language model

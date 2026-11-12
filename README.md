@@ -12,9 +12,10 @@ moves, comfort settings and movement that fits short arms.
 Not yet checked on a real headset by the author of the code: every milestone
 was tested with unit tests and a desktop WebXR emulator only.
 
-## Multiplayer (being built)
+## Multiplayer
 
-Up to eight signed-in players share a lobby. Built so far:
+Up to eight signed-in players share a lobby: they see and hear each other, and
+the lobby's parrots, toys, bells and rings are the same for all of them.
 
 - **Seeing each other.** Everyone playing in the same lobby sees the others'
   parrots move: head, wings, claws and body. Each game runs its own player and
@@ -23,7 +24,10 @@ Up to eight signed-in players share a lobby. Built so far:
   in the nest.
 - **The lobby server.** One Cloudflare Durable Object per lobby, which every
   player there holds a WebSocket to, signed in with the same token as the
-  rest. It only passes messages on; it keeps nothing once the lobby is empty.
+  rest. It passes messages on, settles who got a toy first, and remembers how
+  the toys, bells and rings stand for whoever comes in next. Once the lobby is
+  empty it forgets everything: the next player finds every toy where it
+  started.
 
 - **Voice.** Players in a lobby hear each other, always on: louder when
   closer, and from the direction of the other parrot. Each pair of players
@@ -41,10 +45,19 @@ Up to eight signed-in players share a lobby. Built so far:
   owner's game runs it. The pet corner stays your own: you see only your pets
   there.
 
-Still to come: shared toys, bells and rings.
+- **Toys, bells and rings.** Picking up, dropping, taking from a beak,
+  putting away, ringing and flying a ring happen for everyone. A toy two
+  players bite at the same moment goes to whoever the lobby heard first. A
+  toy that is let go is moved by the game of whoever let go of it, which tells
+  the others where it is until it lies still; the same game moves any toy it
+  knocks on the way. What a player was carrying goes back to where it started
+  when they leave. Food put in the egg cup feeds the egg of the player who
+  carried it there.
 
 Not checked by the author of the code, because it needs two headsets: how
-voices sound (echo, loudness, distance), and connecting between two homes.
+voices sound (echo, loudness, distance), connecting between two homes, and
+the frame rate with a full lobby. Everything else was tested with unit tests
+and two desktop browser windows.
 
 ## Pets (being built)
 

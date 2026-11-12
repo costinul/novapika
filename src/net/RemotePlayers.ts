@@ -76,7 +76,7 @@ export class RemotePlayers {
   }
 
   private hide(shown: Shown): void {
-    this.world.players.delete(shown.player.id);
+    this.world.part(shown.player.id);
     if (!shown.view) return;
     this.object.remove(shown.view.object);
     shown.view.dispose();
@@ -97,7 +97,7 @@ export class RemotePlayers {
     if (!remote) return;
     // Nobody is shown, or counted as being in the world, before their first pose.
     if (!remote.track.started) {
-      this.world.players.set(remote.player.id, remote.player);
+      this.world.join(remote.player);
       if (remote.view) this.object.add(remote.view.object);
     }
     remote.track.push(view, at, time);
@@ -118,7 +118,7 @@ export class RemotePlayers {
       player.simulatedHere = false;
       const shown = this.feathers ? new PlayerView(player, this.feathers, false, def) : null;
       remote.follower = { petId, player, view: shown, track: new PoseTrack() };
-      this.world.players.set(player.id, player);
+      this.world.join(player);
       if (shown) this.object.add(shown.object);
     }
     remote.follower.track.push(view, at, time);

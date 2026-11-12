@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { PROTOCOL } from '../shared/net';
+import type { SharedWorld } from '../shared/net';
 import { LobbyRules } from './lobbyRules';
 import type { Member } from './lobbyRules';
 
@@ -10,6 +11,8 @@ import type { Member } from './lobbyRules';
 /** Headers the Worker adds once it knows who the player is. Never trusted from outside. */
 export const PLAYER_HEADER = 'X-Novapika-Player';
 export const NICKNAME_HEADER = 'X-Novapika-Nickname';
+/** Where the lobby keeps how its toys stand, in its own storage. */
+const WORLD_KEY = 'world';
 
 export class Lobby extends DurableObject<Env> {
   private readonly rules = new LobbyRules<WebSocket>({
@@ -28,6 +31,15 @@ export class Lobby extends DurableObject<Env> {
       }
     },
     keep: (ws, member) => ws.serializeAttachment(member),
+    save: (world) => {
+      try {
+        if (world) this.ctx.storage.kv.put(WORLD_KEY, world);
+        else this.ctx.storage.kv.delete(WORLD_KEY);
+      } catch (error) {
+        // The lobby carries on from memory; only a sleep would lose how the toys stand.
+        console.error(JSON.stringify({ message: 'world not saved', error: error instanceof Error ? error.message : String(error) }));
+      }
+    },
   });
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -37,6 +49,8 @@ export class Lobby extends DurableObject<Env> {
       const member = ws.deserializeAttachment() as Member | null;
       if (member) this.rules.restore(ws, member);
     }
+    const world = ctx.storage.kv.get<SharedWorld>(WORLD_KEY);
+    if (world) this.rules.restoreWorld(world);
   }
 
   async fetch(request: Request): Promise<Response> {

@@ -14,6 +14,8 @@ export class Sounds {
   private voice: VoiceDef = { pitch: 2300, wave: 'sine', notes: 2, slide: 1.45 };
   private nextBird = 3;
   private time = 0;
+  /** How loud the sounds of the action being played are, 0..1. */
+  private level = 1;
 
   /** The voice of the parrot the player is, used for every chirp. */
   setVoice(voice: VoiceDef): void {
@@ -137,7 +139,14 @@ export class Sounds {
     return buffer;
   }
 
-  onAction(action: Action): void {
+  /** The sound of an action. `loudness` is 0..1, for one that happened further away. */
+  onAction(action: Action, loudness = 1): void {
+    this.level = loudness;
+    this.actionSound(action);
+    this.level = 1;
+  }
+
+  private actionSound(action: Action): void {
     switch (action.type) {
       case 'pickUp':
         this.tone(900, 1500, 0.06, 0.15, 'triangle');
@@ -183,7 +192,7 @@ export class Sounds {
     filter.frequency.setValueAtTime(5000, ctx.currentTime);
     filter.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.3);
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.setValueAtTime(0.25 * this.level, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
     source.connect(filter).connect(gain).connect(ctx.destination);
     source.start();
@@ -247,7 +256,7 @@ export class Sounds {
     osc.type = type;
     osc.frequency.setValueAtTime(from, start);
     osc.frequency.exponentialRampToValueAtTime(to, start + seconds);
-    amp.gain.setValueAtTime(gain, start);
+    amp.gain.setValueAtTime(Math.max(0.0002, gain * this.level), start);
     amp.gain.exponentialRampToValueAtTime(0.0001, start + seconds);
     osc.connect(amp).connect(ctx.destination);
     osc.start(start);

@@ -1,22 +1,29 @@
 import { Group, Vector3 } from 'three';
-import { FRAME_POSES } from '../../shared/net';
 import type { PetView } from '../../shared/api';
-import type { AboutMe, LobbyPlayer, RtcData, ServerMessage } from '../../shared/net';
+import { FRAME_HEAD, FRAME_POSES } from '../../shared/net';
+import type { AboutMe, LobbyPlayer, RtcData, ServerMessage, SharedWorld } from '../../shared/net';
 import type { FeatherBatch } from '../characters/FeatherBatch';
 import type { Player } from '../player/Player';
 import type { Voice } from '../voice/Voice';
+import type { Action, ActionLayer } from '../world/actions';
 import type { WorldState } from '../world/WorldState';
 import type { Connect, Link } from './LobbyClient';
 import { POSE_BYTES, POSE_FLOCK, POSE_FOLLOWER, POSE_PLAYER, PoseTrack, writePose } from './pose';
 import { RemotePlayers } from './RemotePlayers';
 
-/** How often this game tells the others where its parrots are. */
+/** How often this game tells the others where its parrots and toys are. */
 const SEND_HZ = 15;
 /** The most poses one game ever sends at once: its player, their follower and the lobby's parrots. */
 const MOST_POSES = 40;
+/** Bytes one loose toy takes in a frame: which toy, where it is, and how it is turned. */
+const TOY_BYTES = 21;
+/** The most loose toys one game ever says the place of at once. */
+const MOST_TOYS = 60;
 
 export interface MultiplayerDeps {
   world: WorldState;
+  /** The gate every change to the world's toys, bells and rings goes through. */
+  actions: ActionLayer;
   /** Left out when there is nothing to draw with, as in tests. */
   feathers: FeatherBatch | null;
   /** The player this game is played by. */
@@ -46,6 +53,11 @@ export interface MultiplayerDeps {
  * rest: its own player and their follower always, and the lobby's own
  * parrots if it is the host. It sends those parrots' poses many times a
  * second, and moves every other parrot to the poses it hears.
+ *
+ * Toys, bells and rings change only through actions. Each one this game
+ * makes happen goes to the lobby, which passes it on; each one another game
+ * made happen is taken as done. A loose toy is moved by one game, which says
+ * where it is in the same frames as its parrots.
  */
 export class Multiplayer {
   /** Add this to the scene: the other players' models. */
@@ -56,11 +68,13 @@ export class Multiplayer {
   slot = -1;
   /** The place of the player whose game runs the lobby's own parrots. */
   private host = -1;
+  /** What the lobby calls the local player. Inside this game they are `deps.local.id`. */
+  private myId = '';
   private sentAbout = '';
   /** Where the host says each of the lobby's own parrots is. */
   private flockTracks: PoseTrack[] = [];
   private sendIn = 0;
-  private readonly frameBytes = new ArrayBuffer(2 + POSE_BYTES * MOST_POSES);
+  private readonly frameBytes = new ArrayBuffer(FRAME_HEAD + POSE_BYTES * MOST_POSES + TOY_BYTES * MOST_TOYS);
   private readonly frameView = new DataView(this.frameBytes);
   private readonly now: () => number;
   private readonly scratch = new Vector3();
@@ -131,19 +145,34 @@ export class Multiplayer {
     this.sendIn = Math.max(0, this.sendIn + 1 / SEND_HZ);
     this.tellAbout();
 
-    // Every parrot this game runs, in one frame.
+    // Every parrot this game runs, then every loose toy it is moving, in one frame.
     const view = this.frameView;
     view.setUint8(0, FRAME_POSES);
-    let at = 2;
+    let at = FRAME_HEAD;
+    let poses = 0;
     const add = (kind: number, player: Player): void => {
-      if (at + POSE_BYTES > view.byteLength) return;
+      if (poses >= MOST_POSES) return;
       writePose(view, at, kind, player);
       at += POSE_BYTES;
+      poses++;
     };
     add(POSE_PLAYER, this.deps.local);
     const follower = this.deps.follower?.();
     if (follower) add(POSE_FOLLOWER, follower);
     if (this.isHost) this.deps.flock?.().forEach((player, i) => add(POSE_FLOCK + i, player));
+    view.setUint8(2, poses);
+    this.deps.world.forEachMoving((index, toy) => {
+      if (index > 255 || at + TOY_BYTES > view.byteLength) return;
+      view.setUint8(at, index);
+      view.setFloat32(at + 1, toy.position.x, true);
+      view.setFloat32(at + 5, toy.position.y, true);
+      view.setFloat32(at + 9, toy.position.z, true);
+      view.setInt16(at + 13, Math.round(toy.quaternion.x * 32767), true);
+      view.setInt16(at + 15, Math.round(toy.quaternion.y * 32767), true);
+      view.setInt16(at + 17, Math.round(toy.quaternion.z * 32767), true);
+      view.setInt16(at + 19, Math.round(toy.quaternion.w * 32767), true);
+      at += TOY_BYTES;
+    });
     this.link.sendFrame(new Uint8Array(this.frameBytes, 0, at));
   }
 
@@ -151,7 +180,9 @@ export class Multiplayer {
     this.slot = -1;
     this.host = -1;
     this.flockTracks = [];
+    this.deps.actions.onLocal = null;
     this.remotes.clear();
+    this.deps.world.unshare();
     this.deps.voice?.clear();
   }
 
@@ -163,12 +194,18 @@ export class Multiplayer {
   }
 
   private onMessage(message: ServerMessage): void {
+    const { world, actions, local } = this.deps;
     switch (message.t) {
       case 'welcome':
         this.offline();
         this.slot = message.you;
         this.host = message.host;
+        this.myId = message.players.find((player) => player.slot === message.you)?.id ?? '';
         for (const player of message.players) this.meet(player);
+        // From here the lobby's toys, bells and rings are everybody's.
+        world.share(local.id, this.inwardWorld(message.world));
+        world.authority = this.isHost;
+        actions.onLocal = (action) => this.link?.send({ t: 'act', action: this.outward(action) });
         this.deps.onJoined?.();
         break;
       case 'player':
@@ -181,24 +218,63 @@ export class Multiplayer {
       case 'host':
         this.host = message.slot;
         this.flockTracks = [];
+        world.authority = this.isHost;
         break;
       case 'rtc':
         this.deps.voice?.signal(message.from, message.data);
         break;
+      case 'act':
+        actions.receive(this.inward(message.action));
+        break;
+      case 'held':
+        world.setHolder(message.toyId, message.by === null ? null : this.inwardId(message.by), message.at);
+        break;
     }
+  }
+
+  /** The local player is `local.id` in this game, and what the lobby calls them everywhere else. */
+  private outward(action: Action): Action {
+    return 'playerId' in action && action.playerId === this.deps.local.id ? { ...action, playerId: this.myId } : action;
+  }
+
+  private inwardId(id: string): string {
+    return id === this.myId ? this.deps.local.id : id;
+  }
+
+  private inward(action: Action): Action {
+    return 'playerId' in action ? { ...action, playerId: this.inwardId(action.playerId) } : action;
+  }
+
+  private inwardWorld(world: SharedWorld): SharedWorld {
+    return { ...world, holders: world.holders.map(([toyId, playerId]) => [toyId, this.inwardId(playerId)]) };
   }
 
   private onFrame(data: ArrayBuffer): void {
     const view = new DataView(data);
-    if (view.byteLength < 2 || view.getUint8(0) !== FRAME_POSES) return;
+    if (view.byteLength < FRAME_HEAD || view.getUint8(0) !== FRAME_POSES) return;
     const from = view.getUint8(1);
     const time = this.now();
-    for (let at = 2; at + POSE_BYTES <= view.byteLength; at += POSE_BYTES) {
+    const posesEnd = FRAME_HEAD + view.getUint8(2) * POSE_BYTES;
+    if (posesEnd > view.byteLength) return;
+
+    for (let at = FRAME_HEAD; at < posesEnd; at += POSE_BYTES) {
       const kind = view.getUint8(at);
       if (kind === POSE_PLAYER) this.remotes.hear(from, view, at, time);
       else if (kind === POSE_FOLLOWER) this.remotes.hearFollower(from, view, at, time);
       // Only the host says where the lobby's own parrots are.
       else if (from === this.host && !this.isHost) (this.flockTracks[kind - POSE_FLOCK] ??= new PoseTrack()).push(view, at, time);
+    }
+    for (let at = posesEnd; at + TOY_BYTES <= view.byteLength; at += TOY_BYTES) {
+      this.deps.world.hearToy(
+        view.getUint8(at),
+        view.getFloat32(at + 1, true),
+        view.getFloat32(at + 5, true),
+        view.getFloat32(at + 9, true),
+        view.getInt16(at + 13, true),
+        view.getInt16(at + 15, true),
+        view.getInt16(at + 17, true),
+        view.getInt16(at + 19, true),
+      );
     }
   }
 }

@@ -1,3 +1,5 @@
+import type { Action, ToyPlace } from './actions';
+
 // What the game and the lobby server say to each other over a WebSocket.
 // Small things travel as JSON text. Poses, many times a second, travel as
 // binary frames the server passes on without reading.
@@ -21,8 +23,14 @@ export const CLOSE_ELSEWHERE = 4002;
 /** The connection sent something that is not ours. */
 export const CLOSE_BAD = 4003;
 
-/** First byte of a binary frame of poses. The server writes the sender's slot into the second. */
+/**
+ * First byte of a binary frame: where the parrots and loose toys one game
+ * runs are. The server writes the sender's slot into the second byte. The
+ * third is how many poses follow; after them, toys to the end of the frame.
+ */
 export const FRAME_POSES = 1;
+/** Bytes before the first pose. */
+export const FRAME_HEAD = 3;
 /** The biggest binary frame the server passes on. */
 export const MAX_FRAME_BYTES = 4096;
 /** The biggest text message the server reads. */
@@ -38,6 +46,22 @@ export interface LobbyPlayer {
   characterId: string;
   /** The pet following them, if any. */
   followerPetId: string | null;
+}
+
+/** How the lobby's toys, bells and rings stand, for a player who has just come in. */
+export interface SharedWorld {
+  /** Toy to the parrot carrying it. */
+  holders: [string, string][];
+  /** Loose, moving toy to the player whose game is moving it. */
+  sims: [string, string][];
+  /** Toy to the place it has been put in. */
+  placed: [string, string][];
+  /** Toy to where it lies, if not where it started. */
+  rest: [string, ToyPlace][];
+  /** Bells rung since every bell was last rung. */
+  bells: string[];
+  /** Rings flown since the course was last finished. */
+  rings: string[];
 }
 
 /** What a player tells the lobby about themself. */
@@ -56,15 +80,24 @@ export type ClientMessage =
   /** Sent on joining, and again whenever it changes. */
   | { t: 'me'; me: AboutMe }
   /** For the player in place `to` only. */
-  | { t: 'rtc'; to: number; data: RtcData };
+  | { t: 'rtc'; to: number; data: RtcData }
+  /** Something this game made happen to the lobby's toys, bells or rings. */
+  | { t: 'act'; action: Action };
 
 export type ServerMessage =
   /** The first thing a player hears: who they are here, and who else is in. */
-  | { t: 'welcome'; you: number; host: number; players: LobbyPlayer[] }
+  | { t: 'welcome'; you: number; host: number; players: LobbyPlayer[]; world: SharedWorld }
   /** Somebody came in, or changed parrot or follower. */
   | { t: 'player'; player: LobbyPlayer }
   | { t: 'leave'; slot: number }
   /** Who now runs the lobby's own parrots: the player who has been in longest. */
   | { t: 'host'; slot: number }
   /** From the player in place `from`, for this player only. */
-  | { t: 'rtc'; from: number; data: RtcData };
+  | { t: 'rtc'; from: number; data: RtcData }
+  /** Something another game made happen. */
+  | { t: 'act'; action: Action }
+  /**
+   * This game took a toy the lobby would not let it have. Who really has it:
+   * a parrot, or nobody, and then where it lies (null: where it started).
+   */
+  | { t: 'held'; toyId: string; by: string | null; at: ToyPlace | null };

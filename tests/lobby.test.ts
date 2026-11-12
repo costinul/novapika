@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LobbyRules } from '../server/lobbyRules';
 import type { Member } from '../server/lobbyRules';
+import type { Action } from '../shared/actions';
 import { CLOSE_BAD, CLOSE_ELSEWHERE, CLOSE_FULL, FRAME_POSES, LOBBY_IDS, LOBBY_SIZE, MAX_FRAME_BYTES } from '../shared/net';
-import type { ServerMessage } from '../shared/net';
+import type { ServerMessage, SharedWorld } from '../shared/net';
 import { lobbyRegistry } from '../src/lobbies/registry';
 
 // The lobby's rules, played against connections that only write down what
@@ -18,6 +19,9 @@ interface Conn {
 
 let rules: LobbyRules<Conn>;
 let clock: number;
+/** Every time the lobby kept how its toys stand; null is forgetting it. */
+let saves: (SharedWorld | null)[];
+const EMPTY: SharedWorld = { holders: [], sims: [], placed: [], rest: [], bells: [], rings: [] };
 
 const conn = (name: string): Conn => ({ name, heard: [], frames: [], closed: null, kept: null });
 const join = (name: string): Conn => {
@@ -31,6 +35,7 @@ const frame = (...bytes: number[]): ArrayBuffer => new Uint8Array([FRAME_POSES, 
 
 beforeEach(() => {
   clock = 0;
+  saves = [];
   rules = new LobbyRules<Conn>({
     send: (c, data) => {
       if (typeof data === 'string') c.heard.push(JSON.parse(data));
@@ -38,6 +43,7 @@ beforeEach(() => {
     },
     close: (c, code) => void (c.closed = code),
     keep: (c, member) => void (c.kept = { ...member }),
+    save: (world) => void saves.push(world && JSON.parse(JSON.stringify(world))),
   });
 });
 
@@ -49,7 +55,13 @@ describe('coming into a lobby', () => {
   it('tells a player who they are and who else is in', () => {
     const alex = join('Alex');
     expect(alex.heard).toEqual([
-      { t: 'welcome', you: 0, host: 0, players: [{ slot: 0, id: 'id-Alex', nickname: 'Alex', characterId: '', followerPetId: null }] },
+      {
+        t: 'welcome',
+        you: 0,
+        host: 0,
+        players: [{ slot: 0, id: 'id-Alex', nickname: 'Alex', characterId: '', followerPetId: null }],
+        world: EMPTY,
+      },
     ]);
     const sam = join('Sam');
     const welcome = sam.heard[0] as Extract<ServerMessage, { t: 'welcome' }>;
@@ -208,12 +220,198 @@ describe('setting up a voice call', () => {
   });
 });
 
+describe('toys, bells and rings', () => {
+  const act = (c: Conn, action: Action): void => rules.text(c, JSON.stringify({ t: 'act', action }));
+  /** The actions a connection has been passed since it came in. */
+  const acts = (c: Conn): Action[] => c.heard.flatMap((m) => (m.t === 'act' ? [m.action] : []));
+  const welcome = (c: Conn): SharedWorld => (c.heard[0] as Extract<ServerMessage, { t: 'welcome' }>).world;
+  const AT = [1, 0.06, 2, 0, 0, 0, 1] as const;
+
+  it('passes what one game makes happen on to the others', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    const kim = join('Kim');
+    act(sam, { type: 'ring', objectId: 'bell-1', playerId: 'id-Sam' });
+    expect(acts(alex)).toEqual([{ type: 'ring', objectId: 'bell-1', playerId: 'id-Sam' }]);
+    expect(acts(kim)).toEqual(acts(alex));
+    expect(acts(sam)).toEqual([]);
+  });
+
+  it('gives a toy two players bite at once to whoever was first, and tells the other', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    act(alex, { type: 'pickUp', playerId: 'id-Alex', toyId: 'seed' });
+    act(sam, { type: 'pickUp', playerId: 'id-Sam', toyId: 'seed' });
+    expect(acts(sam)).toEqual([{ type: 'pickUp', playerId: 'id-Alex', toyId: 'seed' }]);
+    expect(acts(alex)).toEqual([]);
+    expect(sam.heard.at(-1)).toEqual({ t: 'held', toyId: 'seed', by: 'id-Alex', at: null });
+    // Nor may a parrot that carries one toy pick up another.
+    act(alex, { type: 'pickUp', playerId: 'id-Alex', toyId: 'block' });
+    expect(acts(sam)).toHaveLength(1);
+    expect(alex.heard.at(-1)).toEqual({ t: 'held', toyId: 'block', by: null, at: null });
+  });
+
+  it('lets a toy be taken from a beak, but not from nobody or oneself', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    act(sam, { type: 'take', playerId: 'id-Sam', toyId: 'seed' });
+    expect(acts(alex)).toEqual([]);
+    act(alex, { type: 'pickUp', playerId: 'id-Alex', toyId: 'seed' });
+    act(alex, { type: 'take', playerId: 'id-Alex', toyId: 'seed' });
+    act(sam, { type: 'take', playerId: 'id-Sam', toyId: 'seed' });
+    expect(acts(alex)).toEqual([{ type: 'take', playerId: 'id-Sam', toyId: 'seed' }]);
+    // What was taken can no longer be dropped by the one it was taken from.
+    act(alex, { type: 'drop', playerId: 'id-Alex' });
+    expect(acts(sam)).toHaveLength(1);
+    act(sam, { type: 'drop', playerId: 'id-Sam' });
+    expect(acts(alex).at(-1)).toEqual({ type: 'drop', playerId: 'id-Sam' });
+  });
+
+  it('lets a game speak only for its own player, and the host\'s also for the lobby\'s parrots', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    act(sam, { type: 'pickUp', playerId: 'id-Alex', toyId: 'seed' });
+    act(sam, { type: 'pickUp', playerId: 'flock-budgie-1', toyId: 'seed' });
+    act(sam, { type: 'stunt', playerId: 'id-Alex', name: 'loop' });
+    expect(acts(alex)).toEqual([]);
+    act(alex, { type: 'pickUp', playerId: 'flock-budgie-1', toyId: 'seed' });
+    expect(acts(sam)).toEqual([{ type: 'pickUp', playerId: 'flock-budgie-1', toyId: 'seed' }]);
+    // The host cannot speak for another player either.
+    act(alex, { type: 'drop', playerId: 'id-Sam' });
+    expect(acts(sam)).toHaveLength(1);
+  });
+
+  it('has a dropped toy moved by the game that dropped it, until that game says it is at rest', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    const kim = join('Kim');
+    act(sam, { type: 'pickUp', playerId: 'id-Sam', toyId: 'block' });
+    act(sam, { type: 'drop', playerId: 'id-Sam' });
+    // Nobody else may say where it came to rest, where it was put, or send it home: not even the host.
+    act(kim, { type: 'rest', toyId: 'block', at: AT });
+    act(alex, { type: 'place', toyId: 'block', targetId: 'toy-box' });
+    act(alex, { type: 'home', toyId: 'block' });
+    act(kim, { type: 'claim', toyId: 'block', playerId: 'id-Kim' });
+    expect(acts(sam)).toEqual([]);
+
+    act(sam, { type: 'place', toyId: 'block', targetId: 'toy-box' });
+    act(sam, { type: 'rest', toyId: 'block', at: AT });
+    expect(acts(alex).slice(-2)).toEqual([
+      { type: 'place', toyId: 'block', targetId: 'toy-box' },
+      { type: 'rest', toyId: 'block', at: AT },
+    ]);
+    // Lying still, it is the host's to answer for.
+    act(sam, { type: 'home', toyId: 'block' });
+    expect(acts(alex)).toHaveLength(4);
+    act(alex, { type: 'home', toyId: 'block' });
+    expect(acts(sam).at(-1)).toEqual({ type: 'home', toyId: 'block' });
+  });
+
+  it('lets one game take over a toy that was knocked, and only one', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    act(sam, { type: 'claim', toyId: 'ball', playerId: 'id-Sam' });
+    act(alex, { type: 'claim', toyId: 'ball', playerId: 'id-Alex' });
+    expect(acts(alex)).toEqual([{ type: 'claim', toyId: 'ball', playerId: 'id-Sam' }]);
+    expect(acts(sam)).toEqual([]);
+    // A carried toy is nobody's to take over.
+    act(alex, { type: 'pickUp', playerId: 'id-Alex', toyId: 'seed' });
+    act(sam, { type: 'claim', toyId: 'seed', playerId: 'id-Sam' });
+    expect(acts(alex)).toHaveLength(1);
+  });
+
+  it('tells a newcomer how everything stands', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    act(alex, { type: 'pickUp', playerId: 'id-Alex', toyId: 'seed' });
+    act(sam, { type: 'pickUp', playerId: 'id-Sam', toyId: 'block' });
+    act(sam, { type: 'drop', playerId: 'id-Sam' });
+    act(sam, { type: 'claim', toyId: 'ball', playerId: 'id-Sam' });
+    act(sam, { type: 'place', toyId: 'ball', targetId: 'toy-box' });
+    act(sam, { type: 'rest', toyId: 'ball', at: AT });
+    act(alex, { type: 'ring', objectId: 'bell-1', playerId: 'id-Alex' });
+    act(alex, { type: 'passRing', ringId: 'ring-1', playerId: 'id-Alex' });
+    act(alex, { type: 'passRing', ringId: 'ring-2', playerId: 'id-Alex' });
+    act(sam, { type: 'celebrate', what: 'rings' });
+
+    expect(welcome(join('Kim'))).toEqual({
+      holders: [['seed', 'id-Alex']],
+      sims: [['block', 'id-Sam']],
+      placed: [['ball', 'toy-box']],
+      rest: [['ball', AT]],
+      bells: ['bell-1'],
+      rings: [],
+    });
+  });
+
+  it('sends home what a player carried, and what their game was moving, when they leave', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    act(sam, { type: 'pickUp', playerId: 'id-Sam', toyId: 'block' });
+    act(sam, { type: 'drop', playerId: 'id-Sam' });
+    act(sam, { type: 'pickUp', playerId: 'id-Sam', toyId: 'seed' });
+    // The host's lobby parrot carries one too: that stays where it is.
+    act(alex, { type: 'pickUp', playerId: 'flock-budgie-1', toyId: 'ball' });
+    const before = alex.heard.length;
+    rules.leave(sam);
+    expect(alex.heard.slice(before)).toEqual([
+      { t: 'act', action: { type: 'home', toyId: 'seed' } },
+      { t: 'act', action: { type: 'home', toyId: 'block' } },
+      { t: 'leave', slot: 1 },
+    ]);
+    expect(welcome(join('Kim'))).toEqual({ ...EMPTY, holders: [['ball', 'flock-budgie-1']] });
+  });
+
+  it('starts afresh once everyone has gone', () => {
+    const alex = join('Alex');
+    act(alex, { type: 'ring', objectId: 'bell-1', playerId: 'id-Alex' });
+    act(alex, { type: 'pickUp', playerId: 'flock-budgie-1', toyId: 'ball' });
+    rules.leave(alex);
+    expect(saves.at(-1)).toBeNull();
+    expect(welcome(join('Sam'))).toEqual(EMPTY);
+  });
+
+  it('keeps how things stand whenever that changes, and not otherwise', () => {
+    const alex = join('Alex');
+    join('Sam');
+    act(alex, { type: 'ring', objectId: 'bell-1', playerId: 'id-Alex' });
+    expect(saves).toEqual([{ ...EMPTY, bells: ['bell-1'] }]);
+    act(alex, { type: 'ring', objectId: 'bell-1', playerId: 'id-Alex' });
+    act(alex, { type: 'stunt', playerId: 'id-Alex', name: 'loop' });
+    act(alex, { type: 'splash', waterId: 'bath', playerId: 'id-Alex' });
+    act(alex, { type: 'drop', playerId: 'id-Alex' });
+    expect(saves).toHaveLength(1);
+    act(alex, { type: 'pickUp', playerId: 'id-Alex', toyId: 'seed' });
+    expect(saves).toHaveLength(2);
+    expect(saves[1]!.holders).toEqual([['seed', 'id-Alex']]);
+  });
+
+  it('drops a connection that sends an action that is not one', () => {
+    join('Alex');
+    for (const action of [
+      null,
+      { type: 'explode' },
+      { type: 'pickUp', playerId: 'id-bad' },
+      { type: 'rest', toyId: 'block', at: [1, 2, 3] },
+      { type: 'rest', toyId: 'block', at: [1, 2, 3, 0, 0, 0, 'x'] },
+      { type: 'celebrate', what: 'everything' },
+      { type: 'ring', objectId: 'x'.repeat(65), playerId: 'id-bad' },
+    ]) {
+      const bad = join('bad');
+      rules.text(bad, JSON.stringify({ t: 'act', action }));
+      expect(bad.closed, JSON.stringify(action)).toBe(CLOSE_BAD);
+    }
+  });
+});
+
 describe('waking up', () => {
   it('knows everyone again from what was kept with each connection', () => {
     const alex = join('Alex');
     const sam = join('Sam');
     rules.text(sam, me('macaw'));
     const kept = [alex, sam].map((c): [Conn, Member] => [c, c.kept!]);
+
+    rules.text(alex, JSON.stringify({ t: 'act', action: { type: 'pickUp', playerId: 'id-Alex', toyId: 'seed' } }));
 
     // The lobby went to sleep and lost its memory; the connections stayed open.
     const before = rules.players;
@@ -223,7 +421,11 @@ describe('waking up', () => {
       keep: (c, member) => void (c.kept = { ...member }),
     });
     for (const [c, member] of kept) rules.restore(c, member);
+    rules.restoreWorld(saves.at(-1)!);
     expect(rules.players).toEqual(before);
+    // It still knows who carries what: the toy cannot be picked up twice.
+    rules.text(sam, JSON.stringify({ t: 'act', action: { type: 'pickUp', playerId: 'id-Sam', toyId: 'seed' } }));
+    expect(sam.heard.at(-1)).toEqual({ t: 'held', toyId: 'seed', by: 'id-Alex', at: null });
     expect(rules.host).toBe(0);
     rules.binary(alex, frame(5));
     expect([...sam.frames.at(-1)!]).toEqual([FRAME_POSES, 0, 5]);

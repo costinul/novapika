@@ -7,7 +7,9 @@ import {
   MAX_FRAME_BYTES,
   MAX_TEXT_BYTES,
 } from '../shared/net';
-import type { ClientMessage, LobbyPlayer, ServerMessage } from '../shared/net';
+import { parseAction } from '../shared/actions';
+import type { ClientMessage, LobbyPlayer, ServerMessage, SharedWorld } from '../shared/net';
+import { LobbyWorld } from './lobbyWorld';
 
 // One lobby: who is in it, and what they tell each other. Plain rules over
 // connections of any kind, so they can be tested without a network; lobby.ts
@@ -24,6 +26,8 @@ export interface Wire<C> {
   close(conn: C, code: number, reason: string): void;
   /** Keep this with the connection, so it outlives the lobby's memory. */
   keep(conn: C, member: Member): void;
+  /** Keep how the lobby's toys stand, so it outlives the lobby's memory; null to forget it. */
+  save?(world: SharedWorld | null): void;
 }
 
 const isText = (value: unknown, max: number): value is string =>
@@ -31,6 +35,7 @@ const isText = (value: unknown, max: number): value is string =>
 
 export class LobbyRules<C> {
   private readonly members = new Map<C, Member>();
+  private world = new LobbyWorld();
 
   constructor(private readonly wire: Wire<C>) {}
 
@@ -54,6 +59,11 @@ export class LobbyRules<C> {
     this.members.set(conn, member);
   }
 
+  /** How the toys stood before the lobby last went to sleep. */
+  restoreWorld(saved: SharedWorld): void {
+    this.world = new LobbyWorld(saved);
+  }
+
   /** A signed-in player has connected. */
   join(conn: C, who: { id: string; nickname: string }, now: number): void {
     // The same player again: the new connection takes over from the old.
@@ -72,7 +82,7 @@ export class LobbyRules<C> {
     const member: Member = { slot, id: who.id, nickname: who.nickname, characterId: '', followerPetId: null, joinedAt: now };
     this.members.set(conn, member);
     this.wire.keep(conn, member);
-    this.tell(conn, { t: 'welcome', you: slot, host: this.host, players: this.players });
+    this.tell(conn, { t: 'welcome', you: slot, host: this.host, players: this.players, world: this.world.state });
     this.tellOthers(conn, { t: 'player', player: view(member) });
   }
 
@@ -106,6 +116,23 @@ export class LobbyRules<C> {
       }
       return;
     }
+    if (message.t === 'act') {
+      const action = parseAction(message.action);
+      if (!action) return this.bad(conn);
+      const host = member.slot === this.host;
+      // A game speaks for its own player; the host's also for the lobby's own parrots.
+      const mine = !('playerId' in action) || action.playerId === member.id;
+      const flock = 'playerId' in action && action.type !== 'claim' && host && !this.isPlayer(action.playerId);
+      if ((mine || flock) && this.world.take(action, member.id, host)) {
+        this.save();
+        this.tellOthers(conn, { t: 'act', action });
+      } else if (action.type === 'pickUp' || action.type === 'take') {
+        // It took a toy it could not have: say who really has it.
+        const { toyId } = action;
+        this.tell(conn, { t: 'held', toyId, by: this.world.holderOf(toyId), at: this.world.restOf(toyId) });
+      }
+      return;
+    }
     this.bad(conn);
   }
 
@@ -124,8 +151,27 @@ export class LobbyRules<C> {
     if (!member) return;
     const host = this.host;
     this.members.delete(conn);
+    // What they carried, and what their game was moving, goes back to where it started.
+    for (const toyId of this.world.leave(member.id)) this.tellAll({ t: 'act', action: { type: 'home', toyId } });
     this.tellAll({ t: 'leave', slot: member.slot });
     if (host === member.slot && this.members.size > 0) this.tellAll({ t: 'host', slot: this.host });
+    // An empty lobby starts afresh for whoever comes next.
+    if (this.members.size === 0) {
+      this.world = new LobbyWorld();
+      this.wire.save?.(null);
+    } else this.save();
+  }
+
+  /** Keep how the toys stand, if that has changed. */
+  private save(): void {
+    if (!this.world.changed) return;
+    this.world.changed = false;
+    this.wire.save?.(this.world.state);
+  }
+
+  private isPlayer(id: string): boolean {
+    for (const member of this.members.values()) if (member.id === id) return true;
+    return false;
   }
 
   private bad(conn: C): void {

@@ -6,6 +6,7 @@ import { PhysicsWorld } from '../src/engine/physics';
 import { Multiplayer } from '../src/net/Multiplayer';
 import { POSE_BYTES, POSE_DELAY, POSE_PLAYER, Pose, PoseTrack, readPose, writePose } from '../src/net/pose';
 import { Player } from '../src/player/Player';
+import { ActionLayer } from '../src/world/actions';
 import { WorldState } from '../src/world/WorldState';
 import { fakeLobby, settle } from './fakeLobby';
 
@@ -123,6 +124,7 @@ describe('two players in a lobby', () => {
     const game: Game = { world, local, voice, flock, follower: null, known: [], net: null as unknown as Multiplayer };
     game.net = new Multiplayer({
       world,
+      actions: new ActionLayer(world),
       feathers: null,
       local,
       connect: lobby.as(id, nickname),
