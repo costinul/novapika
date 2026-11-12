@@ -14,7 +14,7 @@ The game is for the owner's son. It is named after the family's two cockatiels, 
 
 - **Button-free movement.** Arms and head do the moving. Buttons only add supporting actions.
 - **One body, three tools.** Hands are wings in open air and claws on a surface. The head is the beak.
-- **Built for a child.** Easy to learn, generous physics, no reading needed to play. Sign-in is a 6-digit code from the owner, needed only for pets, and no personal data is collected.
+- **Built for a child.** Easy to learn, generous physics, no reading needed to play. Sign-in is a 6-digit code from the owner, needed to play, and no personal data is collected.
 - **Built to grow.** More lobbies, more parrot species and multiplayer with voice must be addable later without a rewrite.
 
 **Originality:** only the movement style is inspired by Gorilla Tag. Do not copy its name, art, maps, sounds or code.

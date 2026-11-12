@@ -50,9 +50,10 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
   address to look at them: the eight fixed pets stand on the front bar, and
   eight babies bred from pairs of them on the bar behind.
 - **A small server** that keeps players and their pets.
-- **Sign-in.** The key button in the corner of the start screen opens a number
-  pad for a player's 6-digit code. It is typed once; the headset then stays
-  signed in. The game plays the same signed out, without pets.
+- **Sign-in.** Nobody plays without signing in. Signed out, the play button
+  shows a key and opens a number pad for a player's 6-digit code. It is typed
+  once; the headset then stays signed in. With no connection the button shows
+  a crossed-out cloud; pressing it tries again.
 - **The admin page**, at `/admin` (`/admin.html` on the dev server). It asks
   for the admin password, then lets you add and delete players, regenerate
   their codes, give or remove pets, and bring back a pet that was set free.

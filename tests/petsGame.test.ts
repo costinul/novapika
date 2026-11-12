@@ -113,6 +113,22 @@ describe('starting out', () => {
     expect(server.calls).toEqual([]);
   });
 
+  it('says so when the server no longer takes the sign-in', async () => {
+    let signedOut = 0;
+    pets = new Pets({ physics, feathers: null, api: server, spots: () => [], eat: () => {}, onSignedOut: () => signedOut++ });
+    pets.load(PET_CORNER);
+    pets.setAccount(await server.account());
+    pets.frame(STEP, 1, owner);
+    await settle();
+    expect(signedOut).toBe(0);
+
+    server.account = async () => ({ status: 'out' });
+    pets.frame(25, 1, owner);
+    await settle();
+    expect(signedOut).toBe(1);
+    expect(pets.pets).toHaveLength(0);
+  });
+
   it('remembers who is signed in from before the lobby loaded', async () => {
     const account = await server.account();
     pets.clear();

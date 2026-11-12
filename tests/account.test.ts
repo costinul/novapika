@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlayerView } from '../shared/api';
 import { loadAccount, petsApi, savedToken, signIn } from '../src/account/account';
+import type { Account } from '../src/account/account';
+import { startButton } from '../src/account/startButton';
 
 const alex: PlayerView = { id: 'p1', nickname: 'Alex', followerId: null, pets: [], egg: null, asking: null, asked: [] };
 
@@ -182,5 +184,30 @@ describe('everything else the game asks the server', () => {
     expect(await petsApi.cancel('r1')).toBeNull();
     expect(await petsApi.feed()).toBeNull();
     expect(await petsApi.free('pet-9')).toBeNull();
+  });
+});
+
+describe('the play button on the start screen', () => {
+  const signedIn: Account = { status: 'in', player: alex };
+
+  it('waits until the server has said who this device is', () => {
+    expect(startButton(true, null).state).toBe('loading');
+    expect(startButton(null, null).state).toBe('loading');
+  });
+
+  it('asks for the code when nobody is signed in, even while the game loads', () => {
+    expect(startButton(null, { status: 'out' }).state).toBe('locked');
+    expect(startButton(true, { status: 'out' }).state).toBe('locked');
+    expect(startButton(false, { status: 'out' }).state).toBe('locked');
+  });
+
+  it('does not let anyone play with no connection', () => {
+    expect(startButton(true, { status: 'offline' }).state).toBe('offline');
+  });
+
+  it('lets a signed-in player in once the game has loaded', () => {
+    expect(startButton(null, signedIn).state).toBe('loading');
+    expect(startButton(true, signedIn)).toEqual({ state: 'ready', label: 'Play' });
+    expect(startButton(false, signedIn).state).toBe('none');
   });
 });

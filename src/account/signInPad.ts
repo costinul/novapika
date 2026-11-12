@@ -10,12 +10,19 @@ const CODE_LENGTH = 6;
 /** How long a wrong code, or another problem, stays on show before the pad clears. */
 const PROBLEM_MS = 900;
 
+export interface SignInPad {
+  /** Show the number pad. */
+  open(): void;
+  /** Ask the server afresh who is signed in on this device. */
+  check(): void;
+}
+
 /**
  * Wire up the pad that is already in the page. `onAccount` hears who is
- * signed in: once at the start, with whatever this device remembers, and
- * after each sign-in.
+ * signed in: once at the start, with whatever this device remembers, after
+ * each sign-in, and after each `check`.
  */
-export function setUpSignIn(onAccount: (account: Account) => void): void {
+export function setUpSignIn(onAccount: (account: Account) => void): SignInPad {
   const button = document.querySelector<HTMLButtonElement>('#sign-in')!;
   const pad = document.querySelector<HTMLElement>('#pad')!;
   const slots = [...pad.querySelectorAll<HTMLElement>('#pad-slots span')];
@@ -50,10 +57,21 @@ export function setUpSignIn(onAccount: (account: Account) => void): void {
     busy = false;
   }
 
-  button.addEventListener('click', (event) => {
-    event.stopPropagation();
+  const open = (): void => {
     clear();
     pad.hidden = false;
+  };
+  const check = (): void =>
+    void loadAccount().then((account) => {
+      if (account.status === 'in') return signedIn(account.player);
+      button.dataset.state = 'out';
+      button.setAttribute('aria-label', 'Sign in');
+      onAccount(account);
+    });
+
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    open();
   });
 
   pad.addEventListener('click', (event) => {
@@ -68,8 +86,6 @@ export function setUpSignIn(onAccount: (account: Account) => void): void {
     if (code.length === CODE_LENGTH) void send();
   });
 
-  void loadAccount().then((account) => {
-    if (account.status === 'in') signedIn(account.player);
-    else onAccount(account);
-  });
+  check();
+  return { open, check };
 }

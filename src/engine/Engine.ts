@@ -90,6 +90,8 @@ export class Engine {
   private readonly flock: Flock;
   /** A signed-in player's pets. Tell it who is signed in with `pets.setAccount`. */
   readonly pets: Pets;
+  /** Called when the server stops taking this device's sign-in in the middle of a game. */
+  onSignedOut: (() => void) | null = null;
   /** Simulation steps run so far. The flock and the pets are stepped on every second one. */
   private simSteps = 0;
   private readonly stunts = createRecognisers();
@@ -194,6 +196,7 @@ export class Engine {
       api: petsApi,
       spots: () => this.flock.spots,
       eat: (toyId) => void this.actions.dispatch({ type: 'eat', toyId }),
+      onSignedOut: () => this.onSignedOut?.(),
       onEvent: (event) => {
         if (event.type === 'call') {
           const distance = this.localPlayer.head.position.distanceTo(event.at);

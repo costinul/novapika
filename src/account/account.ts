@@ -1,8 +1,7 @@
 import type { FriendView, PlayerView } from '../../shared/api';
 
 // Signing in. A player types their 6-digit code once; the server swaps it
-// for a token, which is all this device keeps. The game plays the same
-// without it, just with no pets.
+// for a token, which is all this device keeps. Nobody plays without it.
 
 const TOKEN_KEY = 'novapika.token';
 

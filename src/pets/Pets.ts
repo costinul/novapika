@@ -37,6 +37,8 @@ export interface PetsDeps {
   eat(toyId: string): void;
   /** Things worth a sound or a sparkle. */
   onEvent?(event: PetEvent): void;
+  /** The server no longer takes this device's sign-in. */
+  onSignedOut?(): void;
 }
 
 export type PetEvent =
@@ -435,6 +437,7 @@ export class Pets {
     // With no connection the game carries on with what it last knew.
     if (account.status !== 'offline') this.setAccount(account);
     else this.refresh(corner);
+    if (account.status === 'out') this.deps.onSignedOut?.();
   }
 
   /** Tell the corner which pets are out flying, and redraw it. */
