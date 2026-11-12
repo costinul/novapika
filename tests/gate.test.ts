@@ -10,6 +10,8 @@ import { CONTENT, GATE, HALF } from '../src/lobbies/aviary/layout';
 import { buildScenery } from '../src/lobbies/aviary/scenery';
 import { CONTENT as TOWN, GATE as TOWN_GATE, HALF as TOWN_HALF } from '../src/lobbies/downhamMarket/layout';
 import { buildScenery as buildTown } from '../src/lobbies/downhamMarket/scenery';
+import { CONTENT as LONDON, GATE as LONDON_GATE, HALF as LONDON_HALF } from '../src/lobbies/london/layout';
+import { buildScenery as buildLondon } from '../src/lobbies/london/scenery';
 import { StaticBuilder } from '../src/lobbies/build';
 import { lobbyRegistry } from '../src/lobbies/registry';
 import { placeAt, stepMovement } from '../src/movement/step';
@@ -257,6 +259,15 @@ const GATES = [
     content: TOWN,
     half: TOWN_HALF,
     build: buildTown,
+    lowest: OPENING.bottom + BODY + 0.05,
+  },
+  {
+    name: 'London',
+    id: 'london',
+    def: LONDON_GATE,
+    content: LONDON,
+    half: LONDON_HALF,
+    build: buildLondon,
     lowest: OPENING.bottom + BODY + 0.05,
   },
 ];

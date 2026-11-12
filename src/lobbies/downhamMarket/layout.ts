@@ -8,6 +8,8 @@ import type {
   ToyDef,
   Vec3,
 } from '../../world/types';
+import { roofTop, row } from '../town';
+import type { Building, Look } from '../town';
 import { makeTree } from '../trees';
 import type { Limb, Tree } from '../trees';
 
@@ -51,32 +53,6 @@ const polar = (angleDeg: number, distance: number): [number, number] => {
 
 // --- Buildings ---------------------------------------------------------------
 
-/** The side of a building its front is on: north is -z, east is +x. */
-export type Facing = 'n' | 's' | 'e' | 'w';
-
-/** A plain box of a building with a flat roof to land on. */
-export interface Building {
-  /** Middle of its footprint. */
-  x: number;
-  z: number;
-  /** Size east to west, and north to south. */
-  w: number;
-  d: number;
-  /** Height of its walls. */
-  h: number;
-  /** Colour of its walls. */
-  wall: number;
-  front: Facing;
-  /** The colour of its shop front, if it is a shop. */
-  shop?: number;
-  chimney?: boolean;
-}
-
-/** Thickness of the slab that tops every building. */
-export const ROOF = 0.3;
-/** The height of a building's roof, where feet go. */
-export const roofTop = (building: Building): number => building.h + ROOF;
-
 const CARR = 0xa8612f; // carrstone, the ginger-brown stone of the town
 const CARR_DARK = 0x8d4f27;
 const CREAM = 0xeadfc4;
@@ -88,33 +64,6 @@ const RED = 0xa63a3a;
 const CHARCOAL = 0x3a3a44;
 const MUSTARD = 0xd8a330;
 const PURPLE = 0x6b4a8c;
-
-/** What one building in a row looks like: its height, wall colour and, for a shop, the colour of its front. */
-type Look = readonly [h: number, wall: number, shop?: number];
-
-/**
- * A row of buildings side by side, fronts all one way. `middle` is where the
- * row's middle line runs, across the way it faces; `cuts` are where one
- * building ends and the next begins, along the row.
- */
-function row(front: Facing, middle: number, depth: number, cuts: readonly number[], looks: readonly Look[]): Building[] {
-  return looks.map(([h, wall, shop], i) => {
-    const along = (cuts[i] + cuts[i + 1]) / 2;
-    const length = cuts[i + 1] - cuts[i];
-    const acrossX = front === 'e' || front === 'w';
-    return {
-      x: acrossX ? middle : along,
-      z: acrossX ? along : middle,
-      w: acrossX ? depth : length,
-      d: acrossX ? length : depth,
-      h,
-      wall,
-      front,
-      shop,
-      chimney: i % 2 === 0,
-    };
-  });
-}
 
 const SHOP_LINE = PLAZA + SHOP_DEPTH / 2;
 

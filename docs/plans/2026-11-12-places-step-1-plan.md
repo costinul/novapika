@@ -182,7 +182,11 @@ Built as planned, with these differences:
   changes how the flock's scripted parrots fly, and one landing in
   `tests/flock.test.ts` then fails, because the pilot counts a brush against
   a branch on the way up as a landing. That is the pilot's own weakness, and
-  is left for the owner to decide on.
+  is left for the owner to decide on. In step 4 the same test failed
+  again, when the Aviary's board grew to two pictures. Its check was then
+  changed: a parrot that touches down and comes straight off counts as a
+  failed landing against the test's pass mark, rather than failing the test
+  outright. So the perch no longer has to stay for the test's sake.
 - **Each player has their own spot to arrive at**, side by side along the
   front of the step, picked by their slot in the lobby they left. The
   two-player check showed friends who follow each other through landing

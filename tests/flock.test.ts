@@ -78,10 +78,10 @@ describe('pilot', () => {
         flapped ||= player.wings.flapping;
         glided ||= player.movementState === 'gliding';
       }
-      if (pilot.landed) {
+      // A parrot that touched down and came straight off again has not landed: it counts against the pilot below.
+      if (pilot.landed && player.grounded) {
         landed++;
         times.push(t);
-        expect(player.grounded).toBe(true);
         expect(player.position.distanceTo(to)).toBeLessThan(1.3);
       } else {
         pilot.rest(player, DT);

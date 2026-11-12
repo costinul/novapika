@@ -91,6 +91,56 @@ export const PICTURES: Record<string, (g: G) => void> = {
     g.lineTo(138, 78);
     g.stroke();
   },
+
+  /** London: Big Ben over the Thames, and a red bus. */
+  london(g) {
+    g.fillStyle = '#cfe6f5';
+    g.fillRect(0, 0, SIZE, SIZE);
+    // Parliament, low and long, and the river in front of it.
+    g.fillStyle = '#d9bd82';
+    g.fillRect(96, 150, 160, 50);
+    g.fillStyle = '#bf9f63';
+    for (let x = 104; x < SIZE; x += 18) g.fillRect(x, 142, 6, 58);
+    g.fillStyle = '#4f9fd0';
+    g.fillRect(0, 200, SIZE, 56);
+    g.fillStyle = '#7fbfe6';
+    g.fillRect(20, 214, 60, 6);
+    g.fillRect(150, 232, 70, 6);
+
+    // The tower: the shaft, the clock, the belfry and the roof stepping up to a point.
+    g.fillStyle = '#d9bd82';
+    g.fillRect(52, 96, 44, 104);
+    g.fillRect(46, 52, 56, 46);
+    g.fillStyle = '#bf9f63';
+    for (const x of [60, 72, 84]) g.fillRect(x, 100, 5, 100);
+    g.fillStyle = '#3d4651';
+    g.fillRect(50, 40, 48, 12);
+    g.fillRect(58, 28, 32, 12);
+    g.fillRect(66, 16, 16, 12);
+    g.fillStyle = '#e2b33c';
+    g.fillRect(72, 4, 4, 12);
+    blob(g, '#e2b33c', 74, 75, 21);
+    blob(g, '#ffffff', 74, 75, 17);
+    g.strokeStyle = '#25272b';
+    g.lineWidth = 4;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(74, 62);
+    g.lineTo(74, 75);
+    g.lineTo(84, 75);
+    g.stroke();
+
+    // The bus, on the bridge.
+    g.fillStyle = '#6fa58a';
+    g.fillRect(120, 196, 136, 8);
+    g.fillStyle = '#c8302b';
+    g.fillRect(150, 150, 84, 46);
+    g.fillStyle = '#3d5266';
+    g.fillRect(156, 156, 72, 12);
+    g.fillRect(156, 176, 72, 10);
+    blob(g, '#25272b', 168, 198, 8);
+    blob(g, '#25272b', 216, 198, 8);
+  },
 };
 
 /** The picture of a place, to draw on a flat sheet. Free it with `dispose` when done. */

@@ -2,6 +2,8 @@ import { gateLayout } from '../../gate/layout';
 import { buildGate } from '../../gate/scenery';
 import type { Vec3 } from '../../world/types';
 import type { StaticBuilder } from '../build';
+import { ROOF } from '../town';
+import { farAway, front, house, shell, shop } from '../townScenery';
 import type { Tree } from '../trees';
 import {
   BELL_HOOKS,
@@ -21,7 +23,6 @@ import {
   POND_RADIUS,
   RING,
   ROAD,
-  ROOF,
   SHOPS,
   SIGN,
   STALL,
@@ -34,7 +35,6 @@ import {
   TREES,
   onStall,
 } from './layout';
-import type { Building, Facing } from './layout';
 
 // Downham Market's fixed scenery, as coloured shapes with colliders. No
 // textures and nothing from the browser, so tests can build the same town.
@@ -51,7 +51,6 @@ const WHITE = 0xf4f1e8;
 const IRON = 0x25272b; // the tower's black
 const GOLD = 0xe2b33c;
 const CARR = 0x9c5a2c;
-const BRICK = 0xb55a3c;
 const STONE = 0xb5b0a8;
 const WOOD = 0xd9a05b;
 const BARK = 0x9a6b3f;
@@ -59,79 +58,6 @@ const BARK_DARK = 0x7d5430;
 const LEAF = [0x5dbb4a, 0x74c95a, 0x4aa63c, 0x8ad468];
 const WATER = 0x5cc8f0;
 const POST = 0x2b3a33; // lamp posts and the like
-
-/** For each way a front can face: the turn that faces it, and a step straight out of it. */
-const OUT: Record<Facing, { yaw: number; x: number; z: number }> = {
-  s: { yaw: 0, x: 0, z: 1 },
-  n: { yaw: Math.PI, x: 0, z: -1 },
-  e: { yaw: Math.PI / 2, x: 1, z: 0 },
-  w: { yaw: -Math.PI / 2, x: -1, z: 0 },
-};
-
-/** How to put flat things on a building's front. */
-function front(b: StaticBuilder, building: Building) {
-  const out = OUT[building.front];
-  const acrossX = building.front === 'e' || building.front === 'w';
-  const width = acrossX ? building.d : building.w;
-  const depth = acrossX ? building.w : building.d;
-  // A step to the right along the front, as seen by somebody facing it.
-  const rx = Math.cos(out.yaw);
-  const rz = -Math.sin(out.yaw);
-  return {
-    width,
-    /** A flat panel on the front: `u` to the right of its middle, `y` the height of its middle, standing `proud` of the wall. */
-    panel(color: number, u: number, y: number, w: number, h: number, proud = 0.04): void {
-      const d = depth / 2 + proud / 2;
-      b.box(color, [building.x + out.x * d + rx * u, y, building.z + out.z * d + rz * u], [w, h, proud], {
-        yaw: out.yaw,
-        solid: false,
-      });
-    },
-  };
-}
-
-/** Rows of windows on a front, from `from` up, with a sill under each. */
-function windows(b: StaticBuilder, building: Building, from: number): void {
-  const { width, panel } = front(b, building);
-  const columns = Math.max(1, Math.round(width / 3.2));
-  const floors = Math.floor((building.h - from - 0.4) / 2.6);
-  for (let floor = 0; floor < floors; floor++) {
-    const y = from + 1.3 + floor * 2.6;
-    for (let column = 0; column < columns; column++) {
-      const u = ((column + 0.5) / columns - 0.5) * width;
-      panel(GLASS, u, y, 1.0, 1.4);
-      panel(WHITE, u, y - 0.78, 1.2, 0.12, 0.1);
-    }
-  }
-}
-
-/** The walls and flat roof of a building, solid, with a chimney on some. */
-function shell(b: StaticBuilder, building: Building): void {
-  const { x, z, w, d, h, wall } = building;
-  b.box(wall, [x, h / 2, z], [w, h, d]);
-  b.box(SLATE, [x, h + ROOF / 2, z], [w + 0.3, ROOF, d + 0.3]);
-  if (building.chimney) b.box(BRICK, [x + w / 4, h + ROOF + 0.6, z], [0.7, 1.2, 0.7]);
-}
-
-/** A shop: a painted front with a big window and a door, and windows above. */
-function shop(b: StaticBuilder, building: Building): void {
-  shell(b, building);
-  const { width, panel } = front(b, building);
-  const paint = building.shop ?? WHITE;
-  panel(paint, 0, 1.6, width - 0.4, 3.2, 0.08);
-  panel(GLASS_DARK, -0.7, 1.5, width - 2.6, 1.7, 0.12);
-  panel(GLASS_DARK, width / 2 - 1.0, 1.15, 0.9, 2.1, 0.12);
-  panel(WHITE, 0, 2.85, width - 0.8, 0.5, 0.14);
-  windows(b, building, 3.2);
-}
-
-/** A plain house: a door, and windows on every floor. */
-function house(b: StaticBuilder, building: Building, door: number): void {
-  shell(b, building);
-  const { width, panel } = front(b, building);
-  panel(door, -width / 2 + 1.2, 1.05, 0.9, 2.1, 0.08);
-  windows(b, building, 0.2);
-}
 
 const DOORS = [0x2f6b4f, 0x2d5d8c, 0xa63a3a, 0x3a3a44, 0xd8a330];
 
@@ -407,24 +333,6 @@ function greens(b: StaticBuilder): void {
       b.blob(k % 2 ? 0x4aa63c : 0x5dbb4a, [k * 6.2, 0.5, side * (RING + 1.1)], 1.5, 0.6, 0);
       b.blob(k % 2 ? 0x5dbb4a : 0x4aa63c, [side * (RING + 1.1), 0.5, k * 6.2], 1.5, 0.6, 0);
     }
-  }
-}
-
-/** Things seen over the roofs: more grass, hills and clouds. */
-function farAway(b: StaticBuilder): void {
-  b.disc(0x86c964, [0, -0.08, 0], 260, 32);
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2 + 0.3;
-    const d = 120 + (i % 3) * 25;
-    b.blob(i % 2 ? 0x79bf5a : 0x6fb552, [Math.cos(a) * d, -4, Math.sin(a) * d], 30 + (i % 4) * 7, 0.4, 1);
-  }
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2 + 0.9;
-    const d = 90 + (i % 4) * 30;
-    const [x, y, z] = [Math.cos(a) * d, 55 + (i % 3) * 14, Math.sin(a) * d];
-    b.blob(0xffffff, [x, y, z], 12 + (i % 3) * 3, 0.45, 1);
-    b.blob(0xffffff, [x + 11, y - 1, z + 4], 8, 0.45, 1);
-    b.blob(0xf3f9ff, [x - 9, y - 2, z - 3], 9, 0.45, 1);
   }
 }
 

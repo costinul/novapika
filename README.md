@@ -252,9 +252,9 @@ voice sounds. Everything else was tested with unit tests and the desktop emulato
 ## Places (being built)
 
 Design: [docs/plans/2026-11-12-places-design.md](docs/plans/2026-11-12-places-design.md).
-Steps 1 to 3 of 5 are built: the gate, its board and the trip; the pet that
-comes along; the counts of who is where; and the first new place, Downham
-Market. London and New York are not built yet.
+Steps 1 to 4 of 5 are built: the gate, its board and the trip; the pet that
+comes along; the counts of who is where; and two new places, Downham Market
+and London. New York is not built yet.
 
 - **Downham Market.** A toy town, not a map, about 100 m across. In the middle
   of the market place stands the clock tower: black and white, with an
@@ -273,6 +273,22 @@ Market. London and New York are not built yet.
   sign stands by the street up from the gate. There is no nest, pet rail or
   Kiki there.
 
+- **London.** A toy London, not a map, about 140 m across and 60 m high. The
+  Thames runs across the middle, shallow enough to stand and splash in. On
+  the north bank stands Big Ben: a square shaft, a clock with four faces, an
+  open belfry with a great bell to peck, and a roof that steps up to a point,
+  50 m up. Beside it are the Houses of Parliament and the Victoria Tower
+  with its flag. Westminster Bridge, low and green, has a red bus on it;
+  Tower Bridge has two stone towers, blue walkways high between them, and
+  blue chains. On the south bank is the London Eye, a white wheel 36 m
+  across with sixteen capsules. It does not turn. There are also a black
+  cab, a red phone box and a red pillar box.
+- **To do in London.** A course of ten rings goes through the Eye, over the
+  river, past Big Ben, along Parliament and between the towers of Tower
+  Bridge. There are five bells, four hidden bottle caps (at the foot of Big
+  Ben's roof, on a walkway of Tower Bridge, on the Eye's top capsule and on
+  the bus), a bird table in the park, a toy box on the south bank, and five
+  parrots that live there.
 - **The gate.** The big stone gate against the Aviary's far netting is open.
   With no place picked the sheet in it is dim, and going through does nothing.
 - **The board.** A small board stands on the grass to the left of the gate,
@@ -327,7 +343,7 @@ npm run dev:local
 ```
 
 The game opens in the Aviary. Add `?lobby=test-room` to the address to load
-the small test room instead, or `?lobby=downham-market` to start in the town;
+the small test room instead, or `?lobby=downham-market` or `?lobby=london` to start in a town;
 lobbies are picked by id from `src/lobbies/registry.ts`. The test room has a
 gate of its own, but is on no board.
 
@@ -474,7 +490,7 @@ microphone is used for three things:
 | `src/flock/` | The lobby's own parrots: the pilot that flies them and their behaviour |
 | `src/world/` | Toys, target places and bells; the action layer every world change goes through |
 | `src/audio/` | Sounds, synthesized in code; the microphone; mimicry; the ear that hears what is said to the helper parrot |
-| `src/lobbies/` | Lobby registry and one folder per lobby |
+| `src/lobbies/` | Lobby registry and one folder per lobby; what the towns share: buildings, trees and the sky |
 | `src/gate/` | The gate to the other places: its layout, rules, scenery and pictures, and the trip through it |
 | `src/debug/` | In-headset debug panel |
 | `src/dev/` | Desktop WebXR emulator (development builds only) |

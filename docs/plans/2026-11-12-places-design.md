@@ -152,7 +152,11 @@ Each step is committed and pushed to main.
    with an eight-sided base and shaft and a four-faced clock; white brick
    with carrstone panels and a cupola. Every roof is flat, so that what is
    drawn and what is solid agree. The test room is off the boards.
-4. London.
+4. London. Built: `src/lobbies/london/`. Spires are stacks of square
+   steps, so that what is drawn and what is solid agree. The Thames is
+   several round patches of water side by side. The Eye does not turn. The
+   building helpers the two towns share moved to `src/lobbies/town.ts` and
+   `townScenery.ts`.
 5. New York.
 
 ## 7. Tests
