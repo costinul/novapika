@@ -12,6 +12,8 @@ import type { Player } from '../player/Player';
 const HEAR_WITHIN = 3.5; // m
 /** And looking this nearly straight at it: the cosine of about 40 degrees. */
 const FACING = 0.77;
+/** A player who has come up to it must go this far off before coming up to it again counts. */
+const GONE_BEYOND = 7; // m
 /** How long to wait for an answer to a phrase before listening again. */
 const ANSWER_WITHIN = 12; // s
 /** A moment of quiet after the helper speaks, so it never hears itself. */
@@ -30,6 +32,8 @@ export interface HelperDeps {
   context(): AudioContext | null;
   /** Send a phrase to the lobby server. */
   send(samples: Int16Array): void;
+  /** Tell the lobby server the local player has come up to the helper parrot. It may greet them. */
+  near(): void;
   /** The helper parrot's voice has started, and lasts this long. */
   onSpeaks(seconds: number): void;
   /** It could not answer. */
@@ -45,6 +49,8 @@ export class Helper {
   private waiting = 0;
   /** Seconds left of the helper speaking. */
   private speaking = 0;
+  /** The local player has come up to the helper parrot, and has not gone away since. */
+  private close = false;
   private panner: PannerNode | null = null;
   private source: AudioBufferSourceNode | null = null;
   private readonly to = new Vector3();
@@ -74,6 +80,7 @@ export class Helper {
   /** The line to the lobby is down, or the lobby was left. */
   clear(): void {
     this.deps.onIntent({ do: 'stay' });
+    this.close = false;
     this.listens = false;
     this.waiting = 0;
     this.speaking = 0;
@@ -126,10 +133,27 @@ export class Helper {
 
     // Its voice comes from where its head is.
     const head = this.deps.parrot()?.head.position;
+    this.notice(head);
     if (this.panner && head) {
       this.panner.positionX.value = head.x;
       this.panner.positionY.value = head.y;
       this.panner.positionZ.value = head.z;
+    }
+  }
+
+  /**
+   * Tell the lobby when the local player comes up to the helper parrot, or it
+   * to them: once each time, and only while it is listening, so that it can
+   * answer what they say next.
+   */
+  private notice(head: Vector3 | undefined): void {
+    if (!head) return void (this.close = false);
+    const distance = head.distanceTo(this.deps.local.head.position);
+    if (this.close) {
+      if (distance > GONE_BEYOND) this.close = false;
+    } else if (distance < HEAR_WITHIN && this.listens) {
+      this.close = true;
+      this.deps.near();
     }
   }
 

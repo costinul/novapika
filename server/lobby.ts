@@ -72,6 +72,11 @@ export class Lobby extends DurableObject<Env> {
         }),
       );
     },
+    near: (_ws, member) => {
+      const mind = this.helper();
+      const players = this.rules.players.map((player) => player.nickname);
+      if (mind) this.ctx.waitUntil(mind.near({ id: member.id, nickname: member.nickname }, players));
+    },
   });
 
   private name: string;

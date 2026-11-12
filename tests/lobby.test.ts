@@ -445,10 +445,13 @@ describe('waking up', () => {
 describe('a phrase for the helper parrot', () => {
   /** What the helper was given: who said it, and the samples. */
   let heard: [string, number[]][];
+  /** Who came up to the helper. */
+  let came: string[];
   const phrase = (...samples: number[]): ArrayBuffer => new Uint8Array([FRAME_HEARD, 0, ...samples]).buffer;
 
   beforeEach(() => {
     heard = [];
+    came = [];
     rules = new LobbyRules<Conn>({
       send: (c, data) => {
         if (typeof data === 'string') c.heard.push(JSON.parse(data));
@@ -457,7 +460,18 @@ describe('a phrase for the helper parrot', () => {
       close: (c, code) => void (c.closed = code),
       keep: () => {},
       heard: (_c, member, samples) => void heard.push([member.nickname, [...samples]]),
+      near: (_c, member) => void came.push(member.nickname),
     });
+  });
+
+  it('is told when a player comes up to it, and nobody else is', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    alex.heard.length = 0;
+    rules.text(sam, JSON.stringify({ t: 'near' }));
+    expect(came).toEqual(['Sam']);
+    expect(alex.heard).toEqual([]);
+    expect(sam.closed).toBeNull();
   });
 
   it('goes to the helper, and is passed on to nobody', () => {
@@ -513,6 +527,7 @@ describe('a lobby with no helper parrot', () => {
     const alex = join('Alex');
     const sam = join('Sam');
     rules.binary(sam, new Uint8Array([FRAME_HEARD, 0, 1, 2]).buffer);
+    rules.text(sam, JSON.stringify({ t: 'near' }));
     expect(sam.closed).toBeNull();
     expect(alex.frames).toEqual([]);
   });

@@ -38,6 +38,9 @@ interface Game {
   intents: HelperIntent[];
 }
 
+/** Who the lobby was told has come up to the helper parrot. */
+let nears: string[];
+
 let lobby: FakeLobby;
 let heard: { nickname: string; samples: number[] }[];
 
@@ -61,6 +64,7 @@ function game(id: string, nickname: string, withMicrophone = true): Game {
     ear,
     context: () => null,
     send: (samples) => g.net.sendHeard(samples),
+    near: () => g.net.sendNear(),
     onSpeaks: (seconds) => void g.spoke.push(seconds),
     onSquawks: () => void g.squawks++,
     onIntent: (intent) => void g.intents.push(intent),
@@ -98,6 +102,8 @@ beforeEach(() => {
   lobby = fakeLobby();
   heard = [];
   lobby.onHeard = (member, samples) => void heard.push({ nickname: member.nickname, samples: [...samples] });
+  nears = [];
+  lobby.onNear = (member) => void nears.push(member.nickname);
 });
 
 describe('when the helper parrot listens', () => {
@@ -150,6 +156,48 @@ describe('when the helper parrot listens', () => {
     sam.net.leave();
     frames(sam, 0.1);
     expect(sam.listening).toBe(false);
+  });
+});
+
+describe('coming up to the helper parrot', () => {
+  it('is told to the lobby once each time, whichever way the player faces', async () => {
+    const sam = game('id-sam', 'Sam');
+    sam.net.join('aviary');
+    await settle();
+    stand(sam, 2, 180);
+    frames(sam, 0.5);
+    // Not while the helper is not listening.
+    expect(nears).toEqual([]);
+
+    tellListens(true);
+    frames(sam, 2);
+    expect(nears).toEqual(['Sam']);
+
+    // Stepping back a little and in again is not coming up to it again.
+    stand(sam, 5);
+    frames(sam, 0.5);
+    stand(sam, 2);
+    frames(sam, 0.5);
+    expect(nears).toEqual(['Sam']);
+
+    stand(sam, 9);
+    frames(sam, 0.5);
+    stand(sam, 3);
+    frames(sam, 0.5);
+    expect(nears).toEqual(['Sam', 'Sam']);
+  });
+
+  it('counts when the helper parrot flies over to the player, too', async () => {
+    const sam = game('id-sam', 'Sam');
+    sam.net.join('aviary');
+    await settle();
+    tellListens(true);
+    stand(sam, 20);
+    frames(sam, 0.5);
+    expect(nears).toEqual([]);
+    sam.parrot.head.position.set(1, 1, 19);
+    frames(sam, 0.5);
+    expect(nears).toEqual(['Sam']);
   });
 });
 

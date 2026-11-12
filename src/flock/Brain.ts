@@ -35,6 +35,8 @@ const ATTEND_TURN = 1.6; // rad/s, how fast its body turns to face them
 const TASK_FOR = 90; // s the helper parrot keeps at following or leading before it goes back to its stump
 const KEEP_UP_BEYOND = 5; // m, a player it follows who is further off than this is flown after
 const THERE_WITHIN = 1.6; // m from a place that counts as being at it
+const VISIT_EVERY = 90; // s at least between the helper parrot's visits to a player, with up to as long again on top
+const VISIT_FOR = 30; // s a visit lasts
 
 /** What the helper parrot has been asked to do: keep near a player, or go to a place and wait there. */
 export type HelperTask = { follow: Player } | { lead: Vector3 };
@@ -83,6 +85,9 @@ export class Brain {
   /** What the helper parrot has been asked to do, and for how much longer. Null: stay on its stump. */
   private task: HelperTask | null = null;
   private taskLeft = 0;
+  /** With nothing asked of it, the helper parrot visits a player now and then: seconds until the next visit, and left of this one. */
+  private visitIn = VISIT_EVERY;
+  private visiting = 0;
 
   constructor(
     readonly def: FlockParrotDef,
@@ -113,7 +118,7 @@ export class Brain {
       // Long enough, or the player it followed has gone: back to its stump.
       const gone = 'follow' in this.task && this.world.players.get(this.task.follow.id) !== this.task.follow;
       if (this.taskLeft <= 0 || gone) this.setTask(null);
-    }
+    } else if (this.def.helper) this.visits(dt);
     if (this.state === 'perched') this.perch(dt);
     else this.fly(dt);
   }
@@ -122,6 +127,7 @@ export class Brain {
   setTask(task: HelperTask | null): void {
     this.task = task;
     this.taskLeft = TASK_FOR;
+    this.visiting = 0;
     // In the air: turn for the new place at once. On a perch, the next step sees to it.
     if (this.state === 'flying') this.leave(this.helperErrand() ?? 'wander');
   }
@@ -132,7 +138,23 @@ export class Brain {
     const task = this.task;
     if (task && 'follow' in task) return task.follow.head.position.distanceTo(here) > KEEP_UP_BEYOND ? 'follow' : null;
     if (task) return task.lead.distanceTo(here) > THERE_WITHIN ? 'lead' : null;
+    const visited = this.visiting > 0 ? this.flock.human(here) : null;
+    if (visited) return visited.head.position.distanceTo(here) > KEEP_UP_BEYOND ? 'follow' : null;
     return this.v.fromArray(this.def.helper!).distanceTo(here) > THERE_WITHIN ? 'wander' : null;
+  }
+
+  /** With nothing asked of it, the helper parrot now and then flies over to a player for a little while. */
+  private visits(dt: number): void {
+    if (this.visiting > 0) {
+      this.visiting -= dt;
+      return;
+    }
+    this.visitIn -= dt;
+    if (this.visitIn > 0) return;
+    this.visitIn = VISIT_EVERY * (1 + this.random());
+    // Only to somebody who is not beside it already.
+    const human = this.flock.human(this.player.position);
+    if (human && human.head.position.distanceTo(this.player.position) > KEEP_UP_BEYOND) this.visiting = VISIT_FOR;
   }
 
   /** The player a parrot keeps near: the one the helper was asked to follow, or else whoever is nearest. */

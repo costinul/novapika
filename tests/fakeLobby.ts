@@ -20,6 +20,8 @@ export interface FakeLobby {
   release(): void;
   /** Given what a player says to the helper parrot. Null: this lobby has none. */
   onHeard: ((member: Member, samples: Uint8Array) => void) | null;
+  /** Told when a player comes up to the helper parrot. */
+  onNear: ((member: Member) => void) | null;
 }
 
 /**
@@ -33,6 +35,7 @@ export function fakeLobby(): FakeLobby {
   const lobby: FakeLobby = {
     saved: null,
     onHeard: null,
+    onNear: null,
     rules: new LobbyRules<Conn>({
       send: (conn, data) => {
         if (!conn.open) return;
@@ -47,6 +50,7 @@ export function fakeLobby(): FakeLobby {
       keep: () => {},
       save: (world) => void (lobby.saved = world && JSON.parse(JSON.stringify(world))),
       heard: (_conn, member, samples) => lobby.onHeard?.(member, samples.slice()),
+      near: (_conn, member) => lobby.onNear?.(member),
     }),
     hold: () => void (waiting = []),
     release: () => {

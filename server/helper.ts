@@ -23,6 +23,10 @@ const REMEMBERED = 6;
  * comes in later what it is doing.
  */
 export const INTENT_FOR = 90_000; // ms
+/** The helper greets a player who comes up to it only if it has not greeted or answered them for this long. */
+export const GREET_EVERY = 5 * 60_000; // ms
+/** And never sooner than this after its last greeting, to anybody. */
+export const GREET_GAP = 30_000; // ms
 const MINUTE = 60_000;
 
 /** A player speaking to the helper. */
@@ -41,6 +45,7 @@ export interface Exchange {
 /** What the helper is given to answer with. */
 export interface ThinkInput {
   speaker: string;
+  /** What the speaker said. Empty: they have only come up to the helper, and it may greet them. */
   heard: string;
   /** The speaker's pets and egg, in words. */
   about: string;
@@ -59,12 +64,16 @@ export const plain = (text: string): string => text.replace(/[<>]/g, ' ');
  * instruction.
  */
 export function thinkPrompt({ speaker, heard, about, players, history }: ThinkInput): string {
-  const before = history.map((e) => `${plain(e.nickname)}: <heard>${plain(e.heard)}</heard>\n${HELPER_NAME}: ${e.said}`);
+  const before = history.map(
+    (e) => `${e.heard ? `${plain(e.nickname)}: <heard>${plain(e.heard)}</heard>` : `${plain(e.nickname)} came up to ${HELPER_NAME}.`}\n${HELPER_NAME}: ${e.said}`,
+  );
   return [
     `In the Aviary now: ${players.map(plain).join(', ')}.`,
     `About the speaker: ${plain(about)}`,
     ...(before.length > 0 ? ['Said just before:', ...before] : []),
-    `${plain(speaker)} says:\n<heard>${plain(heard)}</heard>`,
+    heard
+      ? `${plain(speaker)} says:\n<heard>${plain(heard)}</heard>`
+      : `${plain(speaker)} has just come up to you and has not spoken yet. Greet them, or ask one kind question about what they are doing in the game.`,
   ].join('\n\n');
 }
 
@@ -177,6 +186,9 @@ export class HelperMind {
   /** What the helper's body was last told to do, and when. */
   private intent: HelperIntent = { do: 'stay' };
   private intentAt = 0;
+  /** When the helper last greeted or answered each player, and when it last greeted anybody. */
+  private readonly met = new Map<string, number>();
+  private greetedAt = -Infinity;
 
   /** `usage` is the day's count as it was last kept, if any. */
   constructor(
@@ -190,6 +202,7 @@ export class HelperMind {
   forget(): void {
     this.history = [];
     this.recent.clear();
+    this.met.clear();
     this.intent = { do: 'stay' };
   }
 
@@ -215,25 +228,47 @@ export class HelperMind {
   }
 
   /** A player said something to the helper. `players` is everybody in the lobby, by nickname. */
-  async heard(speaker: Speaker, samples: Uint8Array, players: string[]): Promise<Heard> {
+  heard(speaker: Speaker, samples: Uint8Array, players: string[]): Promise<Heard> {
+    return this.turn(speaker, players, () => this.deps.hear(samples));
+  }
+
+  /**
+   * A player has come up to the helper without speaking. It greets them,
+   * unless it greeted or answered them a little while ago, or has only just
+   * greeted somebody else.
+   */
+  async near(speaker: Speaker, players: string[]): Promise<Heard> {
+    const now = this.deps.now();
+    if (now - (this.met.get(speaker.id) ?? -Infinity) < GREET_EVERY || now - this.greetedAt < GREET_GAP) return 'nothing';
+    return this.turn(speaker, players, null);
+  }
+
+  /** One exchange: a phrase to hear and answer, or with nothing to hear, a greeting. */
+  private async turn(speaker: Speaker, players: string[], hear: (() => Promise<string>) | null): Promise<Heard> {
     const { deps } = this;
-    // One phrase at a time: anything said while it thinks or speaks is dropped.
+    // One at a time: anything said while it thinks or speaks is dropped.
     if (this.busy) return 'busy';
     this.busy = true;
     try {
       if (!(await deps.on())) return 'off';
       if (this.spent(speaker.id)) return 'spent';
       if (!this.count(speaker.id)) return 'slow-down';
+      if (!hear) {
+        // Whether or not this greeting comes off, it is not tried again for a while.
+        this.met.set(speaker.id, deps.now());
+        this.greetedAt = deps.now();
+      }
 
-      const [heard, about] = await Promise.all([deps.hear(samples), deps.about(speaker.id)]);
+      const [heard, about] = await Promise.all([hear ? hear() : '', deps.about(speaker.id)]);
       const said = heard.trim();
       // A cough, a bump, or talk too quiet to make out.
-      if (said.length < 2) return 'nothing';
+      if (hear && said.length < 2) return 'nothing';
 
       const thought = await deps.think({ speaker: speaker.nickname, heard: said, about, players, history: this.history });
       let reply = (thought?.say ?? '').trim();
-      // What it means to do, unless the reply is refused: then it only says the safe line.
-      let intent = thought && intentOf(thought, speaker);
+      // What it means to do, unless the reply is refused: then it only says the
+      // safe line. A greeting never sends it anywhere.
+      let intent = hear && thought ? intentOf(thought, speaker) : null;
       let flagged: string | null = null;
       const refuse = (why: string): void => {
         flagged = `refused: ${why}`;
@@ -249,6 +284,7 @@ export class HelperMind {
       }
 
       deps.say(await deps.speak(reply));
+      this.met.set(speaker.id, deps.now());
       if (intent) this.does(intent);
       this.history.push({ nickname: speaker.nickname, heard: said, said: reply });
       if (this.history.length > REMEMBERED) this.history.shift();
@@ -258,8 +294,9 @@ export class HelperMind {
         .catch((error: unknown) => deps.failed('record', error));
       return 'answered';
     } catch (error) {
-      deps.failed('answer', error);
-      deps.squawk();
+      deps.failed(hear ? 'answer' : 'greeting', error);
+      // A greeting that fails is simply not given.
+      if (hear) deps.squawk();
       return 'failed';
     } finally {
       this.busy = false;

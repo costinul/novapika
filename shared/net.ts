@@ -91,7 +91,9 @@ export type ClientMessage =
   /** For the player in place `to` only. */
   | { t: 'rtc'; to: number; data: RtcData }
   /** Something this game made happen to the lobby's toys, bells or rings. */
-  | { t: 'act'; action: Action };
+  | { t: 'act'; action: Action }
+  /** This game's player has come up to the helper parrot. It may greet them. */
+  | { t: 'near' };
 
 export type ServerMessage =
   /** The first thing a player hears: who they are here, and who else is in. */

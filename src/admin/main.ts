@@ -219,7 +219,7 @@ function talkCard(talk: TalkView): HTMLElement {
     { className: talk.flagged ? 'flagged' : '' },
     el('p', { className: 'when' }, `${new Date(talk.at).toLocaleString()} · ${talk.nickname} · ${talk.lobbyId}`),
     ...(talk.flagged ? [el('p', { className: 'why' }, `Look at this one: ${talk.flagged}`)] : []),
-    el('p', {}, el('strong', {}, `${talk.nickname}: `), talk.heard),
+    talk.heard ? el('p', {}, el('strong', {}, `${talk.nickname}: `), talk.heard) : el('p', { className: 'when' }, `${talk.nickname} came near.`),
     el('p', {}, el('strong', {}, `${HELPER_NAME}: `), talk.said),
   );
 }

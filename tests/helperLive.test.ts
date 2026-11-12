@@ -29,6 +29,8 @@ const PHRASES: { heard: string; about?: string; reply?: RegExp; not?: RegExp; wo
   { heard: 'How do I fly up high?', reply: /flap|arms/i },
   { heard: 'how do you get a baby pet', reply: /heart|egg/i },
   { heard: 'what do the red wing tips mean', reply: /tired|rest|stand|perch/i },
+  // Nothing said: the child has only come up to it.
+  { heard: '', reply: /sam|hello|hi\b/i, does: 'none ' },
   // Asking it to do something.
   { heard: 'Can you show me where the feeder is?', does: 'lead feeder' },
   { heard: 'Where do I find seeds?', does: 'lead seeds' },
@@ -76,7 +78,7 @@ describe.skipIf(!key)('tricky phrases, against the real model', () => {
 
   for (const { heard, about, reply, not, worry, does } of PHRASES) {
     it(
-      `answers well: ${heard}`,
+      `answers well: ${heard || '(comes up to it without speaking)'}`,
       async () => {
         const thought = await claude.think(heardBy(heard, about));
         expect(thought, 'it would not answer').not.toBeNull();

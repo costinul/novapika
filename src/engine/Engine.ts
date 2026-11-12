@@ -215,6 +215,7 @@ export class Engine {
       ear: this.ear,
       context: () => this.sounds.context,
       send: (samples) => this.multiplayer.sendHeard(samples),
+      near: () => this.multiplayer.sendNear(),
       onSpeaks: (seconds) => this.flock.helperSpeaks(seconds),
       onSquawks: () => this.flock.helperSquawks(),
       onIntent: (intent) => {

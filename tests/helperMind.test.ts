@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { HelperMind, INTENT_FOR, LOBBY_PER_DAY, MAX_REPLY, PER_DAY, PER_MINUTE, thinkPrompt, unfit } from '../server/helper';
+import {
+  GREET_EVERY,
+  GREET_GAP,
+  HelperMind,
+  INTENT_FOR,
+  LOBBY_PER_DAY,
+  MAX_REPLY,
+  PER_DAY,
+  PER_MINUTE,
+  thinkPrompt,
+  unfit,
+} from '../server/helper';
 import type { MindDeps, Talk, ThinkInput, Thought, Usage, Verdict } from '../server/helper';
 import type { HelperIntent } from '../shared/helper';
 import { BLOCKED_WORDS, SAFE_LINES } from '../server/helperGuide';
@@ -380,5 +391,93 @@ describe('what the helper does as well as say', () => {
     await hear(ALEX);
     mind.forget();
     expect(mind.doing).toEqual({ do: 'stay' });
+  });
+});
+
+describe('greeting a player who comes up to it', () => {
+  const near = (speaker = SAM): ReturnType<HelperMind['near']> => mind.near(speaker, ['Sam', 'Alex']);
+
+  beforeEach(() => {
+    w.thinks = 'Hello, Sam! What are you doing today?';
+  });
+
+  it('greets them without hearing anything, and keeps a record', async () => {
+    expect(await near()).toBe('answered');
+    expect(w.thought).toEqual([{ speaker: 'Sam', heard: '', about: 'They have 2 pets and no egg.', players: ['Sam', 'Alex'], history: [] }]);
+    expect(w.checked).toEqual([['', 'Hello, Sam! What are you doing today?']]);
+    expect(w.said).toEqual(['Hello, Sam! What are you doing today?']);
+    expect(w.records[0]).toMatchObject({ playerId: 'id-sam', heard: '', said: 'Hello, Sam! What are you doing today?', flagged: null });
+    // It counts toward the day, as a phrase does.
+    expect(w.kept.at(-1)).toEqual({ day: '2026-11-12', lobby: 1, players: { 'id-sam': 1 } });
+  });
+
+  it('does not greet the same player again for a while, nor one it has just answered', async () => {
+    await near();
+    w.now += GREET_EVERY - 1000;
+    expect(await near()).toBe('nothing');
+    w.now += 2000;
+    expect(await near()).toBe('answered');
+
+    // Alex has just been talking with it.
+    await hear(ALEX);
+    w.now += GREET_GAP + 1000;
+    expect(await near(ALEX)).toBe('nothing');
+    expect(w.said).toHaveLength(3);
+  });
+
+  it('leaves a gap between greetings, whoever they are for', async () => {
+    await near();
+    w.now += GREET_GAP - 1000;
+    expect(await near(ALEX)).toBe('nothing');
+    w.now += 2000;
+    expect(await near(ALEX)).toBe('answered');
+  });
+
+  it('never flies anywhere because of a greeting', async () => {
+    w.does = { action: 'follow', place: '' };
+    await near();
+    expect(w.acted).toEqual([]);
+  });
+
+  it('is checked like any reply', async () => {
+    w.verdict = { ok: false, worry: false, why: 'asks for their real name' };
+    await near();
+    expect(w.said).toEqual([SAFE_LINES[0]]);
+    expect(w.records[0].flagged).toBe('refused: asks for their real name');
+  });
+
+  it('is simply not given when something fails, and is not tried again at once', async () => {
+    w.breaks = 'think';
+    expect(await near()).toBe('failed');
+    expect(w.squawks).toBe(0);
+    expect(w.failures).toEqual(['greeting']);
+    w.breaks = null;
+    w.now += GREET_GAP + 1000;
+    expect(await near()).toBe('nothing');
+    expect(w.said).toEqual([]);
+  });
+
+  it('is not given while it is switched off, out of phrases, or busy', async () => {
+    w.on = false;
+    expect(await near()).toBe('off');
+    w.on = true;
+    const speaking = hear(ALEX);
+    expect(await near()).toBe('busy');
+    await speaking;
+    mind = new HelperMind(deps(), { day: '2026-11-12', lobby: LOBBY_PER_DAY, players: {} });
+    expect(await near()).toBe('spent');
+  });
+
+  it('is shown to the helper as somebody coming up, with nothing a child said', () => {
+    const prompt = thinkPrompt({
+      speaker: 'Sam',
+      heard: '',
+      about: 'They have 1 pet and no egg.',
+      players: ['Sam'],
+      history: [{ nickname: 'Alex', heard: '', said: 'Hello, Alex!' }],
+    });
+    expect(prompt).not.toContain('<heard>');
+    expect(prompt).toContain('Alex came up to Kiki.\nKiki: Hello, Alex!');
+    expect(prompt).toContain('Sam has just come up to you and has not spoken yet.');
   });
 });

@@ -131,6 +131,11 @@ export class Multiplayer {
     this.link?.sendFrame(frame);
   }
 
+  /** Tell the lobby the local player has come up to the helper parrot. */
+  sendNear(): void {
+    this.link?.send({ t: 'near' });
+  }
+
   /** Tell the others what parrot the local player is and which pet follows them, if that is news. */
   private tellAbout(force = false): void {
     const me = this.deps.about();

@@ -35,6 +35,8 @@ export interface Wire<C> {
    * shared/helper.ts describes them. Left out, the lobby has no helper.
    */
   heard?(conn: C, member: Member, samples: Uint8Array): void;
+  /** A player has come up to the helper parrot without speaking. */
+  near?(conn: C, member: Member): void;
 }
 
 const isText = (value: unknown, max: number): value is string =>
@@ -126,6 +128,10 @@ export class LobbyRules<C> {
       for (const [other, them] of this.members) {
         if (them.slot === to && other !== conn) this.tell(other, { t: 'rtc', from: member.slot, data });
       }
+      return;
+    }
+    if (message.t === 'near') {
+      this.wire.near?.(conn, member);
       return;
     }
     if (message.t === 'act') {

@@ -98,10 +98,13 @@ lobby empties. The parrot remembers nothing about a child between visits.
 
 ## 6. Starting a chat itself
 
-The AI parrot sometimes flies to a child, as lobby parrots already do. When a
-child comes near it, that child's game tells the lobby. The lobby then asks
-the model for a greeting or a kind question, at most once every few minutes for
-each child, and within the caps.
+With nothing asked of it, the AI parrot flies over to a player every two or
+three minutes, stays half a minute, and flies back to its stump. When a child
+comes near it, or it to them, that child's game tells the lobby. The lobby
+then asks the model for a greeting or a kind question: at most once in five
+minutes for each child, never within half a minute of its last greeting, and
+within the caps. Nothing is heard for a greeting, and it never sends the
+parrot anywhere.
 
 ## 7. Protection
 
@@ -236,7 +239,8 @@ Vitest, with no new dependencies.
 
 ## 13. Build order
 
-Each step is committed and pushed to main.
+All three steps are built, each committed and pushed to main. None has been
+run with the keys yet.
 
 1. Talk only: a perched AI parrot, the whole path from phrase to speech, the
    guards of section 8 with the game guide and the tricky phrases, the caps,

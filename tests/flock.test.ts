@@ -302,6 +302,18 @@ describe('flock', () => {
     expect(run(150, () => helper.grounded && helper.position.distanceTo(stump) < 1.6), 'went home').toBe(true);
   });
 
+  it('has a helper parrot that visits a player now and then, and goes back to its stump', () => {
+    const helper = flock.helper!;
+    const stump = new Vector3(...HELPER_STUMP);
+    // Nothing is asked of it. For the first minute and a half it stays put.
+    run(80);
+    expect(helper.position.distanceTo(stump)).toBeLessThan(0.4);
+    const came = run(240, () => helper.grounded && helper.position.distanceTo(human.head.position) < 5);
+    expect(came, 'came to the player').toBe(true);
+    expect(run(90, () => helper.grounded && helper.position.distanceTo(stump) < 1.6), 'went home').toBe(true);
+    expect(closestInFront).toBeGreaterThan(0.8);
+  });
+
   it('has a helper parrot that goes back to its stump when the player it follows is gone', () => {
     const helper = flock.helper!;
     const stump = new Vector3(...HELPER_STUMP);
