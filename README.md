@@ -54,9 +54,10 @@ follows them, two can be bred into an egg, and the egg hatches when it is fed.
   pad for a player's 6-digit code. It is typed once; the headset then stays
   signed in. The game plays the same signed out, without pets.
 - **The admin page**, at `/admin` (`/admin.html` on the dev server). It asks
-  for the admin password, then lets you add players, replace their codes,
-  give or remove pets, and bring back a pet that was set free. A code is
-  shown once, when it is made.
+  for the admin password, then lets you add and delete players, regenerate
+  their codes, give or remove pets, and bring back a pet that was set free.
+  A code is shown once, when it is made. Deleting a player takes their pets
+  with them and cannot be undone.
 
 ### Running the server on this PC
 

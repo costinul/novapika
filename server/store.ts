@@ -49,6 +49,8 @@ export interface Store {
   /** Give a player a new code, and sign out every headset that used the old one. */
   replaceCode(playerId: string, codeHash: string): Promise<void>;
   setFollower(playerId: string, petId: string | null): Promise<void>;
+  /** Remove a player for good, with their sign-ins, their pets and eggs, and every request to or from them. */
+  removePlayer(playerId: string): Promise<void>;
 
   addSession(tokenHash: string, playerId: string, createdAt: number): Promise<void>;
   playerBySession(tokenHash: string): Promise<PlayerRow | null>;

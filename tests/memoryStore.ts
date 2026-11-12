@@ -27,6 +27,14 @@ export class MemoryStore implements Store {
   async setFollower(playerId: string, petId: string | null): Promise<void> {
     this.playerRows.get(playerId)!.followerId = petId;
   }
+  async removePlayer(playerId: string): Promise<void> {
+    for (const [id, request] of this.requestRows) {
+      if (request.askerId === playerId || request.ownerId === playerId) this.requestRows.delete(id);
+    }
+    for (const [tokenHash, id] of this.sessions) if (id === playerId) this.sessions.delete(tokenHash);
+    for (const [id, pet] of this.petRows) if (pet.ownerId === playerId) this.petRows.delete(id);
+    this.playerRows.delete(playerId);
+  }
 
   async addSession(tokenHash: string, playerId: string): Promise<void> {
     this.sessions.set(tokenHash, playerId);

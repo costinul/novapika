@@ -97,6 +97,16 @@ export function d1Store(db: D1Database): Store {
     async setFollower(playerId, petId) {
       await db.prepare('UPDATE players SET follower_id = ? WHERE id = ?').bind(petId, playerId).run();
     },
+    async removePlayer(playerId) {
+      // All together or not at all. A request that names one of their pets is
+      // always to or from them, so the first line takes those too.
+      await db.batch([
+        db.prepare('DELETE FROM requests WHERE asker_id = ? OR owner_id = ?').bind(playerId, playerId),
+        db.prepare('DELETE FROM sessions WHERE player_id = ?').bind(playerId),
+        db.prepare('DELETE FROM pets WHERE owner_id = ?').bind(playerId),
+        db.prepare('DELETE FROM players WHERE id = ?').bind(playerId),
+      ]);
+    },
 
     async addSession(tokenHash, playerId, createdAt) {
       await db

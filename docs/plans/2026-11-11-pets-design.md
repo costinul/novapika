@@ -230,7 +230,9 @@ secret. The owner sets it; it is never in the repo. The page keeps the
 password only in memory, so it is asked for again after a reload. A deploy
 fails if the password has not been set.
 
-- Players: list, add by nickname (shows the code), reset code.
+- Players: list, add by nickname (shows the code), regenerate the code, and
+  delete. Deleting takes the player's sign-ins, pets, eggs and requests with
+  them, and cannot be undone.
 - Per player: their pets with picture, tier and traits. Give a fixed pet,
   remove a pet, restore a freed pet.
 - Pictures use the same parrot builder as the game.

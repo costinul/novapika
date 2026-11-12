@@ -16,6 +16,7 @@ import {
   playerView,
   Refusal,
   removePet,
+  removePlayer,
   resetCode,
   restorePet,
   sha256,
@@ -572,5 +573,63 @@ describe('friends', () => {
     expect(friends.map((friend) => friend.nickname)).toEqual(['Sam', 'Pat']);
     expect(friends[0].pets.map((pet) => pet.id)).toEqual([sam.ids[0], sam.ids[1]]);
     expect(JSON.stringify(friends)).not.toContain('codeHash');
+  });
+});
+
+describe('deleting a player', () => {
+  it('takes the player, their sign-ins, their pets and their egg away for good', async () => {
+    const { player, code } = await createPlayer(store, deps, 'Alex');
+    const { token } = await login(store, deps, code);
+    const second = await givePet(store, deps, player.id, 'ember');
+    const first = (await playerView(store, player.id)).pets[0].id;
+    await givePet(store, deps, player.id, 'tango');
+    await breedOwn(store, deps, player, first, second.id);
+    await freePet(store, deps, player, second.id);
+
+    await removePlayer(store, player.id);
+
+    expect(await store.player(player.id)).toBeNull();
+    expect(await playerForToken(store, token)).toBeNull();
+    await refused(login(store, deps, code), 'bad-code', 401);
+    // Hatched, egg and set free alike.
+    expect(store.petRows.size).toBe(0);
+    expect(store.sessions.size).toBe(0);
+    expect(await overview(store, deps)).toEqual([]);
+  });
+
+  it('drops every request to or from them, and leaves their friends as they were', async () => {
+    const alex = await playerWith('Alex', 2);
+    const sam = await playerWith('Sam', 2);
+    const pat = await playerWith('Pat', 1);
+    await askFor(store, deps, alex.player, alex.ids[0], sam.ids[0]); // from the player
+    await askFor(store, deps, pat.player, pat.ids[0], alex.ids[1]); // to the player
+    await askFor(store, deps, sam.player, sam.ids[1], pat.ids[0]); // nothing to do with them
+
+    await removePlayer(store, alex.player.id);
+
+    expect(store.requestRows.size).toBe(1);
+    const samNow = await playerView(store, sam.player.id);
+    expect(samNow.pets.map((pet) => pet.id)).toEqual(sam.ids);
+    expect(samNow.asked).toEqual([]);
+    expect(samNow.asking).not.toBeNull();
+    // Pat was waiting for the deleted player's answer, and can now ask somebody else.
+    const patNow = await playerView(store, pat.player.id);
+    expect(patNow.asking).toBeNull();
+    await askFor(store, deps, pat.player, pat.ids[0], sam.ids[0]);
+    // And the deleted player is no longer among anybody's friends.
+    expect((await friendsOf(store, sam.player)).map((friend) => friend.nickname)).toEqual(['Pat']);
+  });
+
+  it('frees the nickname\'s code for nobody: a new player gets a new code', async () => {
+    const { player, code } = await createPlayer(store, deps, 'Alex');
+    await removePlayer(store, player.id);
+    const again = await createPlayer(store, deps, 'Alex');
+    expect(again.player.id).not.toBe(player.id);
+    expect((await login(store, deps, again.code)).player.id).toBe(again.player.id);
+    if (again.code !== code) await refused(login(store, deps, code), 'bad-code', 401);
+  });
+
+  it('refuses a player that does not exist', async () => {
+    await refused(removePlayer(store, 'nobody'), 'no-such-player', 404);
   });
 });

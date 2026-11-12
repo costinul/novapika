@@ -16,6 +16,7 @@ import {
   playerView,
   Refusal,
   removePet,
+  removePlayer,
   resetCode,
   restorePet,
 } from './rules';
@@ -80,6 +81,10 @@ async function admin(request: Request, path: string, store: Store): Promise<Resp
     const { nickname } = await fields(request);
     const { player, code } = await createPlayer(store, deps, nickname);
     return json({ player: await playerView(store, player.id), code });
+  }
+  if ((match = /^\/players\/([\w-]+)$/.exec(path)) && method === 'DELETE') {
+    await removePlayer(store, match[1]);
+    return json({});
   }
   if ((match = /^\/players\/([\w-]+)\/code$/.exec(path)) && method === 'POST') {
     return json(await resetCode(store, deps, match[1]));

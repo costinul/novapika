@@ -153,12 +153,24 @@ function news(player: AdminPlayerView): string[] {
 }
 
 function playerCard(player: AdminPlayerView): HTMLElement {
-  const newCode = el('button', { className: 'quiet', type: 'button' }, 'New code');
+  const newCode = el('button', { className: 'quiet', type: 'button' }, 'Regenerate code');
   newCode.addEventListener('click', () => {
-    if (!confirm(`Give ${player.nickname} a new code? Their headset will be signed out.`)) return;
+    if (!confirm(`Give ${player.nickname} a new code? The old code stops working and their headset is signed out.`)) return;
     void attempt(async () => {
       const { code } = await api<{ code: string }>('POST', `/players/${player.id}/code`);
       sayCode(player.nickname, code);
+    });
+  });
+
+  const remove = el('button', { className: 'danger', type: 'button' }, 'Delete player');
+  remove.addEventListener('click', () => {
+    const pets = player.pets.length + (player.egg ? 1 : 0) + player.freed.length;
+    const warning = `Delete ${player.nickname} for good, with their ${pets} pet${pets === 1 ? '' : 's'}? This cannot be undone.`;
+    if (!confirm(warning)) return;
+    void attempt(async () => {
+      await api('DELETE', `/players/${player.id}`);
+      say(`Deleted ${player.nickname}.`);
+      await refresh();
     });
   });
 
@@ -184,7 +196,7 @@ function playerCard(player: AdminPlayerView): HTMLElement {
       'header',
       {},
       el('div', {}, el('h2', {}, player.nickname), el('p', {}, `${player.pets.length} of ${PET_CAP} pets`), ...news(player).map((line) => el('p', {}, line))),
-      newCode,
+      el('div', { className: 'actions' }, newCode, remove),
     ),
     el('ul', { className: 'pets' }, ...player.pets.map((pet) => petCard(player, pet))),
     give,

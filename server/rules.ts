@@ -133,6 +133,16 @@ export async function createPlayer(
   return { player, code };
 }
 
+/**
+ * The owner removes a player for good: their sign-ins, their pets and eggs,
+ * and every request to or from them. Their friends keep their own pets, and
+ * a friend who was waiting for this player's answer can ask somebody else.
+ */
+export async function removePlayer(store: Store, playerId: string): Promise<void> {
+  if (!(await store.player(playerId))) throw new Refusal('no-such-player', 404);
+  await store.removePlayer(playerId);
+}
+
 /** A new code for a player. Every headset signed in with the old one is signed out. */
 export async function resetCode(store: Store, deps: Deps, playerId: string): Promise<{ code: string }> {
   if (!(await store.player(playerId))) throw new Refusal('no-such-player', 404);
