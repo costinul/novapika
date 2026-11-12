@@ -103,6 +103,12 @@ export interface FlockParrotDef {
   follows?: boolean;
   /** Sometimes repeats what the player says. */
   mimics?: boolean;
+  /**
+   * The lobby's helper parrot, which talks with the players, and its own
+   * place: where it starts, stays and is returned to. That place is not one
+   * of the flock's spots, so `home` is -1. A lobby has at most one.
+   */
+  helper?: Vec3;
 }
 
 export interface FlockDef {

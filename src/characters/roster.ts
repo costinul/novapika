@@ -155,6 +155,28 @@ export const flockOnly: Record<string, CharacterDef> = {
     },
     voice: { ...roster.budgie.voice, pitch: 3700 },
   },
+  // The helper parrot: a turquoise cockatoo with a pink crest, like no other
+  // bird in the Aviary, so a child can pick it out.
+  kiki: {
+    ...roster.cockatoo,
+    id: 'kiki',
+    name: 'Kiki',
+    scale: 0.95,
+    colors: {
+      ...roster.cockatoo.colors,
+      head: 0x4fd6cf,
+      back: 0x2fb5b0,
+      chest: 0x7fe3d8,
+      belly: 0xbff3ea,
+      wing: 0x2aa6c9,
+      wingTip: 0xffd45a,
+      tail: 0x2a86c9,
+      beak: 0xf4a84a,
+      cheek: 0xff8fb6,
+    },
+    crest: { color: 0xff7fb0, length: 0.5, feathers: 8, width: 0.085 },
+    voice: { pitch: 1900, wave: 'sine', notes: 3, slide: 1.35 },
+  },
 };
 
 /** Order of the perches in the nest. Nova and Pika take the middle two. */

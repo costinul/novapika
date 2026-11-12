@@ -1,12 +1,14 @@
-import { FREED_FOR_DAYS, PET_CAP, SEEDS_TO_HATCH } from '../../shared/api';
-import type { AdminPlayerView, PetView, PlayerView } from '../../shared/api';
+import { FREED_FOR_DAYS, PET_CAP, SEEDS_TO_HATCH, TALK_KEPT_DAYS } from '../../shared/api';
+import type { AdminPlayerView, HelperView, PetView, PlayerView, TalkView } from '../../shared/api';
 import { tierOf } from '../../shared/dna';
 import type { Dna } from '../../shared/dna';
 import { founders } from '../../shared/founders';
+import { HELPER_NAME } from '../../shared/helper';
 import { petPicture } from './petPicture';
 
-// The owner's page: add players, hand out sign-in codes, and give or remove
-// pets. Every call carries the admin password, which is kept only in this
+// The owner's page: add players, hand out sign-in codes, give or remove
+// pets, switch the helper parrot on or off and read what was said to it.
+// Every call carries the admin password, which is kept only in this
 // page's memory and is gone when the page is closed or reloaded.
 
 const gate = document.querySelector<HTMLFormElement>('#gate')!;
@@ -14,6 +16,7 @@ const gateError = document.querySelector<HTMLElement>('#gate-error')!;
 const panel = document.querySelector<HTMLElement>('#panel')!;
 const notice = document.querySelector<HTMLElement>('#notice')!;
 const list = document.querySelector<HTMLElement>('#players')!;
+const helper = document.querySelector<HTMLElement>('#helper')!;
 
 let password = '';
 
@@ -209,9 +212,46 @@ function playerCard(player: AdminPlayerView): HTMLElement {
   );
 }
 
+/** One thing a player said to the helper parrot, and what it answered. */
+function talkCard(talk: TalkView): HTMLElement {
+  return el(
+    'li',
+    { className: talk.flagged ? 'flagged' : '' },
+    el('p', { className: 'when' }, `${new Date(talk.at).toLocaleString()} · ${talk.nickname} · ${talk.lobbyId}`),
+    ...(talk.flagged ? [el('p', { className: 'why' }, `Look at this one: ${talk.flagged}`)] : []),
+    el('p', {}, el('strong', {}, `${talk.nickname}: `), talk.heard),
+    el('p', {}, el('strong', {}, `${HELPER_NAME}: `), talk.said),
+  );
+}
+
+/** The helper parrot: its switch, and what was said to it this week. */
+function showHelper(view: HelperView): void {
+  const state = !view.ready
+    ? 'Not set up: the server has not been given the keys it needs, so it says and hears nothing.'
+    : view.on
+      ? 'On: it listens to a player who is close to it and facing it.'
+      : 'Off: it says nothing, and no game sends it anything.';
+  const flip = el('button', { className: 'quiet', type: 'button' }, view.on ? 'Switch off' : 'Switch on');
+  flip.addEventListener('click', () => {
+    void attempt(async () => {
+      showHelper(await api<HelperView>('POST', '/helper', { on: !view.on }));
+      say(`${HELPER_NAME} is switched ${view.on ? 'off' : 'on'}. Lobbies learn of it within half a minute.`);
+    });
+  });
+  helper.replaceChildren(
+    el('header', {}, el('div', {}, el('h2', {}, `${HELPER_NAME}, the helper parrot`), el('p', {}, state)), el('div', { className: 'actions' }, flip)),
+    el('h3', {}, `Said in the last ${TALK_KEPT_DAYS} days, as text. No sound is kept.`),
+    view.talk.length > 0 ? el('ul', { className: 'talk' }, ...view.talk.map(talkCard)) : el('p', {}, 'Nothing yet.'),
+  );
+}
+
 async function refresh(): Promise<void> {
-  const { players } = await api<{ players: AdminPlayerView[] }>('GET', '/players');
+  const [{ players }, view] = await Promise.all([
+    api<{ players: AdminPlayerView[] }>('GET', '/players'),
+    api<HelperView>('GET', '/helper'),
+  ]);
   list.replaceChildren(...(players.length > 0 ? players.map(playerCard) : [el('p', {}, 'No players yet.')]));
+  showHelper(view);
 }
 
 gate.addEventListener('submit', (event) => {

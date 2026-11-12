@@ -2,7 +2,17 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { LobbyRules } from '../server/lobbyRules';
 import type { Member } from '../server/lobbyRules';
 import type { Action } from '../shared/actions';
-import { CLOSE_BAD, CLOSE_ELSEWHERE, CLOSE_FULL, FRAME_POSES, LOBBY_IDS, LOBBY_SIZE, MAX_FRAME_BYTES } from '../shared/net';
+import { MAX_HEARD_BYTES, SOUND_HEAD } from '../shared/helper';
+import {
+  CLOSE_BAD,
+  CLOSE_ELSEWHERE,
+  CLOSE_FULL,
+  FRAME_HEARD,
+  FRAME_POSES,
+  LOBBY_IDS,
+  LOBBY_SIZE,
+  MAX_FRAME_BYTES,
+} from '../shared/net';
 import type { ServerMessage, SharedWorld } from '../shared/net';
 import { lobbyRegistry } from '../src/lobbies/registry';
 
@@ -429,5 +439,81 @@ describe('waking up', () => {
     expect(rules.host).toBe(0);
     rules.binary(alex, frame(5));
     expect([...sam.frames.at(-1)!]).toEqual([FRAME_POSES, 0, 5]);
+  });
+});
+
+describe('a phrase for the helper parrot', () => {
+  /** What the helper was given: who said it, and the samples. */
+  let heard: [string, number[]][];
+  const phrase = (...samples: number[]): ArrayBuffer => new Uint8Array([FRAME_HEARD, 0, ...samples]).buffer;
+
+  beforeEach(() => {
+    heard = [];
+    rules = new LobbyRules<Conn>({
+      send: (c, data) => {
+        if (typeof data === 'string') c.heard.push(JSON.parse(data));
+        else c.frames.push(new Uint8Array(data.slice(0)));
+      },
+      close: (c, code) => void (c.closed = code),
+      keep: () => {},
+      heard: (_c, member, samples) => void heard.push([member.nickname, [...samples]]),
+    });
+  });
+
+  it('goes to the helper, and is passed on to nobody', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    rules.binary(sam, phrase(5, 6, 7, 8));
+    expect(heard).toEqual([['Sam', [5, 6, 7, 8]]]);
+    expect(alex.frames).toEqual([]);
+    expect(sam.frames).toEqual([]);
+    expect(sam.closed).toBeNull();
+  });
+
+  it('may be as long as the helper listens for, and no longer', () => {
+    const sam = join('Sam');
+    const longest = new Uint8Array(MAX_HEARD_BYTES);
+    longest[0] = FRAME_HEARD;
+    rules.binary(sam, longest.buffer);
+    expect(heard).toHaveLength(1);
+    expect(heard[0][1]).toHaveLength(MAX_HEARD_BYTES - SOUND_HEAD);
+    expect(sam.closed).toBeNull();
+
+    const tooLong = new Uint8Array(MAX_HEARD_BYTES + 1);
+    tooLong[0] = FRAME_HEARD;
+    rules.binary(sam, tooLong.buffer);
+    expect(heard).toHaveLength(1);
+    expect(sam.closed).toBe(CLOSE_BAD);
+  });
+
+  it('is not given to the helper when it is empty, or from somebody who is not in', () => {
+    const sam = join('Sam');
+    rules.binary(sam, phrase());
+    rules.binary(conn('stranger'), phrase(1, 2));
+    expect(heard).toEqual([]);
+    expect(sam.closed).toBeNull();
+  });
+
+  it('lets the helper answer everybody, or one player', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    alex.heard.length = sam.heard.length = 0;
+    rules.sendAll(new Uint8Array([3, 0, 9, 9]).buffer);
+    expect(alex.frames).toEqual([new Uint8Array([3, 0, 9, 9])]);
+    expect(sam.frames).toEqual([new Uint8Array([3, 0, 9, 9])]);
+    rules.tellAll({ t: 'squawk' });
+    rules.tell(sam, { t: 'helper', listens: false });
+    expect(alex.heard).toEqual([{ t: 'squawk' }]);
+    expect(sam.heard).toEqual([{ t: 'squawk' }, { t: 'helper', listens: false }]);
+  });
+});
+
+describe('a lobby with no helper parrot', () => {
+  it('drops a phrase and carries on', () => {
+    const alex = join('Alex');
+    const sam = join('Sam');
+    rules.binary(sam, new Uint8Array([FRAME_HEARD, 0, 1, 2]).buffer);
+    expect(sam.closed).toBeNull();
+    expect(alex.frames).toEqual([]);
   });
 });

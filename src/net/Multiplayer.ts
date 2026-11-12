@@ -1,8 +1,10 @@
 import { Group, Vector3 } from 'three';
 import type { PetView } from '../../shared/api';
-import { FRAME_HEAD, FRAME_POSES } from '../../shared/net';
+import { SOUND_HEAD } from '../../shared/helper';
+import { FRAME_HEAD, FRAME_HEARD, FRAME_POSES, FRAME_SPEECH } from '../../shared/net';
 import type { AboutMe, LobbyPlayer, RtcData, ServerMessage, SharedWorld } from '../../shared/net';
 import type { FeatherBatch } from '../characters/FeatherBatch';
+import type { Helper } from '../helper/Helper';
 import type { Player } from '../player/Player';
 import type { Voice } from '../voice/Voice';
 import type { Action, ActionLayer } from '../world/actions';
@@ -44,6 +46,8 @@ export interface MultiplayerDeps {
   onJoined?(): void;
   /** Talking to the other players. Left out, nobody is heard. */
   voice?: Pick<Voice, 'call' | 'signal' | 'remove' | 'clear' | 'place'>;
+  /** The lobby's helper parrot: what the lobby says of it, and its voice. Left out, it is never heard. */
+  helper?: Pick<Helper, 'setListens' | 'speech' | 'squawk' | 'clear'>;
   /** The time in seconds. Left out, the browser's clock. */
   now?(): number;
 }
@@ -119,6 +123,14 @@ export class Multiplayer {
     this.link?.send({ t: 'rtc', to, data });
   }
 
+  /** Send the lobby a phrase the local player said to the helper parrot. It goes to nobody else. */
+  sendHeard(samples: Int16Array): void {
+    const frame = new Uint8Array(SOUND_HEAD + samples.byteLength);
+    frame[0] = FRAME_HEARD;
+    frame.set(new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength), SOUND_HEAD);
+    this.link?.sendFrame(frame);
+  }
+
   /** Tell the others what parrot the local player is and which pet follows them, if that is news. */
   private tellAbout(force = false): void {
     const me = this.deps.about();
@@ -184,6 +196,7 @@ export class Multiplayer {
     this.remotes.clear();
     this.deps.world.unshare();
     this.deps.voice?.clear();
+    this.deps.helper?.clear();
   }
 
   /** Somebody else is in the lobby, or has changed parrot. */
@@ -229,6 +242,12 @@ export class Multiplayer {
       case 'held':
         world.setHolder(message.toyId, message.by === null ? null : this.inwardId(message.by), message.at);
         break;
+      case 'helper':
+        this.deps.helper?.setListens(message.listens);
+        break;
+      case 'squawk':
+        this.deps.helper?.squawk();
+        break;
     }
   }
 
@@ -251,6 +270,7 @@ export class Multiplayer {
 
   private onFrame(data: ArrayBuffer): void {
     const view = new DataView(data);
+    if (view.byteLength > SOUND_HEAD && view.getUint8(0) === FRAME_SPEECH) return this.deps.helper?.speech(data);
     if (view.byteLength < FRAME_HEAD || view.getUint8(0) !== FRAME_POSES) return;
     const from = view.getUint8(1);
     const time = this.now();

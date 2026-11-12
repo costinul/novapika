@@ -50,6 +50,13 @@
       .pet .follows { color: var(--go); font-weight: 600; }
       .pet.freed img { opacity: 0.55; }
       h3 { font-size: 0.9375rem; margin: 20px 0 0; color: var(--soft); }
+
+      .talk { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+      .talk li { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+      .talk li.flagged { border-color: var(--stop); background: #fde8e6; }
+      .talk p { margin: 0; }
+      .talk .when, .talk .why { color: var(--soft); font-size: 0.8125rem; }
+      .talk .why { color: var(--stop); font-weight: 600; }
     </style>
   </head>
   <body>
@@ -74,6 +81,7 @@
           <button>Add player</button>
         </form>
         <p id="notice" role="status"></p>
+        <section id="helper" class="player"></section>
         <div id="players"></div>
       </section>
     </main>

@@ -31,6 +31,14 @@ export const CLOSE_BAD = 4003;
 export const FRAME_POSES = 1;
 /** Bytes before the first pose. */
 export const FRAME_HEAD = 3;
+/**
+ * First byte of a binary frame, game to server only: a phrase spoken to the
+ * helper parrot. The server turns it into text and drops it; it is passed on
+ * to nobody. See shared/helper.ts for what follows the first two bytes.
+ */
+export const FRAME_HEARD = 2;
+/** First byte of a binary frame, server to game only: the helper parrot's voice, as an MP3 after two bytes. */
+export const FRAME_SPEECH = 3;
 /** The biggest binary frame the server passes on. */
 export const MAX_FRAME_BYTES = 4096;
 /** The biggest text message the server reads. */
@@ -100,4 +108,8 @@ export type ServerMessage =
    * This game took a toy the lobby would not let it have. Who really has it:
    * a parrot, or nobody, and then where it lies (null: where it started).
    */
-  | { t: 'held'; toyId: string; by: string | null; at: ToyPlace | null };
+  | { t: 'held'; toyId: string; by: string | null; at: ToyPlace | null }
+  /** Whether the helper parrot is listening. While it is not, no game sends it a phrase. */
+  | { t: 'helper'; listens: boolean }
+  /** The helper parrot heard a phrase and could not answer it. */
+  | { t: 'squawk' };

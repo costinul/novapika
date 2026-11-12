@@ -1,4 +1,5 @@
 import { LobbyRules } from '../server/lobbyRules';
+import type { Member } from '../server/lobbyRules';
 import type { SharedWorld } from '../shared/net';
 import type { Connect, LinkHandlers } from '../src/net/LobbyClient';
 
@@ -17,6 +18,8 @@ export interface FakeLobby {
   hold(): void;
   /** Everything that was waiting arrives, in the order it was said. */
   release(): void;
+  /** Given what a player says to the helper parrot. Null: this lobby has none. */
+  onHeard: ((member: Member, samples: Uint8Array) => void) | null;
 }
 
 /**
@@ -29,6 +32,7 @@ export function fakeLobby(): FakeLobby {
   let waiting: (() => void)[] | null = null;
   const lobby: FakeLobby = {
     saved: null,
+    onHeard: null,
     rules: new LobbyRules<Conn>({
       send: (conn, data) => {
         if (!conn.open) return;
@@ -42,6 +46,7 @@ export function fakeLobby(): FakeLobby {
       },
       keep: () => {},
       save: (world) => void (lobby.saved = world && JSON.parse(JSON.stringify(world))),
+      heard: (_conn, member, samples) => lobby.onHeard?.(member, samples.slice()),
     }),
     hold: () => void (waiting = []),
     release: () => {

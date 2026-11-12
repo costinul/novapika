@@ -4,7 +4,7 @@ import { character } from '../src/characters/roster';
 import { PhysicsWorld } from '../src/engine/physics';
 import { Flock } from '../src/flock/Flock';
 import { Pilot } from '../src/flock/Pilot';
-import { CONTENT, HALF, HEIGHT } from '../src/lobbies/aviary/layout';
+import { CONTENT, HALF, HEIGHT, HELPER_STUMP } from '../src/lobbies/aviary/layout';
 import { buildScenery } from '../src/lobbies/aviary/scenery';
 import { StaticBuilder } from '../src/lobbies/build';
 import { newMoveInput, toMoveInput } from '../src/movement/input';
@@ -188,6 +188,8 @@ describe('flock', () => {
     });
 
     flock.players.forEach((_, i) => {
+      // The helper parrot stays on its stump.
+      if (flock.brains[i].def.helper) return;
       expect(flew[i], `parrot ${i} flew`).toBe(true);
       expect(farthest[i], `parrot ${i} went somewhere`).toBeGreaterThan(5);
       // They spend a good share of the time sitting, not only flying.
@@ -236,6 +238,28 @@ describe('flock', () => {
       return false;
     });
     expect(landed.filter(Boolean).length).toBeGreaterThanOrEqual(flock.players.length - 1);
+  });
+
+  it('has a helper parrot that stays on its stump and looks at a player who comes near', () => {
+    const helper = flock.helper!;
+    const stump = new Vector3(...HELPER_STUMP);
+    const facing = (): number => {
+      const forward = new Vector3(0, 0, -1).applyQuaternion(helper.head.quaternion);
+      return forward.dot(human.head.position.clone().sub(helper.head.position).normalize());
+    };
+    run(60);
+    expect(helper.position.distanceTo(stump)).toBeLessThan(0.4);
+    expect(helper.grounded).toBe(true);
+
+    // A player comes up beside it, a little taller than it is.
+    human.head.position.copy(helper.head.position).add(new Vector3(1.2, 0.3, 0.8));
+    run(3);
+    expect(facing()).toBeGreaterThan(0.9);
+    // And goes away again: it looks ahead once more.
+    standAt(8, 6);
+    run(3);
+    expect(facing()).toBeLessThan(0.9);
+    expect(helper.position.distanceTo(stump)).toBeLessThan(0.4);
   });
 
   it('keeps out of the front of the player\'s face', () => {

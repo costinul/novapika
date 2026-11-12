@@ -33,8 +33,9 @@ the lobby's parrots, toys, bells and rings are the same for all of them.
   closer, and from the direction of the other parrot. Each pair of players
   holds one WebRTC connection straight between their two headsets; the server
   only passes the few messages it takes to set one up, and never hears or
-  keeps a voice. A voice is sent only while playing, never from the start
-  screen.
+  keeps a voice between players. A voice is sent only while playing, never
+  from the start screen. (What a player says to Kiki, the helper parrot, is
+  the one thing the server does hear: see below.)
 
 - **The lobby's parrots are the same for everyone.** One game runs them: the
   host's, which is whoever has been in the lobby longest. The others are sent
@@ -159,6 +160,81 @@ npx wrangler@4.160.0 secret put TURN_KEY_API_TOKEN
 The key stays on the server. Each signed-in player is handed a pass for the
 relay that lasts a day. The first 1,000 GB a month are free.
 
+## Kiki, the helper parrot (being built)
+
+Design: [docs/plans/2026-11-12-ai-parrot-design.md](docs/plans/2026-11-12-ai-parrot-design.md).
+Step 1 of 3 is built: Kiki talks. Following a player and leading them to a
+place, and starting a chat itself, are steps 2 and 3.
+
+Kiki is a turquoise parrot with a pink crest, on its own stump in the nest of
+the Aviary, beside the picture board. It is a kind robot parrot that answers
+questions about the game, such as how to hatch an egg.
+
+- **Talking to Kiki.** Stand within a few metres of Kiki and look at it. It
+  turns to you. Say something; when you stop, it answers out loud in two or
+  three seconds, and bobs as it speaks. Everybody in the lobby hears it, from
+  where it is. One phrase is answered at a time.
+- **What happens to a phrase.** The game cuts one phrase of at most 8 seconds
+  from the microphone, only while you are close to Kiki and facing it, and
+  sends it to the game's server. The server has Cloudflare turn it into text
+  (Workers AI, Whisper) and drops the sound. The text goes to Claude Haiku
+  (Anthropic), which writes Kiki's reply. A second, separate call to the same
+  model checks what was said and the reply; plain rules in code check the
+  reply as well. Then OpenAI's text-to-speech speaks the reply. OpenAI is sent
+  Kiki's own words only, never a player's.
+- **What Kiki may say.** Its instructions and everything it may say about the
+  game are in `server/helperGuide.ts`. If the answer is not in that guide it
+  says it does not know. A reply that fails a check is replaced by a fixed
+  safe line and flagged for the owner.
+- **Limits.** Each player may say 6 phrases a minute and 300 a day, and one
+  lobby answers 600 a day; these are at the top of `server/helper.ts`. Past a
+  limit Kiki is an ordinary parrot until the next day.
+- **Records.** What was said to Kiki and what it answered is kept as text
+  for 7 days and shown on the admin page, flagged talk first. No sound is
+  kept anywhere. Deleting a player deletes what they said.
+- **The switch.** The admin page switches Kiki off and on for every lobby,
+  within half a minute. While it is off, or the server has no keys for it,
+  no game sends it anything.
+- **When something fails,** Kiki gives its own call and nothing else happens.
+
+### Giving Kiki its keys
+
+Kiki needs two secrets on the server. Without both, the game runs as before
+and Kiki is silent. Hearing needs no secret: it uses the Workers AI binding
+in `wrangler.jsonc`.
+
+```bash
+npx wrangler@4.160.0 secret put ANTHROPIC_API_KEY
+```
+
+```bash
+npx wrangler@4.160.0 secret put OPENAI_API_KEY
+```
+
+On this PC, put the same two names in `.dev.vars`. `npm run dev:api` must
+then be signed in to Cloudflare (`npx wrangler login`), since the hearing
+runs there even in local work.
+
+### Before changing what Kiki is told
+
+`tests/helperLive.test.ts` says a list of tricky phrases to Kiki's real
+instructions and the real model: tricks to change what it is, rude words,
+questions with no answer in the guide, worrying things. It fails if any reply
+breaks a rule. Run it by hand before a change to `server/helperGuide.ts` or to
+the model goes live. It costs a few pence and needs an Anthropic key, so the
+ordinary tests skip it. In PowerShell:
+
+```powershell
+$env:HELPER_LIVE_KEY = '<an Anthropic key>'; npm run test:helper
+```
+
+Read what it prints as well: a reply can pass every check and still be odd.
+
+Not checked by the author of the code, because it needs the keys, a
+microphone and a headset: the whole path from a spoken phrase to Kiki's voice,
+how well small children are heard, how long an answer takes, and how its
+voice sounds. Everything else was tested with unit tests and the desktop emulator.
+
 ## Run
 
 ```bash
@@ -232,8 +308,9 @@ npm run build
 - **Your parrot is remembered** on the device between visits. If a player has
   signed in, so is their sign-in. Nothing else is kept on the device. What
   leaves it: sign-in, pets and where your parrot is go to the game's own
-  server; your voice goes to the other players in your lobby, and nowhere
-  else.
+  server; your voice goes to the other players in your lobby; and what you
+  say to Kiki, the helper parrot, while close to it and facing it goes to the
+  game's server to be answered. Nothing else.
 
 ## Comfort
 
@@ -289,8 +366,8 @@ sometimes listens, and repeats what you said in a higher, squeaky voice.
 
 The game asks for the microphone once, when you press the play button. If you
 refuse, everything else works the same; there is no mimicry, and the other
-players cannot hear you (you still hear them). The microphone is used for two
-things:
+players cannot hear you (you still hear them), and Kiki cannot either. The
+microphone is used for three things:
 
 - **Mimicry.** Sound is only looked at while a parrot is listening; one phrase
   of at most three seconds is held in memory, played back once and dropped.
@@ -299,6 +376,9 @@ things:
   your lobby, who are all players the owner has given a code. It goes straight
   from headset to headset (or through Cloudflare's relay, which only passes it
   on). Nothing is recorded, and the game's server never receives it.
+- **Kiki, the helper parrot.** Only while you are close to it and facing it:
+  one phrase at a time goes to the game's server, is turned into text and
+  dropped. See "Kiki, the helper parrot" above for where the text goes.
 
 ## Things to do in the Aviary
 
@@ -327,7 +407,7 @@ things:
 | `src/comfort/` | Speed vignette and arm-reach measuring |
 | `src/flock/` | The lobby's own parrots: the pilot that flies them and their behaviour |
 | `src/world/` | Toys, target places and bells; the action layer every world change goes through |
-| `src/audio/` | Sounds, synthesized in code; the microphone; mimicry |
+| `src/audio/` | Sounds, synthesized in code; the microphone; mimicry; the ear that hears what is said to the helper parrot |
 | `src/lobbies/` | Lobby registry and one folder per lobby |
 | `src/debug/` | In-headset debug panel |
 | `src/dev/` | Desktop WebXR emulator (development builds only) |
@@ -335,9 +415,10 @@ things:
 | `src/voice/` | Voice between the players in a lobby |
 | `src/account/` | Signing in: the number pad on the start screen and the token the device keeps |
 | `src/pets/` | The pet corner in the nest, and the pet that follows the player |
+| `src/helper/` | The game's side of the helper parrot: when it listens, and playing its voice |
 | `src/admin/`, `admin.html` | The owner's admin page |
 | `shared/` | Pet DNA, tiers, breeding rules, the fixed pets, what the server sends, and what the game and the lobby say to each other; used by game and server |
-| `server/` | The API on Cloudflare: rules, database layer and migrations; the lobby's rules and its Durable Object |
+| `server/` | The API on Cloudflare: rules, database layer and migrations; the lobby's rules and its Durable Object; the helper parrot's mind (`helper*.ts`) |
 | `tests/` | Vitest unit tests |
 
 ## Art and audio sources

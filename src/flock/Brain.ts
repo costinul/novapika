@@ -29,6 +29,8 @@ const BESIDE_PLAYER = 1.4; // m to the player's side where a visiting parrot lan
 const KEEP_FROM_FACE = 1.5; // m, no chosen spot is nearer the player's head than this
 const LOOSE_TOY_MAX_HEIGHT = 0.6; // m, toys this near the ground are easy to fetch
 const FOLLOW_COOLDOWN = 60; // s after following before following again
+const ATTEND_WITHIN = 4.5; // m, the helper parrot turns to a player this close
+const ATTEND_TURN = 1.6; // rad/s, how fast its body turns to face them
 
 /** What the flock tells each brain about the rest of the lobby. */
 export interface FlockView {
@@ -105,6 +107,7 @@ export class Brain {
   private perch(dt: number): void {
     const pilot = this.pilot;
     this.settled = this.timer > 1.2 && this.player.grounded;
+    if (this.def.helper) return this.attend(dt);
 
     // Small things to do while sitting.
     this.activityTimer -= dt;
@@ -158,6 +161,41 @@ export class Brain {
     } else if (roll < 0.14 && this.pickLooseToy()) this.leave('fetchToy');
     else if (roll < 0.3 && this.player.position.y < 0.5) this.leave('hop');
     else this.leave('wander');
+  }
+
+  /**
+   * The helper parrot on its spot: it never leaves, bobs while it talks, and
+   * otherwise looks at the nearest player, so a child can see it is listening.
+   */
+  private attend(dt: number): void {
+    const pilot = this.pilot;
+    const human = this.flock.human(this.player.position);
+    let turn = 0;
+    let pitch = 0;
+    if (this.talking > 0) {
+      pitch = 0.25 * Math.sin(this.timer * 14);
+    } else if (human) {
+      const to = this.v.copy(human.head.position).sub(this.player.head.position);
+      const flat = Math.hypot(to.x, to.z);
+      if (to.length() < ATTEND_WITHIN && flat > 0.05) {
+        const { facing } = pilot;
+        // Positive turns left, as the pilot counts it.
+        turn = Math.atan2(facing.z * to.x - facing.x * to.z, facing.x * to.x + facing.z * to.z);
+        // The body shuffles round to face them; the head gets there first.
+        if (Math.abs(turn) > 0.3) {
+          const step = Math.sign(turn) * Math.min(Math.abs(turn), ATTEND_TURN * dt);
+          const [cos, sin] = [Math.cos(step), Math.sin(step)];
+          facing.set(facing.x * cos + facing.z * sin, 0, facing.z * cos - facing.x * sin).normalize();
+          turn -= step;
+        }
+        turn = Math.max(-1.3, Math.min(1.3, turn));
+        pitch = Math.max(-0.6, Math.min(0.6, Math.atan2(to.y, flat)));
+      }
+    }
+    const ease = Math.min(1, dt * 5);
+    pilot.lookTurn += (turn - pilot.lookTurn) * ease;
+    pilot.lookPitch = this.talking > 0 ? pitch : pilot.lookPitch + (pitch - pilot.lookPitch) * ease;
+    pilot.rest(this.player, dt);
   }
 
   /** Seconds of following left. */
@@ -255,8 +293,12 @@ export class Brain {
     }
   }
 
-  /** Claim a free perching spot that is not in the player's face. */
+  /** Claim a free perching spot that is not in the player's face. The helper parrot only ever goes back to its own. */
   private randomSpot(): boolean {
+    if (this.def.helper) {
+      this.target.fromArray(this.def.helper);
+      return true;
+    }
     const human = this.flock.human(this.player.position);
     for (let attempt = 0; attempt < 12; attempt++) {
       const index = Math.floor(this.random() * this.flock.spots.length);

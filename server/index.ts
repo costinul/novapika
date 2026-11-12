@@ -1,6 +1,7 @@
 import { LOBBY_IDS, PROTOCOL } from '../shared/net';
 import { d1Store } from './d1Store';
-import { NICKNAME_HEADER, PLAYER_HEADER } from './lobby';
+import { helperAi } from './helperAi';
+import { LOBBY_HEADER, NICKNAME_HEADER, PLAYER_HEADER } from './lobby';
 import {
   answer,
   askFor,
@@ -9,9 +10,11 @@ import {
   chooseFollower,
   createPlayer,
   feedEgg,
+  forgetOldTalk,
   freePet,
   friendsOf,
   givePet,
+  helperOn,
   login,
   overview,
   playerForToken,
@@ -21,6 +24,8 @@ import {
   removePlayer,
   resetCode,
   restorePet,
+  setHelperOn,
+  talkView,
 } from './rules';
 import type { Deps } from './rules';
 import type { PlayerRow, Store } from './store';
@@ -76,9 +81,15 @@ async function isAdmin(request: Request, env: Env): Promise<boolean> {
   return crypto.subtle.timingSafeEqual(a, b);
 }
 
-async function admin(request: Request, path: string, store: Store): Promise<Response> {
+async function admin(request: Request, env: Env, path: string, store: Store): Promise<Response> {
   const method = request.method;
   let match: RegExpExecArray | null;
+
+  if (path === '/helper' && (method === 'GET' || method === 'POST')) {
+    if (method === 'POST') await setHelperOn(store, (await fields(request)).on);
+    // Lobbies learn of a change within half a minute.
+    return json({ on: await helperOn(store), ready: helperAi(env) !== null, talk: await talkView(store, deps) });
+  }
 
   if (path === '/players' && method === 'GET') return json({ players: await overview(store, deps) });
   if (path === '/players' && method === 'POST') {
@@ -165,6 +176,7 @@ async function lobby(request: Request, env: Env, store: Store, lobbyId: string):
   const headers = new Headers(request.headers);
   headers.set(PLAYER_HEADER, player.id);
   headers.set(NICKNAME_HEADER, encodeURIComponent(player.nickname));
+  headers.set(LOBBY_HEADER, lobbyId);
   return env.LOBBY.getByName(lobbyId).fetch(new Request(request, { headers }));
 }
 
@@ -214,7 +226,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (rest.startsWith('/admin/')) {
     if (!(await env.ADMIN_LIMITER.limit({ key: address })).success) return refuse('slow-down', 429);
     if (!(await isAdmin(request, env))) return refuse('not-admin', 401);
-    return admin(request, rest.slice('/admin'.length), store);
+    return admin(request, env, rest.slice('/admin'.length), store);
   }
 
   const room = /^\/lobby\/([\w-]+)$/.exec(rest);
@@ -241,5 +253,10 @@ export default {
       );
       return refuse('server', 500);
     }
+  },
+
+  /** Once a day: forget what was said to the helper parrot more than a week ago. */
+  async scheduled(_controller, env): Promise<void> {
+    await forgetOldTalk(d1Store(env.DB), deps);
   },
 } satisfies ExportedHandler<Env>;

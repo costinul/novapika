@@ -64,3 +64,27 @@ export interface AdminPlayerView extends PlayerView {
   /** Pets set free in the last 30 days, which can still be brought back. */
   freed: PetView[];
 }
+
+/** How long what was said to the helper parrot is kept. */
+export const TALK_KEPT_DAYS = 7;
+
+/** One thing a player said to the helper parrot and what it answered, as the admin page sees it. */
+export interface TalkView {
+  at: number;
+  lobbyId: string;
+  nickname: string;
+  heard: string;
+  said: string;
+  /** Why the owner should look at this one; null for ordinary talk. */
+  flagged: string | null;
+}
+
+/** The helper parrot, as the admin page sees it. */
+export interface HelperView {
+  /** The owner's switch. */
+  on: boolean;
+  /** The server has the keys it needs to hear, think and speak. */
+  ready: boolean;
+  /** Flagged talk first, then the rest; each newest first. */
+  talk: TalkView[];
+}

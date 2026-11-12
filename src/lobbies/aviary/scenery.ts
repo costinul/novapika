@@ -15,6 +15,9 @@ import {
   HOME_LOW_BRANCHES,
   HOME_TRUNK,
   LOOKOUT,
+  HELPER_STUMP,
+  HELPER_STUMP_HEIGHT,
+  HELPER_STUMP_RADIUS,
   NEST_RADIUS,
   NEST_Y,
   PADS,
@@ -99,6 +102,12 @@ export function buildScenery(b: StaticBuilder): void {
       0.13,
       { sides: 5 },
     );
+  }
+  // The helper parrot's stump, with a bright top so it can be found.
+  {
+    const [x, top, z] = HELPER_STUMP;
+    b.drum(WOOD, [x, top - HELPER_STUMP_HEIGHT / 2 - 0.02, z], HELPER_STUMP_RADIUS, HELPER_STUMP_HEIGHT - 0.04, 10);
+    b.drum(0x4fd6cf, [x, top - 0.02, z], HELPER_STUMP_RADIUS + 0.02, 0.04, 10);
   }
   // Character perches: a post and a bar. Nova's and Pika's are golden.
   for (const { characterId, position, yaw } of CONTENT.characterPerches ?? []) {

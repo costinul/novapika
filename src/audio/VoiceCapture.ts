@@ -23,7 +23,11 @@ export class VoiceCapture {
   private quiet = 0;
   private recording = false;
 
-  constructor(private readonly sampleRate: number) {}
+  /** `limits` are for a listener that wants longer phrases than these. */
+  constructor(
+    private readonly sampleRate: number,
+    private readonly limits = { maxSeconds: VoiceCapture.MAX_SECONDS, pauseSeconds: VoiceCapture.PAUSE_SECONDS },
+  ) {}
 
   /** Forget anything heard so far. */
   reset(): void {
@@ -69,8 +73,8 @@ export class VoiceCapture {
       this.quiet += seconds;
     }
 
-    const paused = this.quiet >= VoiceCapture.PAUSE_SECONDS;
-    const full = this.length >= VoiceCapture.MAX_SECONDS * this.sampleRate;
+    const paused = this.quiet >= this.limits.pauseSeconds;
+    const full = this.length >= this.limits.maxSeconds * this.sampleRate;
     if (!paused && !full) return null;
 
     const worthKeeping = this.spoken >= VoiceCapture.MIN_SECONDS;

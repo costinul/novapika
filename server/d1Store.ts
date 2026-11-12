@@ -1,5 +1,5 @@
 import type { Dna } from '../shared/dna';
-import type { PetRow, PetStage, PlayerRow, RequestRow, Store } from './store';
+import type { PetRow, PetStage, PlayerRow, RequestRow, Store, TalkRow } from './store';
 
 // The Store, kept in a Cloudflare D1 database. The tables are made by the
 // files in server/migrations.
@@ -62,6 +62,28 @@ const toRequest = (r: RequestRecord): RequestRow => ({
   createdAt: r.created_at,
 });
 
+interface TalkRecord {
+  id: string;
+  at: number;
+  lobby_id: string;
+  player_id: string;
+  nickname: string;
+  heard: string;
+  said: string;
+  flagged: string | null;
+}
+
+const toTalk = (r: TalkRecord): TalkRow => ({
+  id: r.id,
+  at: r.at,
+  lobbyId: r.lobby_id,
+  playerId: r.player_id,
+  nickname: r.nickname,
+  heard: r.heard,
+  said: r.said,
+  flagged: r.flagged,
+});
+
 export function d1Store(db: D1Database): Store {
   const onePlayer = async (where: string, value: string): Promise<PlayerRow | null> => {
     const record = await db.prepare(`SELECT * FROM players WHERE ${where} = ?`).bind(value).first<PlayerRecord>();
@@ -103,6 +125,7 @@ export function d1Store(db: D1Database): Store {
       await db.batch([
         db.prepare('DELETE FROM requests WHERE asker_id = ? OR owner_id = ?').bind(playerId, playerId),
         db.prepare('DELETE FROM sessions WHERE player_id = ?').bind(playerId),
+        db.prepare('DELETE FROM helper_talk WHERE player_id = ?').bind(playerId),
         db.prepare('DELETE FROM pets WHERE owner_id = ?').bind(playerId),
         db.prepare('DELETE FROM players WHERE id = ?').bind(playerId),
       ]);
@@ -184,6 +207,32 @@ export function d1Store(db: D1Database): Store {
     },
     async removeRequestsNaming(petId) {
       await db.prepare('DELETE FROM requests WHERE asker_pet_id = ? OR asked_pet_id = ?').bind(petId, petId).run();
+    },
+
+    async addTalk(t) {
+      await db
+        .prepare(
+          'INSERT INTO helper_talk (id, at, lobby_id, player_id, nickname, heard, said, flagged) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        )
+        .bind(t.id, t.at, t.lobbyId, t.playerId, t.nickname, t.heard, t.said, t.flagged)
+        .run();
+    },
+    async talk(limit) {
+      const { results } = await db.prepare('SELECT * FROM helper_talk ORDER BY at DESC LIMIT ?').bind(limit).all<TalkRecord>();
+      return results.map(toTalk);
+    },
+    async removeTalkBefore(time) {
+      await db.prepare('DELETE FROM helper_talk WHERE at < ?').bind(time).run();
+    },
+
+    async setting(key) {
+      return (await db.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first<{ value: string }>())?.value ?? null;
+    },
+    async setSetting(key, value) {
+      await db
+        .prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value')
+        .bind(key, value)
+        .run();
     },
   };
 }

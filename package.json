@@ -15,9 +15,11 @@
     "preview": "vite preview --host",
     "typecheck": "tsc --noEmit && tsc --noEmit -p server",
     "test": "vitest run",
+    "test:helper": "vitest run tests/helperLive.test.ts",
     "deploy": "npm run build && npx --yes wrangler@4.160.0 deploy"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "@dimforge/rapier3d-compat": "^0.21.0",
     "three": "^0.187.0"
   },

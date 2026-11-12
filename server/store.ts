@@ -41,6 +41,20 @@ export interface RequestRow {
   createdAt: number;
 }
 
+/** Something said to the helper parrot, and what it answered. Kept for a week, as text only. */
+export interface TalkRow {
+  id: string;
+  at: number;
+  lobbyId: string;
+  playerId: string;
+  /** The player's nickname when it was said. */
+  nickname: string;
+  heard: string;
+  said: string;
+  /** Why the owner should look at this one; null for ordinary talk. */
+  flagged: string | null;
+}
+
 export interface Store {
   addPlayer(player: PlayerRow): Promise<void>;
   players(): Promise<PlayerRow[]>;
@@ -49,7 +63,7 @@ export interface Store {
   /** Give a player a new code, and sign out every headset that used the old one. */
   replaceCode(playerId: string, codeHash: string): Promise<void>;
   setFollower(playerId: string, petId: string | null): Promise<void>;
-  /** Remove a player for good, with their sign-ins, their pets and eggs, and every request to or from them. */
+  /** Remove a player for good, with their sign-ins, their pets and eggs, every request to or from them, and what they said to the helper parrot. */
   removePlayer(playerId: string): Promise<void>;
 
   addSession(tokenHash: string, playerId: string, createdAt: number): Promise<void>;
@@ -73,4 +87,13 @@ export interface Store {
   removeRequest(id: string): Promise<void>;
   /** Drop every request that names this pet, on either side. */
   removeRequestsNaming(petId: string): Promise<void>;
+
+  addTalk(talk: TalkRow): Promise<void>;
+  /** The newest talk with the helper parrot, newest first. */
+  talk(limit: number): Promise<TalkRow[]>;
+  removeTalkBefore(time: number): Promise<void>;
+
+  /** One of the owner's switches, or null if it was never touched. */
+  setting(key: string): Promise<string | null>;
+  setSetting(key: string, value: string): Promise<void>;
 }

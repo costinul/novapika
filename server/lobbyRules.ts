@@ -2,12 +2,14 @@ import {
   CLOSE_BAD,
   CLOSE_ELSEWHERE,
   CLOSE_FULL,
+  FRAME_HEARD,
   FRAME_POSES,
   LOBBY_SIZE,
   MAX_FRAME_BYTES,
   MAX_TEXT_BYTES,
 } from '../shared/net';
 import { parseAction } from '../shared/actions';
+import { MAX_HEARD_BYTES, SOUND_HEAD } from '../shared/helper';
 import type { ClientMessage, LobbyPlayer, ServerMessage, SharedWorld } from '../shared/net';
 import { LobbyWorld } from './lobbyWorld';
 
@@ -28,6 +30,11 @@ export interface Wire<C> {
   keep(conn: C, member: Member): void;
   /** Keep how the lobby's toys stand, so it outlives the lobby's memory; null to forget it. */
   save?(world: SharedWorld | null): void;
+  /**
+   * A player said something to the helper parrot: the samples, as
+   * shared/helper.ts describes them. Left out, the lobby has no helper.
+   */
+  heard?(conn: C, member: Member, samples: Uint8Array): void;
 }
 
 const isText = (value: unknown, max: number): value is string =>
@@ -141,6 +148,12 @@ export class LobbyRules<C> {
     const member = this.members.get(conn);
     if (!member) return;
     const bytes = new Uint8Array(data);
+    if (bytes[0] === FRAME_HEARD) {
+      if (bytes.length > MAX_HEARD_BYTES) return this.bad(conn);
+      // For the helper parrot only: passed on to nobody.
+      if (bytes.length > SOUND_HEAD) this.wire.heard?.(conn, member, bytes.subarray(SOUND_HEAD));
+      return;
+    }
     if (bytes.length < 2 || bytes.length > MAX_FRAME_BYTES || bytes[0] !== FRAME_POSES) return this.bad(conn);
     bytes[1] = member.slot;
     for (const other of this.members.keys()) if (other !== conn) this.wire.send(other, data);
@@ -179,8 +192,14 @@ export class LobbyRules<C> {
     this.wire.close(conn, CLOSE_BAD, 'bad');
   }
 
-  private tell(conn: C, message: ServerMessage): void {
+  /** Tell one player something. */
+  tell(conn: C, message: ServerMessage): void {
     this.wire.send(conn, JSON.stringify(message));
+  }
+
+  /** Send everybody in the lobby a binary frame. */
+  sendAll(frame: ArrayBuffer): void {
+    for (const conn of this.members.keys()) this.wire.send(conn, frame);
   }
 
   private tellOthers(conn: C, message: ServerMessage): void {
@@ -188,7 +207,8 @@ export class LobbyRules<C> {
     for (const other of this.members.keys()) if (other !== conn) this.wire.send(other, text);
   }
 
-  private tellAll(message: ServerMessage): void {
+  /** Tell everybody in the lobby something. */
+  tellAll(message: ServerMessage): void {
     const text = JSON.stringify(message);
     for (const conn of this.members.keys()) this.wire.send(conn, text);
   }

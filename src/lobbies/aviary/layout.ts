@@ -198,6 +198,15 @@ function beside(stand: Stand, right: number, up = 0): Stand {
 
 /** Height of the top of a perch for a pet, above the nest floor. */
 const PET_PERCH = PET_RAIL_HEIGHT + 0.03;
+
+/** How tall the helper parrot's stump is: it brings the parrot's eyes to about a child's. */
+export const HELPER_STUMP_HEIGHT = 0.6;
+export const HELPER_STUMP_RADIUS = 0.26;
+/**
+ * The top of the helper parrot's stump: at the rim of the nest, between the
+ * character perches and the picture board, close to where every player starts.
+ */
+export const HELPER_STUMP: Vec3 = inNest(345, 2.0, HELPER_STUMP_HEIGHT).position;
 /** The egg cup, with a heart perch to each side: between the pet rail and the character perches. */
 const EGG_CUP = inNest(238, 1.9, 0);
 export const EGG_CUP_SIZE: Vec3 = [0.46, 0.1, 0.46];
@@ -452,6 +461,8 @@ const FLOCK: FlockDef = {
     { id: 'flock-cockatoo-2', characterId: 'cockatoo', home: treeSpot(4, 1), mimics: true },
     { id: 'flock-macaw-1', characterId: 'macaw', home: treeSpot(3, 3) },
     { id: 'flock-macaw-2', characterId: 'macaw', home: treeSpot(6, 2) },
+    // Last, so the others keep their places in what the host sends.
+    { id: 'helper', characterId: 'kiki', home: -1, helper: HELPER_STUMP },
   ],
 };
 

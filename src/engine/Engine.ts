@@ -10,6 +10,7 @@ import {
 } from 'three';
 import type { Material, Mesh, Object3D, Texture } from 'three';
 import { iceServers, petsApi } from '../account/account';
+import { Ear } from '../audio/Ear';
 import { Microphone } from '../audio/Microphone';
 import { Mimicry } from '../audio/Mimicry';
 import { Sounds } from '../audio/Sounds';
@@ -21,6 +22,7 @@ import { Vignette } from '../comfort/Vignette';
 import { movementConfig } from '../config/movement';
 import { DebugPanel } from '../debug/DebugPanel';
 import { Flock } from '../flock/Flock';
+import { Helper } from '../helper/Helper';
 import type { PanelPointer } from '../debug/DebugPanel';
 import { lobbyRegistry } from '../lobbies/registry';
 import type { LobbyInstance, LobbyModule } from '../lobbies/types';
@@ -94,8 +96,10 @@ export class Engine {
   private readonly feathers = new FeatherBatch(560);
   private readonly microphone = new Microphone();
   private readonly mimicry = new Mimicry();
+  private readonly ear = new Ear();
   private readonly voice: Voice;
   private readonly flock: Flock;
+  private readonly helper: Helper;
   /** A signed-in player's pets. Tell it who is signed in with `pets.setAccount`. */
   readonly pets: Pets;
   /** Called when the server stops taking this device's sign-in in the middle of a game. */
@@ -205,6 +209,15 @@ export class Engine {
     this.world.onJingle = (_toy, strength) => this.sounds.jingle(strength);
     this.flock = new Flock(this.world, this.actions, this.physics, this.feathers, this.sounds, this.mimicry);
     this.scene.add(this.flock.object);
+    this.helper = new Helper({
+      local: this.localPlayer,
+      parrot: () => this.flock.helper,
+      ear: this.ear,
+      context: () => this.sounds.context,
+      send: (samples) => this.multiplayer.sendHeard(samples),
+      onSpeaks: (seconds) => this.flock.helperSpeaks(seconds),
+      onSquawks: () => this.flock.helperSquawks(),
+    });
     this.pets = new Pets({
       physics: this.physics,
       feathers: this.feathers,
@@ -235,6 +248,7 @@ export class Engine {
     });
     this.multiplayer = new Multiplayer({
       voice: this.voice,
+      helper: this.helper,
       world: this.world,
       feathers: this.feathers,
       local: this.localPlayer,
@@ -335,11 +349,14 @@ export class Engine {
   /** Must be called from a user gesture such as a button click. */
   async enterVR(): Promise<void> {
     this.sounds.unlock();
-    // Asks for the microphone once: to talk to the other players, and for the
-    // parrots that copy what you say. The game is the same without it.
+    // Asks for the microphone once: to talk to the other players, for the
+    // parrots that copy what you say, and for the helper parrot to hear you.
+    // The game is the same without it.
     void this.microphone.open().then((stream) => {
       this.voice.setMicrophone(stream);
-      if (this.sounds.context) void this.mimicry.enable(this.sounds.context, stream);
+      if (!this.sounds.context) return;
+      void this.mimicry.enable(this.sounds.context, stream);
+      void this.ear.enable(this.sounds.context, stream);
     });
     if (this.renderer.xr.isPresenting) return;
     const session = await navigator.xr!.requestSession('immersive-vr', {
@@ -392,6 +409,7 @@ export class Engine {
     this.playerView.update(dt);
     // First, so that parrots other games run are where those games say before they are drawn.
     this.multiplayer.frame(dt);
+    this.helper.frame(dt);
     // The flock is simulated at half rate; draw it part way between its steps.
     const between = ((this.simSteps % FLOCK_EVERY) + this.stepper.alpha) / FLOCK_EVERY;
     this.flock.frame(dt, between);

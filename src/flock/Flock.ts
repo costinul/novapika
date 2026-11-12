@@ -11,7 +11,7 @@ import type { MoveInput } from '../movement/types';
 import { HANDS, Player } from '../player/Player';
 import { PlayerView } from '../player/PlayerView';
 import type { ActionLayer } from '../world/actions';
-import type { FlockDef } from '../world/types';
+import type { FlockDef, FlockParrotDef } from '../world/types';
 import type { WorldState } from '../world/WorldState';
 import { Brain } from './Brain';
 import type { FlockView } from './Brain';
@@ -83,6 +83,29 @@ export class Flock implements FlockView {
     return this.members.map((m) => m.brain);
   }
 
+  /** The lobby's helper parrot, if it has one. */
+  get helper(): Player | null {
+    return this.helperMember()?.player ?? null;
+  }
+
+  /** The helper parrot is talking for this long: it bobs as the mimics do. */
+  helperSpeaks(seconds: number): void {
+    const member = this.helperMember();
+    if (!member) return;
+    member.brain.talking = seconds;
+    member.player.excitement = 1;
+  }
+
+  /** The helper parrot could not answer: it gives its own call instead. */
+  helperSquawks(): void {
+    const member = this.helperMember();
+    if (member) this.voice(member);
+  }
+
+  private helperMember(): Member | undefined {
+    return this.members.find((m) => m.brain.def.helper);
+  }
+
   /** Bring a lobby's flock to life. Call after the world has loaded the lobby. */
   load(def: FlockDef | undefined): void {
     if (!def) return;
@@ -114,8 +137,13 @@ export class Flock implements FlockView {
       player.simulatedHere = this.simulated;
       this.members.push(member);
       this.world.players.set(player.id, player);
-      this.putAt(member, this.spots[parrot.home]);
+      this.putAt(member, this.homeOf(parrot));
     }
+  }
+
+  /** Where a parrot starts, and is put back if it gets stuck. */
+  private homeOf(def: FlockParrotDef): Vector3 {
+    return def.helper ? new Vector3(...def.helper) : this.spots[def.home];
   }
 
   /** Remove the flock. Call before the world forgets the lobby. */
@@ -168,7 +196,7 @@ export class Flock implements FlockView {
       const { brain, player } = member;
       brain.update(dt);
       if (brain.rescue || player.position.y < LOST_BELOW_Y) {
-        this.putAt(member, this.spots[brain.def.home]);
+        this.putAt(member, this.homeOf(brain.def));
         brain.rescued();
         continue;
       }

@@ -77,15 +77,19 @@ lobby empties. The parrot remembers nothing about a child between visits.
 
 ## 5. The body
 
-- The AI parrot is a lobby parrot with its own look and name. It takes no
-  player's place, and its poses travel with the host's as the others' do.
+- The AI parrot is a lobby parrot with its own look and name: Kiki, a
+  turquoise parrot with a pink crest. It takes no player's place, and its
+  poses travel with the host's as the others' do.
+- It has its own stump in the nest, beside the picture board, where every
+  player starts.
 - The model has three tools: `follow(player)`, `lead_to(place)` and `stay`.
   Places are a fixed list per lobby, such as the egg cup, the feeder, the
   picture board and the rings.
 - The lobby sends the chosen intent to every game. The host's `Brain` flies
   it, with new errands for going to a named player and to a named place.
   When the host changes, the new host already knows the intent.
-- With no intent, it behaves as any lobby parrot.
+- With no intent, it stays on its stump and turns to whoever is near, so
+  that a child always knows where to find it.
 
 ## 6. Starting a chat itself
 
@@ -247,12 +251,11 @@ together.
   This is not legal advice.
 - If the game is ever opened to others, the plan is for players over 13.
   The rules of each company should be read again then.
-- Not checked yet: the exact model names for Whisper and the speech; whether
-  Haiku's thinking should be turned down for speed;
+- Not checked against the live services: the model names for Whisper and
+  the speech, and how fast Haiku answers with its thinking turned low;
   the biggest message a lobby socket takes; the microphone's sample rate on
   the headset.
 - Whisper will mishear small children at times. The parrot is told to ask
   again kindly rather than guess.
-- The AI parrot's name and look are not chosen.
 - Adding the Workers AI binding and the scheduled job changes the Worker's
   configuration. The new table is a migration.

@@ -1,4 +1,4 @@
-import type { PetRow, PlayerRow, RequestRow, Store } from '../server/store';
+import type { PetRow, PlayerRow, RequestRow, Store, TalkRow } from '../server/store';
 
 /** A Store kept in memory, for testing the server's rules without a database. */
 export class MemoryStore implements Store {
@@ -7,6 +7,8 @@ export class MemoryStore implements Store {
   readonly sessions = new Map<string, string>();
   readonly petRows = new Map<string, PetRow>();
   readonly requestRows = new Map<string, RequestRow>();
+  talkRows: TalkRow[] = [];
+  readonly settings = new Map<string, string>();
 
   async addPlayer(player: PlayerRow): Promise<void> {
     this.playerRows.set(player.id, structuredClone(player));
@@ -33,6 +35,7 @@ export class MemoryStore implements Store {
     }
     for (const [tokenHash, id] of this.sessions) if (id === playerId) this.sessions.delete(tokenHash);
     for (const [id, pet] of this.petRows) if (pet.ownerId === playerId) this.petRows.delete(id);
+    this.talkRows = this.talkRows.filter((talk) => talk.playerId !== playerId);
     this.playerRows.delete(playerId);
   }
 
@@ -87,5 +90,22 @@ export class MemoryStore implements Store {
     for (const request of this.requestRows.values()) {
       if (request.askerPetId === petId || request.askedPetId === petId) this.requestRows.delete(request.id);
     }
+  }
+
+  async addTalk(talk: TalkRow): Promise<void> {
+    this.talkRows.push(structuredClone(talk));
+  }
+  async talk(limit: number): Promise<TalkRow[]> {
+    return structuredClone([...this.talkRows].sort((a, b) => b.at - a.at).slice(0, limit));
+  }
+  async removeTalkBefore(time: number): Promise<void> {
+    this.talkRows = this.talkRows.filter((talk) => talk.at >= time);
+  }
+
+  async setting(key: string): Promise<string | null> {
+    return this.settings.get(key) ?? null;
+  }
+  async setSetting(key: string, value: string): Promise<void> {
+    this.settings.set(key, value);
   }
 }

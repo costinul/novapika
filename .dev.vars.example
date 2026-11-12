@@ -10,3 +10,10 @@ ADMIN_PASSWORD=local-dev-only
 # home network.
 # TURN_KEY_ID=
 # TURN_KEY_API_TOKEN=
+
+# Optional: the helper parrot. It thinks with Claude and speaks with OpenAI's
+# text-to-speech. Without both keys it stays silent and the game plays as
+# before. Its hearing runs on Cloudflare, so `npm run dev:api` must be signed
+# in to Cloudflare for it to hear.
+# ANTHROPIC_API_KEY=
+# OPENAI_API_KEY=

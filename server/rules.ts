@@ -1,10 +1,10 @@
-import { FREED_FOR_DAYS, PET_CAP, SEEDS_TO_HATCH } from '../shared/api';
-import type { AdminPlayerView, EggView, FriendView, PetView, PlayerView, RequestView } from '../shared/api';
+import { FREED_FOR_DAYS, PET_CAP, SEEDS_TO_HATCH, TALK_KEPT_DAYS } from '../shared/api';
+import type { AdminPlayerView, EggView, FriendView, PetView, PlayerView, RequestView, TalkView } from '../shared/api';
 import { breed, breedingOdds } from '../shared/breeding';
 import { tierOf } from '../shared/dna';
 import type { Dna } from '../shared/dna';
 import { founders } from '../shared/founders';
-import type { PetRow, PlayerRow, RequestRow, Store } from './store';
+import type { PetRow, PlayerRow, RequestRow, Store, TalkRow } from './store';
 
 // The server's rules: who may do what, and what happens. Plain functions over
 // a Store, with everything random or timed passed in, so they can be tested
@@ -343,4 +343,47 @@ export async function restorePet(store: Store, petId: string): Promise<void> {
   if (!pet || pet.stage !== 'freed') throw new Refusal('no-such-pet', 404);
   await roomForPet(store, pet.ownerId);
   await store.updatePet(pet.id, { stage: 'hatched', freedAt: null });
+}
+
+// --- The helper parrot ----------------------------------------------------------
+
+/** The name of the owner's switch for the helper parrot. */
+const HELPER_SWITCH = 'helper';
+/** The most talk the admin page is shown at once. */
+const TALK_SHOWN = 200;
+
+/** Whether the owner has the helper parrot switched on. It is on until it is switched off. */
+export async function helperOn(store: Store): Promise<boolean> {
+  return (await store.setting(HELPER_SWITCH)) !== 'off';
+}
+
+export async function setHelperOn(store: Store, on: unknown): Promise<void> {
+  await store.setSetting(HELPER_SWITCH, on === true ? 'on' : 'off');
+}
+
+/** Keep one thing said to the helper parrot and what it answered. */
+export async function keepTalk(store: Store, deps: Pick<Deps, 'id'>, talk: Omit<TalkRow, 'id'>): Promise<void> {
+  await store.addTalk({ ...talk, id: deps.id() });
+}
+
+/** Forget what was said to the helper parrot more than a week ago. */
+export async function forgetOldTalk(store: Store, deps: Deps): Promise<void> {
+  await store.removeTalkBefore(deps.now() - TALK_KEPT_DAYS * DAY);
+}
+
+/** What was said to the helper parrot this week, for the admin page: flagged talk first, each newest first. */
+export async function talkView(store: Store, deps: Deps): Promise<TalkView[]> {
+  await forgetOldTalk(store, deps);
+  const talk = await store.talk(TALK_SHOWN);
+  const view = ({ at, lobbyId, nickname, heard, said, flagged }: TalkRow): TalkView => ({ at, lobbyId, nickname, heard, said, flagged });
+  return [...talk.filter((t) => t.flagged), ...talk.filter((t) => !t.flagged)].map(view);
+}
+
+/** A player's pets and egg in a few words, for the helper parrot to know who it is talking to. */
+export async function aboutPlayer(store: Store, playerId: string): Promise<string> {
+  const pets = await store.petsOf(playerId);
+  const count = hatched(pets).length;
+  const egg = eggOf(pets);
+  const has = `${count} pet${count === 1 ? '' : 's'}`;
+  return egg ? `They have ${has}, and an egg that has been fed ${egg.seeds} of ${SEEDS_TO_HATCH} times.` : `They have ${has} and no egg.`;
 }

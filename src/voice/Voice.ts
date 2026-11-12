@@ -85,7 +85,7 @@ export class Voice {
    */
   place(position: Vector3, turn: Quaternion, headOf: (slot: number) => Vector3 | null, scratch: Vector3): void {
     const ctx = this.deps.context();
-    if (!ctx || this.peers.size === 0) return;
+    if (!ctx) return;
     const listener = ctx.listener;
     const forward = scratch.set(0, 0, -1).applyQuaternion(turn);
     const [fx, fy, fz] = [forward.x, forward.y, forward.z];

@@ -28,7 +28,8 @@ const SQUEAK = 1.6;
  * Privacy: sound is only examined while a parrot is listening; one phrase of
  * at most a few seconds is held in memory, played back once, and then
  * dropped. Nothing of it is stored or sent anywhere. (The same microphone
- * carries the player's voice to the others in the lobby; that is src/voice.)
+ * carries the player's voice to the others in the lobby; that is src/voice.
+ * It also hears what is said to the helper parrot; that is Ear.ts.)
  * If permission is refused, the game simply has no mimicry.
  */
 export class Mimicry {

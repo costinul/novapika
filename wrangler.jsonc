@@ -20,7 +20,8 @@
     }
   ],
   // One Durable Object per lobby: the room every player there holds a
-  // WebSocket to. It keeps nothing once the lobby is empty.
+  // WebSocket to. Once the lobby is empty it keeps only its own name and how
+  // many phrases its helper parrot has answered today.
   "durable_objects": {
     "bindings": [{ "name": "LOBBY", "class_name": "Lobby" }]
   },
@@ -43,6 +44,14 @@
   // Set with `wrangler secret put ADMIN_PASSWORD`; for local work it is read
   // from .dev.vars. Never written here.
   "secrets": { "required": ["ADMIN_PASSWORD"] },
+  // The helper parrot's hearing: speech to text, inside Cloudflare. Its
+  // thinking and speaking need two more secrets, ANTHROPIC_API_KEY and
+  // OPENAI_API_KEY, set the same way. Without them the game runs as before
+  // and the helper parrot stays silent.
+  "ai": { "binding": "AI" },
+  // Once a day, what was said to the helper parrot more than a week ago is
+  // forgotten.
+  "triggers": { "crons": ["17 3 * * *"] },
   "observability": {
     "enabled": true,
     "logs": { "enabled": true },

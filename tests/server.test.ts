@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  aboutPlayer,
   answer,
   askFor,
   breedOwn,
@@ -7,9 +8,12 @@ import {
   chooseFollower,
   createPlayer,
   feedEgg,
+  forgetOldTalk,
   freePet,
   friendsOf,
   givePet,
+  helperOn,
+  keepTalk,
   login,
   overview,
   playerForToken,
@@ -19,7 +23,9 @@ import {
   removePlayer,
   resetCode,
   restorePet,
+  setHelperOn,
   sha256,
+  talkView,
 } from '../server/rules';
 import type { Deps } from '../server/rules';
 import type { PlayerRow } from '../server/store';
@@ -631,5 +637,76 @@ describe('deleting a player', () => {
 
   it('refuses a player that does not exist', async () => {
     await refused(removePlayer(store, 'nobody'), 'no-such-player', 404);
+  });
+});
+
+describe('the helper parrot', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  let store: MemoryStore;
+  let deps: ReturnType<typeof testDeps>;
+  let sam: PlayerRow;
+  const said = (at: number, heard: string, flagged: string | null = null): Promise<void> =>
+    keepTalk(store, deps, { at, lobbyId: 'aviary', playerId: sam.id, nickname: 'Sam', heard, said: `reply to ${heard}`, flagged });
+
+  beforeEach(async () => {
+    store = new MemoryStore();
+    deps = testDeps();
+    sam = (await createPlayer(store, deps, 'Sam')).player;
+  });
+
+  it('is on until the owner switches it off', async () => {
+    expect(await helperOn(store)).toBe(true);
+    await setHelperOn(store, false);
+    expect(await helperOn(store)).toBe(false);
+    await setHelperOn(store, true);
+    expect(await helperOn(store)).toBe(true);
+    // Anything that is not a plain yes switches it off.
+    await setHelperOn(store, 'yes');
+    expect(await helperOn(store)).toBe(false);
+  });
+
+  it('shows the owner what was said: flagged talk first, each newest first', async () => {
+    const now = deps.now();
+    await said(now - 4000, 'one');
+    await said(now - 3000, 'two', 'worry: sad');
+    await said(now - 2000, 'three');
+    await said(now - 1000, 'four', 'refused: a link');
+    const view = await talkView(store, deps);
+    expect(view.map((t) => t.heard)).toEqual(['four', 'two', 'three', 'one']);
+    expect(view[0]).toEqual({
+      at: now - 1000,
+      lobbyId: 'aviary',
+      nickname: 'Sam',
+      heard: 'four',
+      said: 'reply to four',
+      flagged: 'refused: a link',
+    });
+  });
+
+  it('forgets what was said more than a week ago', async () => {
+    const now = deps.now();
+    await said(now - 8 * DAY, 'old');
+    await said(now - 6 * DAY, 'new');
+    await forgetOldTalk(store, deps);
+    expect(store.talkRows.map((t) => t.heard)).toEqual(['new']);
+    // Looking at the talk forgets the old as well.
+    await said(now - 9 * DAY, 'older');
+    expect((await talkView(store, deps)).map((t) => t.heard)).toEqual(['new']);
+  });
+
+  it('forgets what a player said when the player is removed', async () => {
+    const alex = (await createPlayer(store, deps, 'Alex')).player;
+    await said(deps.now(), 'from Sam');
+    await keepTalk(store, deps, { at: deps.now(), lobbyId: 'aviary', playerId: alex.id, nickname: 'Alex', heard: 'from Alex', said: 'hi', flagged: null });
+    await removePlayer(store, sam.id);
+    expect(store.talkRows.map((t) => t.heard)).toEqual(['from Alex']);
+  });
+
+  it('knows a player by their pets and egg, and nothing else', async () => {
+    expect(await aboutPlayer(store, sam.id)).toBe('They have 1 pet and no egg.');
+    const [pet] = await store.petsOf(sam.id);
+    await breedOwn(store, deps, sam, pet.id, (await givePet(store, deps, sam.id, Object.keys(founders)[0])).id);
+    await feedEgg(store, sam);
+    expect(await aboutPlayer(store, sam.id)).toBe(`They have 2 pets, and an egg that has been fed 1 of ${SEEDS_TO_HATCH} times.`);
   });
 });
