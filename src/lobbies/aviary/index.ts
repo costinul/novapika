@@ -1,8 +1,5 @@
 import {
-  BackSide,
-  BufferAttribute,
   CanvasTexture,
-  Color,
   DirectionalLight,
   DoubleSide,
   Group,
@@ -11,11 +8,11 @@ import {
   MeshBasicMaterial,
   PlaneGeometry,
   RepeatWrapping,
-  SphereGeometry,
   SRGBColorSpace,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { StaticBuilder } from '../build';
+import { sky } from '../sky';
 import { howToBoard } from './howTo';
 import type { LobbyModule } from '../types';
 import { CONTENT, HALF, HEIGHT, SPAWNS } from './layout';
@@ -63,22 +60,6 @@ function netting(): Mesh {
     merged,
     new MeshBasicMaterial({ map: netTexture(), alphaTest: 0.5, side: DoubleSide }),
   );
-}
-
-/** A dome of sky, pale at the horizon and deeper blue overhead. */
-function sky(horizon: number, zenith: number): Mesh {
-  const dome = new SphereGeometry(400, 24, 12);
-  const position = dome.attributes.position;
-  const colors = new Float32Array(position.count * 3);
-  const low = new Color(horizon);
-  const high = new Color(zenith);
-  const c = new Color();
-  for (let i = 0; i < position.count; i++) {
-    const t = Math.min(1, Math.max(0, position.getY(i) / 400));
-    c.lerpColors(low, high, Math.sqrt(t)).toArray(colors, i * 3);
-  }
-  dome.setAttribute('color', new BufferAttribute(colors, 3));
-  return new Mesh(dome, new MeshBasicMaterial({ vertexColors: true, side: BackSide, depthWrite: false }));
 }
 
 /**

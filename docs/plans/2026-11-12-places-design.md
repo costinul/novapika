@@ -147,7 +147,11 @@ Each step is committed and pushed to main.
 2. The pet and the chosen parrot come along. Player counts on the board.
    Built. The chosen parrot needed nothing. The counts come from a new call,
    `GET /api/places`, which asks each lobby how many players it holds.
-3. Downham Market.
+3. Downham Market. Built: `src/lobbies/downhamMarket/`. The tower and the
+   Town Hall follow their listed descriptions: cast iron, black and white,
+   with an eight-sided base and shaft and a four-faced clock; white brick
+   with carrstone panels and a cupola. Every roof is flat, so that what is
+   drawn and what is solid agree. The test room is off the boards.
 4. London.
 5. New York.
 

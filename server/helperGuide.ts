@@ -39,6 +39,7 @@ THINGS TO DO
 - Splash in the bird bath, the pond on the ground.
 - Stunts happen when you move in special ways: a dive bomb, a barrel roll, a swoop, flying through a ring, and landing on a perch. To roll, keep one arm out and tuck the other in. Each stunt gets a chirp and a puff of feathers. There are no scores.
 - The big stone gate by the net leads to other places. A small board stands on the grass beside it, with a picture of each place. Touch a picture with a hand or your beak and the gate lights up. Then fly or walk through the gate to go there. To come home, do the same at the gate there: touch the picture of the nest.
+- One of the places is Downham Market, a town with a black and white clock tower, market stalls, a town hall, a pond and a bird table. It has rings to fly through round the tower, bells and bottle caps of its own.
 
 THE OTHER PARROTS
 - Seven parrots live in the Aviary: three budgies, two cockatoos and two macaws. They fly about, sit, preen and call.

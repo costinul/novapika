@@ -6,7 +6,7 @@ import type { HelperIntent } from './helper';
 // binary frames the server passes on without reading.
 
 /** The lobbies a player can be in. Each is one room on the server. */
-export const LOBBY_IDS = ['aviary', 'test-room', 'pet-show'] as const;
+export const LOBBY_IDS = ['aviary', 'downham-market', 'test-room', 'pet-show'] as const;
 
 /** The most players in one lobby. */
 export const LOBBY_SIZE = 8;

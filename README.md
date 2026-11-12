@@ -252,10 +252,26 @@ voice sounds. Everything else was tested with unit tests and the desktop emulato
 ## Places (being built)
 
 Design: [docs/plans/2026-11-12-places-design.md](docs/plans/2026-11-12-places-design.md).
-Steps 1 and 2 of 5 are built: the gate, its board and the trip; the pet that
-comes along; and the counts of who is where. The new places themselves
-(Downham Market, London, New York) are not built yet, so for now the gate
-leads to the test room and back.
+Steps 1 to 3 of 5 are built: the gate, its board and the trip; the pet that
+comes along; the counts of who is where; and the first new place, Downham
+Market. London and New York are not built yet.
+
+- **Downham Market.** A toy town, not a map, about 100 m across. In the middle
+  of the market place stands the clock tower: black and white, with an
+  eight-sided base and shaft, a clock with four faces, a pointed roof and a
+  gold vane. Six striped market stalls stand round it, and a ring course of
+  eight rings circles it. On the west side is the Town Hall, white brick with
+  brown carrstone panels and a cupola. Shops in ginger-brown carrstone, cream
+  and brick stand round the market place, with greens behind them: trees, a
+  pond to splash in, a bird table for seeds, and a toy box. Plain houses
+  stand all round the edge, with an unseen wall behind them. Every roof is
+  flat, to land on.
+- **To do there.** The same kinds of play as in the Aviary: five bells, four
+  hidden bottle caps (on the tower's ledge, beside the Town Hall's cupola, on
+  the tallest house and on the gate), seeds and millet on the stalls to carry
+  to the bird table, toys to tidy, and four of the town's own parrots. A town
+  sign stands by the street up from the gate. There is no nest, pet rail or
+  Kiki there.
 
 - **The gate.** The big stone gate against the Aviary's far netting is open.
   With no place picked the sheet in it is dim, and going through does nothing.
@@ -311,8 +327,9 @@ npm run dev:local
 ```
 
 The game opens in the Aviary. Add `?lobby=test-room` to the address to load
-the small test room instead; lobbies are picked by id from
-`src/lobbies/registry.ts`.
+the small test room instead, or `?lobby=downham-market` to start in the town;
+lobbies are picked by id from `src/lobbies/registry.ts`. The test room has a
+gate of its own, but is on no board.
 
 Tests and checks:
 

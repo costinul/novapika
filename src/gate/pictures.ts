@@ -46,34 +46,50 @@ export const PICTURES: Record<string, (g: G) => void> = {
     }
   },
 
-  /** The test room: pale tiled walls, a green floor and coloured blocks. */
-  'test-room'(g) {
-    g.fillStyle = '#ffe9c7';
+  /** Downham Market: the black and white clock tower, with ginger-brown shops behind it. */
+  'downham-market'(g) {
+    g.fillStyle = '#bfe6ff';
     g.fillRect(0, 0, SIZE, SIZE);
-    g.strokeStyle = '#f2d3a3';
-    g.lineWidth = 3;
-    for (let i = 32; i < SIZE; i += 32) {
-      g.beginPath();
-      g.moveTo(i, 0);
-      g.lineTo(i, 176);
-      g.moveTo(0, i);
-      g.lineTo(SIZE, i);
-      g.stroke();
-    }
-    g.fillStyle = '#9ed67f';
-    g.fillRect(0, 176, SIZE, 80);
-    // Steps of rising height, and the blue climbing wall.
-    for (const [color, x, height] of [
-      ['#ff7a70', 28, 30],
-      ['#ffb24d', 72, 56],
-      ['#4fc7b5', 116, 84],
-      ['#9b7bea', 160, 114],
+    // Shops behind, and the paving of the market place.
+    for (const [color, x, top] of [
+      ['#a8612f', 0, 118],
+      ['#eadfc4', 70, 96],
+      ['#8d4f27', 150, 110],
+      ['#b55a3c', 206, 126],
     ] as const) {
       g.fillStyle = color;
-      g.fillRect(x, 200 - height, 40, height);
+      g.fillRect(x, top, 80, 200 - top);
+      g.fillStyle = '#5c6370';
+      g.fillRect(x, top - 8, 80, 8);
     }
-    g.fillStyle = '#5aa9f0';
-    g.fillRect(212, 60, 26, 140);
+    g.fillStyle = '#d9cfb8';
+    g.fillRect(0, 196, SIZE, 60);
+
+    // The tower: steps, base, shaft, the clock and its pointed roof.
+    g.fillStyle = '#b5b0a8';
+    g.fillRect(84, 214, 88, 14);
+    g.fillStyle = '#25272b';
+    g.fillRect(104, 170, 48, 46);
+    g.fillStyle = '#f4f1e8';
+    g.fillRect(114, 100, 28, 72);
+    g.fillRect(118, 180, 20, 28);
+    g.fillStyle = '#25272b';
+    for (const y of [112, 134, 156]) g.fillRect(112, y, 32, 6);
+    g.fillRect(96, 52, 64, 52);
+    g.beginPath();
+    g.moveTo(90, 52);
+    g.lineTo(128, 10);
+    g.lineTo(166, 52);
+    g.fill();
+    blob(g, '#ffffff', 128, 78, 20);
+    g.strokeStyle = '#25272b';
+    g.lineWidth = 4;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(128, 64);
+    g.lineTo(128, 78);
+    g.lineTo(138, 78);
+    g.stroke();
   },
 };
 
