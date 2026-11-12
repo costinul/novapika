@@ -9,6 +9,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { Material, Mesh, Object3D, Texture } from 'three';
+import { follow } from '../account/account';
 import { Mimicry } from '../audio/Mimicry';
 import { Sounds } from '../audio/Sounds';
 import { FeatherBatch } from '../characters/FeatherBatch';
@@ -23,6 +24,7 @@ import type { PanelPointer } from '../debug/DebugPanel';
 import { lobbyRegistry } from '../lobbies/registry';
 import type { LobbyInstance, LobbyModule } from '../lobbies/types';
 import { newMoveInput, toMoveInput } from '../movement/input';
+import { Pets } from '../pets/Pets';
 import { bodyCenter, clawCorrection, placeAt, stepMovement } from '../movement/step';
 import { HANDS, Player } from '../player/Player';
 import type { InputSource } from '../player/Player';
@@ -86,7 +88,9 @@ export class Engine {
   private readonly feathers = new FeatherBatch();
   private readonly mimicry = new Mimicry();
   private readonly flock: Flock;
-  /** Simulation steps run so far. The flock is stepped on every second one. */
+  /** A signed-in player's pets. Tell it who is signed in with `pets.setAccount`. */
+  readonly pets: Pets;
+  /** Simulation steps run so far. The flock and the pets are stepped on every second one. */
   private simSteps = 0;
   private readonly stunts = createRecognisers();
   private readonly stuntSample: StuntSample = {
@@ -183,6 +187,24 @@ export class Engine {
     this.world.onJingle = (_toy, strength) => this.sounds.jingle(strength);
     this.flock = new Flock(this.world, this.actions, this.physics, this.feathers, this.sounds, this.mimicry);
     this.scene.add(this.flock.object);
+    this.pets = new Pets({
+      physics: this.physics,
+      feathers: this.feathers,
+      follow,
+      spots: () => this.flock.spots,
+      onEvent: (event) => {
+        if (event.type === 'call') {
+          const distance = this.localPlayer.head.position.distanceTo(event.at);
+          this.sounds.call(event.voice, Math.max(0.1, 1 / (1 + distance / 5)));
+        } else if (event.type === 'refused') {
+          this.sounds.refuse();
+        } else {
+          if (event.type === 'chosen') this.sounds.chirp();
+          this.worldView.burst(event.at, 0xfff27a);
+        }
+      },
+    });
+    this.scene.add(this.pets.object);
 
     // Head height changes when a session starts or ends, so re-seat the player.
     this.renderer.xr.addEventListener('sessionstart', () => (this.needsSpawn = true));
@@ -205,6 +227,7 @@ export class Engine {
       this.scene.remove(this.lobby.instance.root);
       disposeTree(this.lobby.instance.root);
       this.flock.clear();
+      this.pets.clear();
       this.world.clear();
       this.physics.clear();
     }
@@ -212,6 +235,7 @@ export class Engine {
     const instance = module.load({ physics: this.physics });
     if (module.content) this.world.load(module.content);
     this.flock.load(module.content?.flock);
+    this.pets.load(module.content?.petCorner);
     this.worldView.rebuild();
     this.sounds.setAmbience(module.ambience ?? null);
     this.scene.add(instance.root);
@@ -298,7 +322,9 @@ export class Engine {
     this.feathers.begin();
     this.playerView.update(dt);
     // The flock is simulated at half rate; draw it part way between its steps.
-    this.flock.frame(dt, ((this.simSteps % FLOCK_EVERY) + this.stepper.alpha) / FLOCK_EVERY);
+    const between = ((this.simSteps % FLOCK_EVERY) + this.stepper.alpha) / FLOCK_EVERY;
+    this.flock.frame(dt, between);
+    this.pets.frame(dt, between, player);
     this.feathers.end();
     this.updateBeak(dt);
     this.updateStunts(dt);
@@ -317,7 +343,10 @@ export class Engine {
   private simulate(dt: number): void {
     this.physics.step(dt);
     stepMovement(this.localPlayer, this.moveStep, this.physics, movementConfig, dt);
-    if (++this.simSteps % FLOCK_EVERY === 0) this.flock.step(dt * FLOCK_EVERY);
+    if (++this.simSteps % FLOCK_EVERY === 0) {
+      this.flock.step(dt * FLOCK_EVERY);
+      this.pets.step(dt * FLOCK_EVERY, this.localPlayer);
+    }
     this.world.step(dt, this.actions);
   }
 

@@ -15,8 +15,20 @@ was tested with unit tests and a desktop WebXR emulator only.
 ## Pets (being built)
 
 Design: [docs/plans/2026-11-11-pets-design.md](docs/plans/2026-11-11-pets-design.md).
-Steps 1 and 2 of 4 are built. Pets are not in the game itself yet.
+Steps 1 to 3 of 4 are built. A signed-in player has pets in the Aviary, and
+one follows them. Breeding, eggs and setting a pet free are still to come.
 
+- **The pet corner.** A rail on one side of the nest, across from the parrots
+  you can be. A signed-in player's pets sit along it, six at a time, each on a
+  band coloured for its tier: grey, green, blue, purple, gold, and a rainbow
+  for a mythical. With more than six pets, orange arrows at the ends of the
+  rail turn the page. Signed out, the rail shows a padlock; with no
+  connection, a crossed-out cloud.
+- **The follower.** Touch a pet with a hand or your beak and it follows you:
+  it flies after you, lands to one side, and watches you. The pet that was
+  following flies back to its place on the rail. The server decides who
+  follows; if it says no, the pet shakes its head and nothing changes. The
+  follower is still with you the next time you play.
 - **Pet DNA, tiers, breeding rules and models.** Add `?lobby=pet-show` to the
   address to look at them: the eight fixed pets stand on the front bar, and
   eight babies bred from pairs of them on the bar behind.
@@ -226,6 +238,7 @@ dropped. Nothing is stored and nothing leaves the headset.
 | `src/dev/` | Desktop WebXR emulator (development builds only) |
 | `src/net/`, `src/voice/` | Reserved for multiplayer and voice; empty in v1 |
 | `src/account/` | Signing in: the number pad on the start screen and the token the device keeps |
+| `src/pets/` | The pet corner in the nest, and the pet that follows the player |
 | `src/admin/`, `admin.html` | The owner's admin page |
 | `shared/` | Pet DNA, tiers, breeding rules, the fixed pets, and what the server sends; used by game and server |
 | `server/` | The API on Cloudflare: rules, database layer and migrations |

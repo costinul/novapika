@@ -21,7 +21,8 @@ let auraMaterial: SpriteMaterial | null = null;
  * to the parrot's model; it is sized for a bird 1 unit tall, as the model is.
  */
 export function parrotAura(def: CharacterDef): Sprite | null {
-  if (!def.specials?.glow) return null;
+  // Nothing to draw a halo with outside a browser, as in tests.
+  if (!def.specials?.glow || typeof document === 'undefined') return null;
   if (!auraMaterial) {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 64;

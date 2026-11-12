@@ -141,15 +141,22 @@ pet corner of the nest, opposite the character perches.
 
 **Your pets**
 
-- Six small perches show one page of your pets. Arrows flip pages.
-- The perch colour shows the tier.
+- One rail with six places shows one page of your pets. Arrows at its ends
+  flip pages, and show only when there is more than one page.
+- A coloured band on the rail under each pet shows its tier.
 - Touch a pet and it follows you. The previous follower flies back.
 
 **Following**
 
-- The follower is a small parrot run by the flock's follow behaviour, made
-  permanent. It flies after you, lands beside you when you perch, and keeps
-  out of your face.
+- The follower flies after you, lands to one side and a little ahead, where
+  you can see it, and keeps out of your face.
+- It is flown as a parrot of ordinary size, by the pilot the lobby parrots
+  use, and only drawn small. So it flies as well as they do.
+- It feels ahead for trunks and branches and goes round them.
+- If it cannot reach you in 25 seconds it is put down beside you.
+- A pet that was already following when the game starts begins beside you.
+  One you have just touched begins on its perch.
+- Not built: it has no shadow, and does not ring bells or touch toys.
 
 **Breeding**
 

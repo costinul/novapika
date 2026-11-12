@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  chooseFollower,
   createPlayer,
   givePet,
   login,
@@ -165,6 +166,36 @@ describe('resetting a code', () => {
 
   it('refuses a player that does not exist', async () => {
     await refused(resetCode(store, deps, 'nobody'), 'no-such-player', 404);
+  });
+});
+
+describe('choosing a follower', () => {
+  it('makes one of the player’s own pets follow them', async () => {
+    const { player } = await createPlayer(store, deps, 'Alex');
+    const given = await givePet(store, deps, player.id, 'ember');
+    const after = await chooseFollower(store, player, given.id);
+    expect(after.followerId).toBe(given.id);
+    expect((await playerView(store, (await store.player(player.id))!)).followerId).toBe(given.id);
+  });
+
+  it('refuses a pet that is missing, somebody else’s, an egg or set free', async () => {
+    const alex = await createPlayer(store, deps, 'Alex');
+    const sam = await createPlayer(store, deps, 'Sam');
+    const sams = await givePet(store, deps, sam.player.id, 'prism');
+    const before = alex.player.followerId;
+
+    await refused(chooseFollower(store, alex.player, sams.id), 'no-such-pet', 404);
+    await refused(chooseFollower(store, alex.player, 'nothing'), 'no-such-pet', 404);
+    await refused(chooseFollower(store, alex.player, undefined), 'no-such-pet', 404);
+    await refused(chooseFollower(store, alex.player, 7), 'no-such-pet', 404);
+
+    const own = await givePet(store, deps, alex.player.id, 'sky');
+    store.petRows.get(own.id)!.stage = 'egg';
+    await refused(chooseFollower(store, alex.player, own.id), 'no-such-pet', 404);
+    store.petRows.get(own.id)!.stage = 'freed';
+    await refused(chooseFollower(store, alex.player, own.id), 'no-such-pet', 404);
+
+    expect((await store.player(alex.player.id))!.followerId).toBe(before);
   });
 });
 

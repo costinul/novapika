@@ -110,6 +110,28 @@ export interface FlockDef {
   spots: readonly Vec3[];
 }
 
+/** A place where something stands, and the way it faces. */
+export interface Stand {
+  /** Where its feet, or its middle if it has none, go. */
+  position: Vec3;
+  /** Way it faces, as a turn about the vertical axis in radians. */
+  yaw: number;
+}
+
+/**
+ * Where a signed-in player's pets sit. One page of pets shows at a time;
+ * touching a pet makes it follow the player.
+ */
+export interface PetCornerDef {
+  /** Where each pet on the page stands. */
+  perches: readonly Stand[];
+  /** Arrows to touch for the page before and the page after. */
+  previous: Stand;
+  next: Stand;
+  /** A picture shown when there are no pets to show: signed out, or no connection. */
+  sign: Stand;
+}
+
 export interface LobbyContent {
   toyTypes: Record<string, ToyTypeDef>;
   toys: readonly ToyDef[];
@@ -118,6 +140,7 @@ export interface LobbyContent {
   rings: readonly RingDef[];
   water: readonly WaterDef[];
   characterPerches?: readonly CharacterPerchDef[];
+  petCorner?: PetCornerDef;
   flock?: FlockDef;
 }
 

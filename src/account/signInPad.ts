@@ -1,5 +1,6 @@
 import type { PlayerView } from '../../shared/api';
-import { signedInPlayer, signIn } from './account';
+import { loadAccount, signIn } from './account';
+import type { Account } from './account';
 
 // The sign-in button in the corner of the start screen, and the number pad
 // it opens. Pictures and digits only. The code goes in once: the sixth digit
@@ -10,11 +11,11 @@ const CODE_LENGTH = 6;
 const PROBLEM_MS = 900;
 
 /**
- * Wire up the pad that is already in the page. `onPlayer` hears who is signed
- * in: once at the start if this device remembers somebody, and after each
- * sign-in.
+ * Wire up the pad that is already in the page. `onAccount` hears who is
+ * signed in: once at the start, with whatever this device remembers, and
+ * after each sign-in.
  */
-export function setUpSignIn(onPlayer: (player: PlayerView) => void): void {
+export function setUpSignIn(onAccount: (account: Account) => void): void {
   const button = document.querySelector<HTMLButtonElement>('#sign-in')!;
   const pad = document.querySelector<HTMLElement>('#pad')!;
   const slots = [...pad.querySelectorAll<HTMLElement>('#pad-slots span')];
@@ -24,7 +25,7 @@ export function setUpSignIn(onPlayer: (player: PlayerView) => void): void {
   const signedIn = (player: PlayerView): void => {
     button.dataset.state = 'in';
     button.setAttribute('aria-label', `Signed in as ${player.nickname}. Change player`);
-    onPlayer(player);
+    onAccount({ status: 'in', player });
   };
 
   const show = (): void => slots.forEach((slot, i) => slot.classList.toggle('filled', i < code.length));
@@ -67,7 +68,8 @@ export function setUpSignIn(onPlayer: (player: PlayerView) => void): void {
     if (code.length === CODE_LENGTH) void send();
   });
 
-  void signedInPlayer().then((player) => {
-    if (player) signedIn(player);
+  void loadAccount().then((account) => {
+    if (account.status === 'in') signedIn(account.player);
+    else onAccount(account);
   });
 }

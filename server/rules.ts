@@ -126,6 +126,15 @@ export async function playerView(store: Store, player: PlayerRow): Promise<Playe
   return { id: player.id, nickname: player.nickname, followerId: player.followerId, pets: pets.map(petView) };
 }
 
+/** A player picks which of their own hatched pets follows them. */
+export async function chooseFollower(store: Store, player: PlayerRow, petId: unknown): Promise<PlayerRow> {
+  const pet = typeof petId === 'string' ? await store.pet(petId) : null;
+  // Somebody else's pet is as good as no pet: the answer does not say which.
+  if (!pet || pet.ownerId !== player.id || pet.stage !== 'hatched') throw new Refusal('no-such-pet', 404);
+  await store.setFollower(player.id, pet.id);
+  return { ...player, followerId: pet.id };
+}
+
 /** Every player with their pets, for the admin page. */
 export async function overview(store: Store): Promise<PlayerView[]> {
   const [players, pets] = await Promise.all([store.players(), store.allPets()]);

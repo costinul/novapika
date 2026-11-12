@@ -1,4 +1,4 @@
-import { ShaderLib } from 'three';
+import { Matrix4, ShaderLib, Vector3 } from 'three';
 import type { BufferGeometry } from 'three';
 import { describe, expect, it } from 'vitest';
 import type { Dna } from '../shared/dna';
@@ -6,7 +6,10 @@ import { founders } from '../shared/founders';
 import { buildParrotParts, buildStatue } from '../src/characters/parrotGeometry';
 import { parrotMaterial } from '../src/characters/parrotMaterial';
 import { PET_SCALE, petCharacter } from '../src/characters/pets';
+import { FeatherBatch } from '../src/characters/FeatherBatch';
 import { roster } from '../src/characters/roster';
+import { Player } from '../src/player/Player';
+import { PlayerView } from '../src/player/PlayerView';
 
 const plain = founders.pip.dna;
 const statue = (dna: Dna): BufferGeometry => buildStatue(petCharacter('pet', dna));
@@ -162,5 +165,48 @@ describe('pet materials', () => {
     const both = compile({ glow: true, rainbow: true });
     expect(both).toContain('float turn');
     expect(both).toContain('totalEmissiveRadiance +=');
+  });
+});
+
+describe('a live pet', () => {
+  /** A parrot standing with its wings out, drawn once. Gives where its head and feathers are. */
+  function draw(asPet: boolean): { head: Vector3; reach: number; feathers: number } {
+    const feathers = new FeatherBatch();
+    const def = petCharacter('pet-1', { ...plain, size: 1, rainbow: true });
+    const player = new Player('p', asPet ? def.id : 'nova');
+    player.position.set(5, 2, 5);
+    player.input.head.position.set(0, 0.6, 0);
+    player.input.hands.left.grip.position.set(-0.6, 0.6, 0);
+    player.input.hands.right.grip.position.set(0.6, 0.6, 0);
+    player.updateWorldPoses();
+    const view = new PlayerView(player, feathers, false, asPet ? def : undefined);
+    feathers.begin();
+    view.update(1 / 72);
+    feathers.end();
+
+    // How far out from the body the feathers start.
+    const m = new Matrix4();
+    const root = new Vector3();
+    let reach = 0;
+    for (let i = 0; i < feathers.mesh.count; i++) {
+      feathers.mesh.getMatrixAt(i, m);
+      reach = Math.max(reach, Math.abs(root.setFromMatrixPosition(m).x - 5));
+    }
+    // The second thing in the view is the head.
+    return { head: view.object.children[1].position.clone(), reach, feathers: feathers.mesh.count };
+  }
+
+  it('is drawn small about the point its feet stand on, wings and all', () => {
+    const parrot = draw(false);
+    const pet = draw(true);
+    // An ordinary parrot's head is where its headset is, and its wings reach its hands.
+    expect(parrot.head.y).toBeCloseTo(2.6, 5);
+    expect(parrot.reach).toBeGreaterThan(0.5);
+    // A pet 40% of the size: head and wings 40% as far from its feet.
+    expect(pet.head.x).toBeCloseTo(5, 5);
+    expect(pet.head.y).toBeCloseTo(2 + 0.6 * 0.4, 5);
+    expect(pet.reach).toBeLessThan(0.6 * 0.4 + 0.01);
+    expect(pet.reach).toBeGreaterThan(0.15);
+    expect(pet.feathers).toBe(parrot.feathers);
   });
 });

@@ -1,3 +1,4 @@
+import type { Account } from './account/account';
 import { setUpSignIn } from './account/signInPad';
 import { Engine } from './engine/Engine';
 import { DEFAULT_LOBBY_ID } from './lobbies/registry';
@@ -19,11 +20,15 @@ function show(state: 'loading' | 'ready' | 'none', label: string): void {
   button.setAttribute('aria-label', label);
 }
 
-// Signing in is for pets only, and never holds the game up. Nothing in the
-// game uses the player yet.
-setUpSignIn(() => {});
+// Signing in is for pets only, and never holds the game up: whoever is
+// signed in is passed on to the game as soon as both are ready.
+let account: Account = { status: 'out' };
+let onAccount = (next: Account): void => void (account = next);
+setUpSignIn((next) => onAccount(next));
 
 const engine = await Engine.create(canvas);
+onAccount = (next) => engine.pets.setAccount(next);
+onAccount(account);
 // ?lobby=<id> picks a lobby from the registry.
 await engine.loadLobby(new URLSearchParams(location.search).get('lobby') ?? DEFAULT_LOBBY_ID);
 engine.start();

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlayerView } from '../shared/api';
-import { savedToken, signedInPlayer, signIn } from '../src/account/account';
+import { follow, loadAccount, savedToken, signIn } from '../src/account/account';
 
 const alex: PlayerView = { id: 'p1', nickname: 'Alex', followerId: null, pets: [] };
 
@@ -62,14 +62,14 @@ describe('signing in on the headset', () => {
 
 describe('coming back signed in', () => {
   it('asks nobody when no token is kept', async () => {
-    expect(await signedInPlayer()).toBeNull();
+    expect(await loadAccount()).toEqual({ status: 'out' });
     expect(calls).toHaveLength(0);
   });
 
   it('finds the player with the kept token', async () => {
     kept.set('novapika.token', 'secret-token');
     answer = () => Response.json({ player: alex });
-    expect(await signedInPlayer()).toEqual(alex);
+    expect(await loadAccount()).toEqual({ status: 'in', player: alex });
     expect(calls[0].url).toBe('/api/me');
     expect(new Headers(calls[0].init?.headers).get('Authorization')).toBe('Bearer secret-token');
   });
@@ -77,7 +77,7 @@ describe('coming back signed in', () => {
   it('drops a token the server no longer takes', async () => {
     kept.set('novapika.token', 'old-token');
     answer = () => Response.json({ error: 'signed-out' }, { status: 401 });
-    expect(await signedInPlayer()).toBeNull();
+    expect(await loadAccount()).toEqual({ status: 'out' });
     expect(savedToken()).toBeNull();
   });
 
@@ -86,10 +86,13 @@ describe('coming back signed in', () => {
     answer = () => {
       throw new TypeError('network down');
     };
-    expect(await signedInPlayer()).toBeNull();
+    expect(await loadAccount()).toEqual({ status: 'offline' });
     expect(savedToken()).toBe('secret-token');
     answer = () => new Response('oops', { status: 503 });
-    expect(await signedInPlayer()).toBeNull();
+    expect(await loadAccount()).toEqual({ status: 'offline' });
+    // A plain file host answers with the game's own page, not the API.
+    answer = () => new Response('<!doctype html>', { status: 200 });
+    expect(await loadAccount()).toEqual({ status: 'offline' });
     expect(savedToken()).toBe('secret-token');
   });
 
@@ -106,8 +109,35 @@ describe('coming back signed in', () => {
       },
     });
     expect(savedToken()).toBeNull();
-    expect(await signedInPlayer()).toBeNull();
+    expect(await loadAccount()).toEqual({ status: 'out' });
     answer = () => Response.json({ token: 'secret-token', player: alex });
     expect(await signIn('123456')).toEqual({ ok: true, player: alex });
+  });
+});
+
+describe('asking for a pet to follow', () => {
+  it('sends the pet with the token and gives back the player as the server has them', async () => {
+    kept.set('novapika.token', 'secret-token');
+    const after = { ...alex, followerId: 'pet-2' };
+    answer = () => Response.json({ player: after });
+    expect(await follow('pet-2')).toEqual(after);
+    expect(calls[0].url).toBe('/api/me/follower');
+    expect(calls[0].init?.method).toBe('POST');
+    expect(JSON.parse(calls[0].init?.body as string)).toEqual({ petId: 'pet-2' });
+    expect(new Headers(calls[0].init?.headers).get('Authorization')).toBe('Bearer secret-token');
+  });
+
+  it('gives nothing when the server refuses or cannot be reached, or nobody is signed in', async () => {
+    answer = () => Response.json({ player: alex });
+    expect(await follow('pet-2')).toBeNull();
+    expect(calls).toHaveLength(0);
+
+    kept.set('novapika.token', 'secret-token');
+    answer = () => Response.json({ error: 'no-such-pet' }, { status: 404 });
+    expect(await follow('pet-2')).toBeNull();
+    answer = () => {
+      throw new TypeError('network down');
+    };
+    expect(await follow('pet-2')).toBeNull();
   });
 });

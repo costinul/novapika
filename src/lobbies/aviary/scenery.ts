@@ -18,6 +18,7 @@ import {
   NEST_RADIUS,
   NEST_Y,
   PADS,
+  PET_RAIL,
   POND,
   POND_RADIUS,
   PORTAL,
@@ -106,6 +107,11 @@ export function buildScenery(b: StaticBuilder): void {
     const dx = Math.cos(yaw) * 0.17;
     const dz = -Math.sin(yaw) * 0.17;
     b.limb(paint, [x - dx, top, z - dz], [x + dx, top, z + dz], 0.03, 0.03, { sides: 6 });
+  }
+  // The pet rail: a long perch round one side of the nest, on three posts.
+  PET_RAIL.slice(1).forEach((to, i) => b.limb(WOOD, PET_RAIL[i], to, 0.03, 0.03, { sides: 6 }));
+  for (const [x, y, z] of [PET_RAIL[0], PET_RAIL[PET_RAIL.length >> 1], PET_RAIL[PET_RAIL.length - 1]]) {
+    b.limb(WOOD, [x, NEST_Y, z], [x, y, z], 0.035, 0.035, { sides: 6 });
   }
   // Wooden back and two posts for the picture board of the moves.
   {

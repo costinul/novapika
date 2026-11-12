@@ -1,5 +1,6 @@
 import { d1Store } from './d1Store';
 import {
+  chooseFollower,
   createPlayer,
   givePet,
   login,
@@ -100,10 +101,15 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json({ token, player: await playerView(store, player) });
   }
 
-  if (path === '/api/me' && method === 'GET') {
+  if (path === '/api/me' || path.startsWith('/api/me/')) {
     const player = await playerForToken(store, bearer(request));
     if (!player) return refuse('signed-out', 401);
-    return json({ player: await playerView(store, player) });
+    if (path === '/api/me' && method === 'GET') return json({ player: await playerView(store, player) });
+    if (path === '/api/me/follower' && method === 'POST') {
+      const { petId } = await fields(request);
+      return json({ player: await playerView(store, await chooseFollower(store, player, petId)) });
+    }
+    return refuse('not-found', 404);
   }
 
   if (path.startsWith('/api/admin/')) {

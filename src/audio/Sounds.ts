@@ -196,6 +196,12 @@ export class Sounds {
     }
   }
 
+  /** "No": two low notes, the second lower. For something that could not be done. */
+  refuse(): void {
+    this.tone(330, 300, 0.12, 0.12, 'triangle');
+    this.tone(247, 220, 0.2, 0.12, 'triangle', 0.14);
+  }
+
   /** A happy call in the current parrot's voice. */
   chirp(): void {
     this.call(this.voice, 1);

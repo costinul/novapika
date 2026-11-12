@@ -4,7 +4,9 @@ import type {
   FlockDef,
   LobbyContent,
   PeckableDef,
+  PetCornerDef,
   RingDef,
+  Stand,
   TargetDef,
   ToyDef,
   Vec3,
@@ -151,6 +153,40 @@ export const CHARACTER_PERCHES: CharacterPerchDef[] = [
   ...PERCH_ORDER.map((id, i) => perch(id, PERCH_ARC + (1.5 - i) * 21, 2.0, PERCH_HEIGHT)),
   perch(BACK_PERCH, PERCH_ARC, 2.25, BACK_PERCH_HEIGHT),
 ];
+
+// --- Pet corner -------------------------------------------------------------
+
+/** The middle of the pet rail, as an angle round the nest: across from the character perches. */
+const PET_ARC = PERCH_ARC + 180;
+/** The rail runs just inside the rim of the nest. */
+const PET_RAIL_RADIUS = 2.3;
+/** Height of the rail above the nest floor. A pet's middle is then about at beak height. */
+export const PET_RAIL_HEIGHT = 0.42;
+/** Degrees round the nest between one pet and the next: about half a metre. */
+const PET_STEP = 13.5;
+const PETS_PER_PAGE = 6;
+
+/**
+ * A place on the pet rail, facing the middle of the nest. `steps` counts pets
+ * along from the rail's middle, to the right as seen from inside the nest.
+ */
+function onPetRail(steps: number, lift = 0): Stand {
+  const [x, z] = polar(PET_ARC + steps * PET_STEP, PET_RAIL_RADIUS);
+  return { position: [x, NEST_Y + PET_RAIL_HEIGHT + lift, z], yaw: Math.atan2(x, z) };
+}
+
+/** A signed-in player's pets sit along a rail, left to right. Touch one and it follows you. */
+export const PET_CORNER: PetCornerDef = {
+  perches: Array.from({ length: PETS_PER_PAGE }, (_, i) => onPetRail(i - (PETS_PER_PAGE - 1) / 2, 0.03)),
+  previous: onPetRail(-PETS_PER_PAGE / 2 - 0.25, 0.2),
+  next: onPetRail(PETS_PER_PAGE / 2 + 0.25, 0.2),
+  sign: onPetRail(0, 0.4),
+};
+/** Points along the top of the rail, end to end, for the scenery to build it through. */
+export const PET_RAIL: Vec3[] = Array.from(
+  { length: PETS_PER_PAGE + 1 },
+  (_, i) => onPetRail(i - PETS_PER_PAGE / 2).position,
+);
 
 // --- Climbing trees ---------------------------------------------------------
 
@@ -327,7 +363,7 @@ const flockSpots: Vec3[] = [
     }),
   ),
   [GYM[0], GYM_HEIGHT + 0.13, GYM[2]], // middle of the gym's top beam
-  [-1.4, NEST_Y, 1.3], // in the nest, away from the character perches
+  [-1.3, NEST_Y, -1.3], // in the nest, away from the character perches and the pet rail
   [PORTAL[0] + 1.6, 0.4, PORTAL[2] + 0.6], // on the portal's step
   [LOOKOUT[0], LOOKOUT[1], LOOKOUT[2]],
   // On the grass.
@@ -372,5 +408,6 @@ export const CONTENT: LobbyContent = {
   rings,
   water: [{ id: 'bird-bath', position: POND, radius: POND_RADIUS }],
   characterPerches: CHARACTER_PERCHES,
+  petCorner: PET_CORNER,
   flock: FLOCK,
 };
