@@ -13,22 +13,31 @@ Its mind runs on the server, in the lobby's Durable Object. Its body is one
 more lobby parrot, flown by the host's game. No key is ever in the browser.
 
 This is the first time the server hears a voice. It changes two earlier
-promises (section 11 below).
+promises (section 12 below).
 
 ## 2. Decisions
 
 | Question | Decision |
 | --- | --- |
-| Where speech becomes text | On Cloudflare, with Workers AI Whisper. OpenAI gets text only |
+| Where speech becomes text | On Cloudflare, with Workers AI Whisper |
 | When it listens | Only to a child who is near it and facing it |
 | Language | English only |
 | First version | Talk, follow and lead. Playing games comes later |
 | Records | Text kept for 7 days, shown on the admin page. Audio is never kept |
-| Reasoning model | OpenAI GPT-6 Luna |
-| Speaking | OpenAI text-to-speech |
+| Reasoning model | Anthropic Claude Haiku 5.5. One setting, easy to change |
+| Checking replies | A second call to the same model, and plain rules in code |
+| Speaking | OpenAI text-to-speech. It gets the parrot's reply only, never a child's words |
 | Where the mind runs | The `Lobby` Durable Object |
 | Who flies the body | The host's game, as for the other lobby parrots |
 | A PIN for the API | Not built. Sign-in is already required; caps guard the cost |
+
+**Why Claude Haiku and not GPT-6 Luna.** The first player is the owner's
+child. OpenAI's guidance says not to process the personal data of children
+under 13 without zero data retention, with no exception for use at home, and
+zero data retention needs OpenAI's approval. It also asks for OpenAI's top
+model for minors, which Luna is not. Anthropic allows apps for minors that
+have safeguards fit for their age; section 8 is those. Haiku costs the same
+as Luna. So nothing a child says goes to OpenAI.
 
 ## 3. Approaches considered
 
@@ -49,12 +58,12 @@ promises (section 11 below).
    phrase is dropped.
 3. **Text.** Workers AI Whisper turns the phrase into English text. The audio
    is then dropped.
-4. **Thinking.** The text goes to Luna with: a fixed description of who the
-   parrot is, a short guide to the game, who is in the lobby by nickname, the
-   speaker's egg and pet state, and the last few exchanges. Luna answers in
-   one or two short sentences, and may call a tool (section 5).
+4. **Thinking.** The text goes to the model with: a fixed description of who
+   the parrot is, a short guide to the game, who is in the lobby by nickname,
+   the speaker's egg and pet state, and the last few exchanges. The model
+   answers in one or two short sentences, and may call a tool (section 5).
 5. **Checking.** What the child said and what the parrot will say both go
-   through OpenAI's moderation check. A flagged reply is replaced by a fixed
+   through the checks in section 8. A refused reply is replaced by a fixed
    safe line.
 6. **Speaking.** OpenAI text-to-speech makes the audio. The lobby sends it to
    everyone. Each game plays it from the parrot's head, with the same fade
@@ -70,7 +79,7 @@ lobby empties. The parrot remembers nothing about a child between visits.
 
 - The AI parrot is a lobby parrot with its own look and name. It takes no
   player's place, and its poses travel with the host's as the others' do.
-- Luna has three tools: `follow(player)`, `lead_to(place)` and `stay`.
+- The model has three tools: `follow(player)`, `lead_to(place)` and `stay`.
   Places are a fixed list per lobby, such as the egg cup, the feeder, the
   picture board and the rings.
 - The lobby sends the chosen intent to every game. The host's `Brain` flies
@@ -82,24 +91,98 @@ lobby empties. The parrot remembers nothing about a child between visits.
 
 The AI parrot sometimes flies to a child, as lobby parrots already do. When a
 child comes near it, that child's game tells the lobby. The lobby then asks
-Luna for a greeting or a kind question, at most once every few minutes for
+the model for a greeting or a kind question, at most once every few minutes for
 each child, and within the caps.
 
 ## 7. Protection
 
-- The OpenAI key is a Worker secret. The browser never sees it and never
-  calls OpenAI.
+- The Anthropic and OpenAI keys are Worker secrets. The browser never sees
+  them and never calls either company.
 - Only a signed-in player's lobby socket can send a phrase. Players exist
   only when the owner adds them.
 - Caps, all counted on the server: phrases per minute and per day for each
   player, phrases per day for each lobby, and a short limit on each reply's
   length. The numbers are set when it is built and can be seen in one place.
 - A switch on the admin page turns the AI parrot off everywhere.
-- The parrot is told never to ask a child for their real name, where they
-  live, their school or any other personal thing, and to say it is a robot
-  parrot if asked.
 
-## 8. Records
+**What it costs.** Prices as found on Nov 12, 2026, for one exchange: a
+phrase of about 5 s in, a reply of about 5 s out.
+
+| Step | Price | One exchange |
+| --- | --- | --- |
+| Hearing, Workers AI Whisper | $0.0005 a minute of audio | $0.00004 |
+| Thinking, Claude Haiku 5.5 | $0.10 in, $0.50 out, per million tokens | $0.0004 |
+| Checking, Claude Haiku 5.5 | the same | $0.0001 |
+| Speaking, OpenAI text-to-speech | about $0.015 a minute of audio | $0.0013 |
+| All of it | | about $0.002 |
+
+- A busy hour of play is about 100 exchanges: about 20 cents.
+- With a cap of 300 phrases a day for each player, the most one player can
+  cost is about 60 cents a day.
+- Speaking is most of the cost. The choice between the cheap models hardly
+  changes the total; a top model for thinking would cost 20 times more for
+  that step.
+- These are estimates from the list prices. The real numbers come from the
+  first days of use, and the caps are set from them.
+
+## 8. Guarding what it says
+
+The parrot must never say anything unkind, unsafe or untrue to a child. No
+single guard is enough, so there are several, one behind the other.
+
+**The prompt**
+
+- The parrot's instructions are fixed text on the server. No game can send,
+  change or read them.
+- What a child said goes to the model marked as something heard, never as an
+  instruction. "Forget your rules" from a child is just words to answer
+  kindly. The parrot never repeats or describes its instructions.
+- The instructions say: be warm and gentle; one or two short sentences; words
+  a small child knows; no scary, rude, sad or grown-up subjects; never tease
+  or tell a child off.
+- It never asks a child for their real name, where they live, their school
+  or any other personal thing, and says it is a robot parrot if asked.
+
+**Only true things about the game**
+
+- Everything the parrot may say about how the game works comes from one
+  guide the owner writes and keeps in the repo: flying, biting, feeding,
+  hatching, pets, each lobby's places.
+- If the answer is not in the guide, it says it does not know and offers to
+  find out together. It never guesses.
+- It speaks only about the game and friendly small talk. Asked for advice
+  about anything else, such as health, safety, money or other people, it
+  says that is one for a grown-up.
+- If a child says they are hurt, scared or sad, it answers kindly and tells
+  them to go to a grown-up they trust. That exchange is flagged.
+
+**Checks outside the model**
+
+- A second, separate call to the model judges what was heard and every
+  reply against the rules above, and can refuse either. It does not see the
+  first call's reasoning. OpenAI's moderation is not used, as it would send
+  a child's words to OpenAI.
+- A reply is also refused if it is too long, or holds a word from a block
+  list the owner keeps, a link, or a number that looks like a phone number.
+- A refused reply is replaced by one of a few fixed safe lines, and flagged.
+- The tools take only a player who is in the lobby and a place from the
+  fixed list. Anything else is ignored.
+
+**Proving it**
+
+- A fixed set of tricky phrases is kept in the repo: tricks to change its
+  role, rude words, scary questions, questions with no answer in the guide,
+  requests for advice. A script runs them through the real prompt and model
+  and fails if any reply breaks a rule.
+- The script is run by hand before any change to the prompt, the guide or
+  the model goes live. It is not part of the ordinary tests, as it costs
+  money and needs the key.
+- Flagged exchanges are shown first on the admin page.
+
+These guards make a wrong reply rare, not impossible. The 7-day record is
+how the owner sees one if it happens, and the switch turns the parrot off.
+
+## 9. Records
 
 - A new D1 table holds each exchange: when, which lobby, which player, what
   was heard, what was said, and whether it was flagged.
@@ -107,16 +190,16 @@ each child, and within the caps.
 - The admin page lists them, newest first.
 - No audio is stored anywhere, on the server or at Cloudflare.
 
-## 9. When something fails
+## 10. When something fails
 
-- Whisper, Luna, the check or the speech fails or is too slow: the parrot
+- Whisper, the model, the check or the speech fails or is too slow: the parrot
   squawks, and nothing else happens. The error is logged.
 - A cap is reached, or the switch is off: it is an ordinary lobby parrot, and
   no game sends it phrases.
 - No microphone: the child cannot talk to it, but still hears it.
 - The lobby goes to sleep and wakes: the conversation so far is forgotten.
 
-## 10. Tests
+## 11. Tests
 
 Vitest, with no new dependencies.
 
@@ -124,6 +207,9 @@ Vitest, with no new dependencies.
   thinking, checking and speaking, tested with fakes: the caps, one phrase at
   a time, a flagged reply, each failure, the greeting's limit, the 7-day
   delete.
+- The checks outside the model: too long, a blocked word, a link, a phone
+  number, a tool call for a player or place that is not there.
+- The tricky phrases of section 8, run by hand against the real model.
 - Lobby rules: the new frame and messages, who may send them, and that the
   intent reaches a new host.
 - Game: listening only when near and facing; the new errands, flown in the
@@ -131,7 +217,7 @@ Vitest, with no new dependencies.
 - Not testable without the headset and real children: how well Whisper hears
   them, how the delay feels, and whether the voice is liked.
 
-## 11. Changes to earlier promises
+## 12. Changes to earlier promises
 
 - README, "never hears or ..." a voice: the server now hears phrases spoken
   to the AI parrot, turns them into text and drops the audio. Voices between
@@ -139,28 +225,30 @@ Vitest, with no new dependencies.
 - `Mimicry.ts`, "Nothing of it is stored or sent anywhere": still true for
   mimicry. The comment gains a line pointing to the AI parrot.
 
-## 12. Build order
+## 13. Build order
 
 Each step is committed and pushed to main.
 
 1. Talk only: a perched AI parrot, the whole path from phrase to speech, the
-   caps, the switch, and the records on the admin page.
+   guards of section 8 with the game guide and the tricky phrases, the caps,
+   the switch, and the records on the admin page.
 2. The tools and the two new errands: follow and lead.
 3. Greetings it starts itself.
 
 Later, not designed here: fetching toys, bringing seeds, flying the rings
 together.
 
-## 13. Open points
+## 14. Open points
 
-- **Children's words still reach OpenAI as text.** A child may say their name
-  or where they live. OpenAI's guidance for under-18s says not to process the
-  personal data of children under 13 without zero data retention. The owner
-  should ask OpenAI for zero data retention before this is used by children,
-  and read that guidance and OpenAI's terms. This is not legal advice.
-- Cloudflare lists GPT-6 Luna among the models it serves. If that works with
-  no OpenAI key, it may be simpler. Not looked into.
-- Not checked yet: the exact model names for Luna, Whisper and the speech;
+- **A child's words reach Anthropic as text.** A child may say their name or
+  where they live. Anthropic's usage policy allows apps for minors with
+  safeguards, but the owner should read it and its guidance on child safety
+  for developers. How long Anthropic keeps API data has not been checked.
+  This is not legal advice.
+- If the game is ever opened to others, the plan is for players over 13.
+  The rules of each company should be read again then.
+- Not checked yet: the exact model names for Whisper and the speech; whether
+  Haiku's thinking should be turned down for speed;
   the biggest message a lobby socket takes; the microphone's sample rate on
   the headset.
 - Whisper will mishear small children at times. The parrot is told to ask
