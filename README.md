@@ -163,8 +163,8 @@ relay that lasts a day. The first 1,000 GB a month are free.
 ## Kiki, the helper parrot (being built)
 
 Design: [docs/plans/2026-11-12-ai-parrot-design.md](docs/plans/2026-11-12-ai-parrot-design.md).
-Step 1 of 3 is built: Kiki talks. Following a player and leading them to a
-place, and starting a chat itself, are steps 2 and 3.
+Steps 1 and 2 of 3 are built: Kiki talks, follows a player and leads them to
+a place. Starting a chat itself is step 3.
 
 Kiki is a turquoise parrot with a pink crest, on its own stump in the nest of
 the Aviary, beside the picture board. It is a kind robot parrot that answers
@@ -174,6 +174,13 @@ questions about the game, such as how to hatch an egg.
   turns to you. Say something; when you stop, it answers out loud in two or
   three seconds, and bobs as it speaks. Everybody in the lobby hears it, from
   where it is. One phrase is answered at a time.
+- **Following and leading.** Ask Kiki to come with you and it flies after you
+  and lands to your side, like the lobby parrots that follow. Ask where
+  something is and it flies there and waits for you: the egg cup, the pet
+  rail, a seed on the grass, the feeder, the toy box, the bird bath or the
+  climbing gym. After a minute and a half, or when asked to stop, it flies
+  back to its stump. It cannot carry anything. The host's game flies it, as it
+  does the other lobby parrots.
 - **What happens to a phrase.** The game cuts one phrase of at most 8 seconds
   from the microphone, only while you are close to Kiki and facing it, and
   sends it to the game's server. The server has Cloudflare turn it into text

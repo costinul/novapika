@@ -217,6 +217,12 @@ export class Engine {
       send: (samples) => this.multiplayer.sendHeard(samples),
       onSpeaks: (seconds) => this.flock.helperSpeaks(seconds),
       onSquawks: () => this.flock.helperSquawks(),
+      onIntent: (intent) => {
+        // Somebody or somewhere this game does not know of: it stays where it is.
+        const who = intent.do === 'follow' ? this.world.players.get(intent.playerId) : undefined;
+        const place = intent.do === 'lead' ? this.lobby?.module.content?.helperPlaces?.[intent.place] : undefined;
+        this.flock.helperDoes(who ? { follow: who } : place ? { lead: new Vector3(...place) } : null);
+      },
     });
     this.pets = new Pets({
       physics: this.physics,

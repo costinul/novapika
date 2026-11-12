@@ -1,6 +1,7 @@
 import { Vector3 } from 'three';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { HEARD_RATE, MAX_HEARD_BYTES, SOUND_HEAD } from '../shared/helper';
+import type { HelperIntent } from '../shared/helper';
 import { FRAME_SPEECH } from '../shared/net';
 import { toHeard } from '../src/audio/Ear';
 import { VoiceCapture } from '../src/audio/VoiceCapture';
@@ -33,6 +34,8 @@ interface Game {
   say(samples: Int16Array): void;
   spoke: number[];
   squawks: number;
+  /** What the game was told the helper parrot's body does, in order. */
+  intents: HelperIntent[];
 }
 
 let lobby: FakeLobby;
@@ -45,7 +48,7 @@ function game(id: string, nickname: string, withMicrophone = true): Game {
   const parrot = new Player('helper', 'kiki');
   parrot.human = false;
   parrot.head.position.set(0, 1, 0);
-  const g: Game = { local, parrot, listening: false, say: () => {}, spoke: [], squawks: 0, net: null!, helper: null! };
+  const g: Game = { local, parrot, listening: false, say: () => {}, spoke: [], squawks: 0, intents: [], net: null!, helper: null! };
   const ear = {
     available: withMicrophone,
     listen: (on: boolean) => void (g.listening = on),
@@ -60,6 +63,7 @@ function game(id: string, nickname: string, withMicrophone = true): Game {
     send: (samples) => g.net.sendHeard(samples),
     onSpeaks: (seconds) => void g.spoke.push(seconds),
     onSquawks: () => void g.squawks++,
+    onIntent: (intent) => void g.intents.push(intent),
   });
   g.net = new Multiplayer({
     world,
@@ -215,6 +219,34 @@ describe('a phrase said to the helper parrot', () => {
     expect(sam.listening).toBe(false);
     frames(sam, 2);
     expect(sam.listening).toBe(true);
+  });
+});
+
+describe("what the helper parrot's body does", () => {
+  it('reaches every game, with the player it follows named as that game knows them', async () => {
+    const sam = game('id-sam', 'Sam');
+    const alex = game('id-alex', 'Alex');
+    sam.net.join('aviary');
+    alex.net.join('aviary');
+    await settle();
+    sam.intents.length = alex.intents.length = 0;
+
+    lobby.rules.tellAll({ t: 'intent', intent: { do: 'follow', playerId: 'id-sam' } });
+    // Sam's own game knows Sam as its local player.
+    expect(sam.intents).toEqual([{ do: 'follow', playerId: 'local' }]);
+    expect(alex.intents).toEqual([{ do: 'follow', playerId: 'id-sam' }]);
+
+    lobby.rules.tellAll({ t: 'intent', intent: { do: 'lead', place: 'feeder' } });
+    expect(alex.intents.at(-1)).toEqual({ do: 'lead', place: 'feeder' });
+  });
+
+  it('is to stay on its stump once the lobby is left', async () => {
+    const sam = game('id-sam', 'Sam');
+    sam.net.join('aviary');
+    await settle();
+    lobby.rules.tellAll({ t: 'intent', intent: { do: 'lead', place: 'feeder' } });
+    sam.net.leave();
+    expect(sam.intents.at(-1)).toEqual({ do: 'stay' });
   });
 });
 

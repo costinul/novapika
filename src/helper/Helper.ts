@@ -1,5 +1,6 @@
 import { Vector3 } from 'three';
 import { SOUND_HEAD } from '../../shared/helper';
+import type { HelperIntent } from '../../shared/helper';
 import type { Ear } from '../audio/Ear';
 import type { Player } from '../player/Player';
 
@@ -33,6 +34,8 @@ export interface HelperDeps {
   onSpeaks(seconds: number): void;
   /** It could not answer. */
   onSquawks(): void;
+  /** What its body does from now: stay on its stump, keep near a player, or go to a place. */
+  onIntent(intent: HelperIntent): void;
 }
 
 export class Helper {
@@ -63,8 +66,14 @@ export class Helper {
     this.waiting = 0;
   }
 
+  /** The lobby has said what the helper parrot's body does from now. */
+  setIntent(intent: HelperIntent): void {
+    this.deps.onIntent(intent);
+  }
+
   /** The line to the lobby is down, or the lobby was left. */
   clear(): void {
+    this.deps.onIntent({ do: 'stay' });
     this.listens = false;
     this.waiting = 0;
     this.speaking = 0;

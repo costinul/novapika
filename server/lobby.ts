@@ -104,9 +104,10 @@ export class Lobby extends DurableObject<Env> {
     const [client, server] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(server);
     this.rules.join(server, { id, nickname }, Date.now());
-    // Whether the helper parrot will listen to them, once that is known.
+    // What the helper parrot is doing, and whether it will listen to them, once that is known.
     const mind = this.helper();
     if (mind) {
+      this.rules.tell(server, { t: 'intent', intent: mind.doing });
       this.ctx.waitUntil(
         mind.listens(id).then(
           (listens) => this.rules.tell(server, { t: 'helper', listens }),
@@ -132,7 +133,9 @@ export class Lobby extends DurableObject<Env> {
   }
 
   private left(ws: WebSocket): void {
+    const member = this.rules.memberOf(ws);
     this.rules.leave(ws);
+    if (member) this.mind?.left(member.id);
     // An empty lobby forgets what was said in it.
     if (this.rules.players.length === 0) this.mind?.forget();
   }
@@ -166,6 +169,7 @@ export class Lobby extends DurableObject<Env> {
           frame.set(new Uint8Array(audio), SOUND_HEAD);
           this.rules.sendAll(frame.buffer);
         },
+        act: (intent) => this.rules.tellAll({ t: 'intent', intent }),
         squawk: () => this.rules.tellAll({ t: 'squawk' }),
         failed: (step, error) => fault(`helper: ${step} failed`, error),
       },

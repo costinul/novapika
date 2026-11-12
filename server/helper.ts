@@ -1,4 +1,5 @@
-import { HELPER_NAME } from '../shared/helper';
+import { HELPER_NAME, HELPER_PLACES } from '../shared/helper';
+import type { HelperIntent } from '../shared/helper';
 import { BLOCKED_WORDS, SAFE_LINES } from './helperGuide';
 
 // The helper parrot's mind: what happens when a player says something to it.
@@ -16,6 +17,12 @@ export const LOBBY_PER_DAY = 600;
 export const MAX_REPLY = 240;
 /** How many exchanges back the helper remembers, while the lobby has anybody in it. */
 const REMEMBERED = 6;
+/**
+ * How long the helper keeps at following or leading before it goes back to
+ * its stump. The game counts the same time; this is for telling a player who
+ * comes in later what it is doing.
+ */
+export const INTENT_FOR = 90_000; // ms
 const MINUTE = 60_000;
 
 /** A player speaking to the helper. */
@@ -61,6 +68,15 @@ export function thinkPrompt({ speaker, heard, about, players, history }: ThinkIn
   ].join('\n\n');
 }
 
+/** What the helper means to say and do. */
+export interface Thought {
+  say: string;
+  /** `follow` the speaker, `lead` to a place, `stay` on its stump, or `none`: only talk. */
+  action: 'none' | 'follow' | 'lead' | 'stay';
+  /** Where to lead to. Read only when the action is `lead`. */
+  place: string;
+}
+
 /** What the second look at an exchange found. */
 export interface Verdict {
   /** The reply may be said to a child. */
@@ -99,8 +115,8 @@ export interface MindDeps {
   hear(samples: Uint8Array): Promise<string>;
   /** A player's pets and egg, in words. */
   about(playerId: string): Promise<string>;
-  /** The helper's reply. Empty if it would not give one. */
-  think(input: ThinkInput): Promise<string>;
+  /** The helper's reply, and what it means to do. Null if it would not answer. */
+  think(input: ThinkInput): Promise<Thought | null>;
   /** A second, separate look at what was heard and the reply. */
   check(heard: string, reply: string): Promise<Verdict>;
   /** The reply as sound. */
@@ -110,6 +126,8 @@ export interface MindDeps {
   keep(usage: Usage): void;
   /** Play the helper's voice to everybody in the lobby. */
   say(audio: ArrayBuffer): void;
+  /** Tell everybody in the lobby what the helper's body does from now. */
+  act(intent: HelperIntent): void;
   /** Let everybody in the lobby know it could not answer. */
   squawk(): void;
   failed(step: string, error: unknown): void;
@@ -138,6 +156,17 @@ export function unfit(reply: string): string | null {
   return blocked ? `the word "${blocked}"` : null;
 }
 
+/**
+ * What a thought asks of the helper's body, or null to carry on as it is. A
+ * place that is not one of the helper's places asks nothing.
+ */
+function intentOf({ action, place }: Thought, speaker: Speaker): HelperIntent | null {
+  if (action === 'follow') return { do: 'follow', playerId: speaker.id };
+  if (action === 'stay') return { do: 'stay' };
+  if (action === 'lead' && Object.hasOwn(HELPER_PLACES, place)) return { do: 'lead', place: place as keyof typeof HELPER_PLACES };
+  return null;
+}
+
 export class HelperMind {
   private busy = false;
   private history: Exchange[] = [];
@@ -145,6 +174,9 @@ export class HelperMind {
   /** When each player's last few phrases came. */
   private readonly recent = new Map<string, number[]>();
   private safeLine = 0;
+  /** What the helper's body was last told to do, and when. */
+  private intent: HelperIntent = { do: 'stay' };
+  private intentAt = 0;
 
   /** `usage` is the day's count as it was last kept, if any. */
   constructor(
@@ -158,6 +190,23 @@ export class HelperMind {
   forget(): void {
     this.history = [];
     this.recent.clear();
+    this.intent = { do: 'stay' };
+  }
+
+  /** What the helper's body is doing now, for a player who has just come in. */
+  get doing(): HelperIntent {
+    return this.deps.now() - this.intentAt < INTENT_FOR ? this.intent : { do: 'stay' };
+  }
+
+  /** A player has left the lobby. If the helper was following them, it goes back to its stump. */
+  left(playerId: string): void {
+    if (this.intent.do === 'follow' && this.intent.playerId === playerId) this.does({ do: 'stay' });
+  }
+
+  private does(intent: HelperIntent): void {
+    this.intent = intent;
+    this.intentAt = this.deps.now();
+    this.deps.act(intent);
   }
 
   /** Whether the helper would listen to this player now: switched on, and with phrases left today. */
@@ -181,11 +230,15 @@ export class HelperMind {
       // A cough, a bump, or talk too quiet to make out.
       if (said.length < 2) return 'nothing';
 
-      let reply = (await deps.think({ speaker: speaker.nickname, heard: said, about, players, history: this.history })).trim();
+      const thought = await deps.think({ speaker: speaker.nickname, heard: said, about, players, history: this.history });
+      let reply = (thought?.say ?? '').trim();
+      // What it means to do, unless the reply is refused: then it only says the safe line.
+      let intent = thought && intentOf(thought, speaker);
       let flagged: string | null = null;
       const refuse = (why: string): void => {
         flagged = `refused: ${why}`;
         reply = SAFE_LINES[this.safeLine++ % SAFE_LINES.length];
+        intent = null;
       };
       const fault = unfit(reply);
       if (fault) refuse(fault);
@@ -196,6 +249,7 @@ export class HelperMind {
       }
 
       deps.say(await deps.speak(reply));
+      if (intent) this.does(intent);
       this.history.push({ nickname: speaker.nickname, heard: said, said: reply });
       if (this.history.length > REMEMBERED) this.history.shift();
       // The reply is out; a record that cannot be kept must not take it back.

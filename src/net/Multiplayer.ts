@@ -47,7 +47,7 @@ export interface MultiplayerDeps {
   /** Talking to the other players. Left out, nobody is heard. */
   voice?: Pick<Voice, 'call' | 'signal' | 'remove' | 'clear' | 'place'>;
   /** The lobby's helper parrot: what the lobby says of it, and its voice. Left out, it is never heard. */
-  helper?: Pick<Helper, 'setListens' | 'speech' | 'squawk' | 'clear'>;
+  helper?: Pick<Helper, 'setListens' | 'setIntent' | 'speech' | 'squawk' | 'clear'>;
   /** The time in seconds. Left out, the browser's clock. */
   now?(): number;
 }
@@ -248,6 +248,11 @@ export class Multiplayer {
       case 'squawk':
         this.deps.helper?.squawk();
         break;
+      case 'intent': {
+        const { intent } = message;
+        this.deps.helper?.setIntent(intent.do === 'follow' ? { ...intent, playerId: this.inwardId(intent.playerId) } : intent);
+        break;
+      }
     }
   }
 

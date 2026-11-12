@@ -1,3 +1,4 @@
+import type { HelperPlace } from '../../../shared/helper';
 import { BACK_PERCH, PERCH_ORDER } from '../../characters/roster';
 import type {
   CharacterPerchDef,
@@ -466,6 +467,20 @@ const FLOCK: FlockDef = {
   ],
 };
 
+/**
+ * Where the helper parrot lands at each place it can lead a player to: on
+ * the nest floor or the grass beside the thing, a step toward the home tree.
+ */
+const HELPER_PLACES_AT: Record<HelperPlace, Vec3> = {
+  'egg-cup': inNest(238, 1.35, 0).position,
+  'pet-rail': inNest(PET_ARC, 1.6, 0).position,
+  seeds: ground(105, 15.6, 0),
+  feeder: ground(35, 12.4, 0),
+  'toy-box': ground(215, 12.2, 0),
+  'bird-bath': ground(320, 11, 0),
+  gym: ground(125, 11.3, 0),
+};
+
 export const CONTENT: LobbyContent = {
   toyTypes: {
     woodBlock: { shape: 'box', size: 0.13, color: 0xe8b06a, density: 300, bounce: 0.2 },
@@ -484,4 +499,5 @@ export const CONTENT: LobbyContent = {
   characterPerches: CHARACTER_PERCHES,
   petCorner: PET_CORNER,
   flock: FLOCK,
+  helperPlaces: HELPER_PLACES_AT,
 };

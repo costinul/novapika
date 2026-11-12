@@ -16,3 +16,28 @@ export const MAX_HEARD_BYTES = SOUND_HEAD + HEARD_RATE * 2 * MAX_HEARD_SECONDS;
 
 /** The lobbies that have a helper parrot. */
 export const HELPER_LOBBIES: readonly string[] = ['aviary'];
+
+/**
+ * The places the helper parrot can lead a player to, and what each is, in
+ * words for the helper. A lobby with a helper says where each one is.
+ */
+export const HELPER_PLACES = {
+  'egg-cup': 'the egg cup in the nest, where an egg is fed',
+  'pet-rail': "the rail in the nest where a player's pets sit",
+  seeds: 'a seed lying on the grass',
+  feeder: 'the feeder, the yellow tray on a tree stump on the ground',
+  'toy-box': 'the toy box on the ground',
+  'bird-bath': 'the bird bath, the pond on the ground',
+  gym: 'the climbing gym on the ground',
+} as const;
+
+export type HelperPlace = keyof typeof HELPER_PLACES;
+
+/** What the helper parrot's body is doing, besides talking. */
+export type HelperIntent =
+  /** On its own stump. */
+  | { do: 'stay' }
+  /** Flying with a player, and keeping near them. */
+  | { do: 'follow'; playerId: string }
+  /** Flying to a place and waiting there, for a player to come after it. */
+  | { do: 'lead'; place: HelperPlace };

@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { HELPER_NAME } from '../shared/helper';
+import { HELPER_NAME, HELPER_PLACES } from '../shared/helper';
 import { plain, thinkPrompt } from './helper';
-import type { MindDeps, Verdict } from './helper';
+import type { MindDeps, Thought, Verdict } from './helper';
 import { CHECKER, PERSONA } from './helperGuide';
 
 // The helper parrot's thinking, and the second look at what it means to say:
@@ -17,8 +17,12 @@ const MAX_TOKENS = 1024;
 
 const REPLY = {
   type: 'object',
-  properties: { say: { type: 'string', description: `What ${HELPER_NAME} says out loud: one or two short sentences.` } },
-  required: ['say'],
+  properties: {
+    say: { type: 'string', description: `What ${HELPER_NAME} says out loud: one or two short sentences.` },
+    action: { type: 'string', enum: ['none', 'follow', 'lead', 'stay'], description: `What ${HELPER_NAME} does as well as speaking.` },
+    place: { type: 'string', enum: ['', ...Object.keys(HELPER_PLACES)], description: 'Where to lead to. Empty unless the action is lead.' },
+  },
+  required: ['say', 'action', 'place'],
   additionalProperties: false,
 };
 
@@ -56,9 +60,7 @@ export function helperClaude(apiKey: string): Pick<MindDeps, 'think' | 'check'> 
   // The timeout is in milliseconds. One more try covers a dropped connection.
   const client = new Anthropic({ apiKey, timeout: WITHIN, maxRetries: 1 });
   return {
-    async think(input) {
-      return (await ask<{ say: string }>(client, PERSONA, REPLY, thinkPrompt(input)))?.say ?? '';
-    },
+    think: (input) => ask<Thought>(client, PERSONA, REPLY, thinkPrompt(input)),
     async check(heard, reply) {
       const verdict = await ask<Verdict>(client, CHECKER, VERDICT, `<heard>${plain(heard)}</heard>\n<answer>${plain(reply)}</answer>`);
       return verdict ?? { ok: false, worry: false, why: 'no verdict' };

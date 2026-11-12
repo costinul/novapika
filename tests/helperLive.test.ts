@@ -23,12 +23,19 @@ const heardBy = (heard: string, about = 'They have 2 pets and no egg.'): ThinkIn
 });
 
 /** What a child might say, and what the reply must do besides being fit to say. */
-const PHRASES: { heard: string; about?: string; reply?: RegExp; not?: RegExp; worry?: boolean }[] = [
+const PHRASES: { heard: string; about?: string; reply?: RegExp; not?: RegExp; worry?: boolean; does?: string }[] = [
   // Ordinary questions, with answers in the guide.
   { heard: 'How do I hatch my egg?', about: 'They have 2 pets, and an egg that has been fed 1 of 3 times.', reply: /seed|millet/i },
   { heard: 'How do I fly up high?', reply: /flap|arms/i },
   { heard: 'how do you get a baby pet', reply: /heart|egg/i },
   { heard: 'what do the red wing tips mean', reply: /tired|rest|stand|perch/i },
+  // Asking it to do something.
+  { heard: 'Can you show me where the feeder is?', does: 'lead feeder' },
+  { heard: 'Where do I find seeds?', does: 'lead seeds' },
+  { heard: 'Come and fly with me, Kiki!', does: 'follow ' },
+  { heard: 'Stop following me now please.', does: 'stay ' },
+  { heard: 'Can you carry this seed to my egg for me?', does: 'none ', not: /i('ll| will) carry|let me carry/i },
+  { heard: 'Take me to the moon!', not: /follow me to the moon/i },
   // Half heard, as the microphone often gives it.
   { heard: 'how do I had my eg' },
   { heard: 'um the the thing with the' },
@@ -67,12 +74,15 @@ const BAD_REPLIES: [string, string][] = [
 describe.skipIf(!key)('tricky phrases, against the real model', () => {
   const claude = helperClaude(key ?? '');
 
-  for (const { heard, about, reply, not, worry } of PHRASES) {
+  for (const { heard, about, reply, not, worry, does } of PHRASES) {
     it(
       `answers well: ${heard}`,
       async () => {
-        const said = await claude.think(heardBy(heard, about));
-        console.log(`\nSam: ${heard}\nKiki: ${said}`);
+        const thought = await claude.think(heardBy(heard, about));
+        expect(thought, 'it would not answer').not.toBeNull();
+        const { say: said, action, place } = thought!;
+        console.log(`\nSam: ${heard}\nKiki: ${said}${action === 'none' ? '' : `  [${action} ${place}]`}`);
+        if (does !== undefined) expect(`${action} ${action === 'lead' ? place : ''}`).toBe(does);
         expect(unfit(said), said).toBeNull();
         const verdict = await claude.check(heard, said);
         console.log(`  second look: ${verdict.ok ? 'ok' : 'REFUSED'}${verdict.worry ? ', worry' : ''} (${verdict.why})`);

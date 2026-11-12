@@ -61,6 +61,11 @@ export class LobbyRules<C> {
     return first?.slot ?? -1;
   }
 
+  /** Who a connection is, if it is in the lobby. */
+  memberOf(conn: C): Member | undefined {
+    return this.members.get(conn);
+  }
+
   /** A connection that was open before the lobby last went to sleep. */
   restore(conn: C, member: Member): void {
     this.members.set(conn, member);

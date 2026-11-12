@@ -82,12 +82,17 @@ lobby empties. The parrot remembers nothing about a child between visits.
   poses travel with the host's as the others' do.
 - It has its own stump in the nest, beside the picture board, where every
   player starts.
-- The model has three tools: `follow(player)`, `lead_to(place)` and `stay`.
-  Places are a fixed list per lobby, such as the egg cup, the feeder, the
-  picture board and the rings.
-- The lobby sends the chosen intent to every game. The host's `Brain` flies
-  it, with new errands for going to a named player and to a named place.
-  When the host changes, the new host already knows the intent.
+- Each reply from the model carries one action beside the words: `follow`
+  the speaker, `lead` to a place, `stay` on its stump, or `none`. It comes in
+  the same call as the reply, in a fixed shape, so there is no second trip.
+- Places are a fixed list: the egg cup, the pet rail, a seed on the grass,
+  the feeder, the toy box, the bird bath and the climbing gym.
+- Following or leading lasts a minute and a half; then it flies back to its
+  stump.
+- The lobby sends the chosen intent to every game, and to a player who
+  comes in later. The host's `Brain` flies it, with errands for keeping near
+  a named player and for going to a named place. When the host changes, the
+  new host already knows the intent.
 - With no intent, it stays on its stump and turns to whoever is near, so
   that a child always knows where to find it.
 

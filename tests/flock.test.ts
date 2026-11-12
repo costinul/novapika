@@ -1,5 +1,6 @@
 import { Vector3 } from 'three';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { HELPER_PLACES } from '../shared/helper';
 import { character } from '../src/characters/roster';
 import { PhysicsWorld } from '../src/engine/physics';
 import { Flock } from '../src/flock/Flock';
@@ -260,6 +261,55 @@ describe('flock', () => {
     run(3);
     expect(facing()).toBeLessThan(0.9);
     expect(helper.position.distanceTo(stump)).toBeLessThan(0.4);
+  });
+
+  it('has a helper parrot that leads to each of its places, waits there, and goes back to its stump', () => {
+    const helper = flock.helper!;
+    const stump = new Vector3(...HELPER_STUMP);
+    const places = CONTENT.helperPlaces!;
+    // Every place the helper may name has somewhere to land in the Aviary.
+    expect(Object.keys(places).sort()).toEqual(Object.keys(HELPER_PLACES).sort());
+
+    for (const [place, at] of Object.entries(places)) {
+      const there = new Vector3(...at!);
+      flock.helperDoes({ lead: there });
+      const arrived = run(60, () => helper.grounded && helper.position.distanceTo(there) < 1.6);
+      expect(arrived, `reached ${place}`).toBe(true);
+      // It waits there.
+      run(5);
+      expect(helper.position.distanceTo(there), `waits at ${place}`).toBeLessThan(1.6);
+    }
+
+    flock.helperDoes(null);
+    expect(run(60, () => helper.grounded && helper.position.distanceTo(stump) < 1.6)).toBe(true);
+  });
+
+  it('has a helper parrot that keeps near a player it follows, for a while', () => {
+    const helper = flock.helper!;
+    const stump = new Vector3(...HELPER_STUMP);
+    const near = (): boolean => helper.grounded && helper.position.distanceTo(human.head.position) < 5;
+
+    flock.helperDoes({ follow: human });
+    expect(run(60, near), 'came to the player').toBe(true);
+    // The player goes off across the Aviary: it comes after them.
+    standAt(-10, -9);
+    expect(near()).toBe(false);
+    expect(run(60, near), 'came after the player').toBe(true);
+    // It never lands in front of their face.
+    expect(closestInFront).toBeGreaterThan(0.8);
+
+    // After a minute and a half it has had enough, and goes back to its stump.
+    expect(run(150, () => helper.grounded && helper.position.distanceTo(stump) < 1.6), 'went home').toBe(true);
+  });
+
+  it('has a helper parrot that goes back to its stump when the player it follows is gone', () => {
+    const helper = flock.helper!;
+    const stump = new Vector3(...HELPER_STUMP);
+    flock.helperDoes({ follow: human });
+    run(30);
+    expect(helper.position.distanceTo(stump)).toBeGreaterThan(3);
+    world.players.delete(human.id);
+    expect(run(60, () => helper.grounded && helper.position.distanceTo(stump) < 1.6)).toBe(true);
   });
 
   it('keeps out of the front of the player\'s face', () => {

@@ -1,4 +1,5 @@
 import type { Action, ToyPlace } from './actions';
+import type { HelperIntent } from './helper';
 
 // What the game and the lobby server say to each other over a WebSocket.
 // Small things travel as JSON text. Poses, many times a second, travel as
@@ -112,4 +113,6 @@ export type ServerMessage =
   /** Whether the helper parrot is listening. While it is not, no game sends it a phrase. */
   | { t: 'helper'; listens: boolean }
   /** The helper parrot heard a phrase and could not answer it. */
-  | { t: 'squawk' };
+  | { t: 'squawk' }
+  /** What the helper parrot's body does from now. Every game is told; the host's flies it. */
+  | { t: 'intent'; intent: HelperIntent };

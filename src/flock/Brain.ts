@@ -19,7 +19,8 @@ export type Errand =
   | 'deliverFood' // to the feeder, with a seed it took
   | 'fetchToy' // to a loose toy
   | 'carryToy' // somewhere else, with the toy
-  | 'follow'; // to a spot near the player
+  | 'follow' // to a spot near the player
+  | 'lead'; // the helper parrot only: to a place it is showing a player
 
 const GIVE_UP_AFTER = 40; // s in the air before picking somewhere easier
 const RESCUE_AFTER = 75; // s in the air before being put back on its home perch
@@ -31,6 +32,12 @@ const LOOSE_TOY_MAX_HEIGHT = 0.6; // m, toys this near the ground are easy to fe
 const FOLLOW_COOLDOWN = 60; // s after following before following again
 const ATTEND_WITHIN = 4.5; // m, the helper parrot turns to a player this close
 const ATTEND_TURN = 1.6; // rad/s, how fast its body turns to face them
+const TASK_FOR = 90; // s the helper parrot keeps at following or leading before it goes back to its stump
+const KEEP_UP_BEYOND = 5; // m, a player it follows who is further off than this is flown after
+const THERE_WITHIN = 1.6; // m from a place that counts as being at it
+
+/** What the helper parrot has been asked to do: keep near a player, or go to a place and wait there. */
+export type HelperTask = { follow: Player } | { lead: Vector3 };
 
 /** What the flock tells each brain about the rest of the lobby. */
 export interface FlockView {
@@ -73,6 +80,9 @@ export class Brain {
   private side: 1 | -1;
   private readonly v = new Vector3();
   private readonly beak = new Vector3();
+  /** What the helper parrot has been asked to do, and for how much longer. Null: stay on its stump. */
+  private task: HelperTask | null = null;
+  private taskLeft = 0;
 
   constructor(
     readonly def: FlockParrotDef,
@@ -98,8 +108,36 @@ export class Brain {
     this.timer += dt;
     this.followAgainIn = Math.max(0, this.followAgainIn - dt);
     this.talking = Math.max(0, this.talking - dt);
+    if (this.task) {
+      this.taskLeft -= dt;
+      // Long enough, or the player it followed has gone: back to its stump.
+      const gone = 'follow' in this.task && this.world.players.get(this.task.follow.id) !== this.task.follow;
+      if (this.taskLeft <= 0 || gone) this.setTask(null);
+    }
     if (this.state === 'perched') this.perch(dt);
     else this.fly(dt);
+  }
+
+  /** Ask the helper parrot to keep near a player, or to go to a place; null sends it back to its stump. */
+  setTask(task: HelperTask | null): void {
+    this.task = task;
+    this.taskLeft = TASK_FOR;
+    // In the air: turn for the new place at once. On a perch, the next step sees to it.
+    if (this.state === 'flying') this.leave(this.helperErrand() ?? 'wander');
+  }
+
+  /** Where the helper parrot should be flying to, or null if it is where it should be. */
+  private helperErrand(): Errand | null {
+    const here = this.player.position;
+    const task = this.task;
+    if (task && 'follow' in task) return task.follow.head.position.distanceTo(here) > KEEP_UP_BEYOND ? 'follow' : null;
+    if (task) return task.lead.distanceTo(here) > THERE_WITHIN ? 'lead' : null;
+    return this.v.fromArray(this.def.helper!).distanceTo(here) > THERE_WITHIN ? 'wander' : null;
+  }
+
+  /** The player a parrot keeps near: the one the helper was asked to follow, or else whoever is nearest. */
+  private companion(): Player | null {
+    return this.task && 'follow' in this.task ? this.task.follow : this.flock.human(this.player.position);
   }
 
   // --- On a perch ------------------------------------------------------------
@@ -107,7 +145,10 @@ export class Brain {
   private perch(dt: number): void {
     const pilot = this.pilot;
     this.settled = this.timer > 1.2 && this.player.grounded;
-    if (this.def.helper) return this.attend(dt);
+    if (this.def.helper) {
+      const errand = this.timer > 0.8 ? this.helperErrand() : null;
+      return errand ? this.leave(errand) : this.attend(dt);
+    }
 
     // Small things to do while sitting.
     this.activityTimer -= dt;
@@ -164,7 +205,7 @@ export class Brain {
   }
 
   /**
-   * The helper parrot on its spot: it never leaves, bobs while it talks, and
+   * The helper parrot where it should be: it bobs while it talks, and
    * otherwise looks at the nearest player, so a child can see it is listening.
    */
   private attend(dt: number): void {
@@ -260,8 +301,15 @@ export class Brain {
         return true;
       }
       case 'food':
-      case 'follow':
         return !!human && this.besidePlayer(human);
+      case 'follow': {
+        const who = this.companion();
+        return !!who && this.besidePlayer(who);
+      }
+      case 'lead':
+        if (!this.task || !('lead' in this.task)) return false;
+        this.target.copy(this.task.lead);
+        return true;
       case 'deliverFood': {
         for (const target of this.world.targets.values()) {
           if (target.def.kind !== 'feeder') continue;
@@ -361,7 +409,7 @@ export class Brain {
         this.errand = 'wander';
         this.randomSpot();
       } else {
-        this.besidePlayer(human);
+        this.besidePlayer(this.errand === 'follow' ? (this.companion() ?? human) : human);
       }
     }
     // Someone else got the toy first.
@@ -388,6 +436,8 @@ export class Brain {
     } else if (this.airTime > GIVE_UP_AFTER && this.errand !== 'wander') {
       this.errand = 'wander';
       this.randomSpot();
+      // The helper parrot could not get where it was asked to: it gives up on that.
+      this.task = null;
     }
   }
 

@@ -14,7 +14,7 @@ import type { ActionLayer } from '../world/actions';
 import type { FlockDef, FlockParrotDef } from '../world/types';
 import type { WorldState } from '../world/WorldState';
 import { Brain } from './Brain';
-import type { FlockView } from './Brain';
+import type { FlockView, HelperTask } from './Brain';
 
 /** Lobby parrots tire more slowly than a child's arms: a flap costs them this share. */
 const FLAP_COST = 0.4;
@@ -94,6 +94,11 @@ export class Flock implements FlockView {
     if (!member) return;
     member.brain.talking = seconds;
     member.player.excitement = 1;
+  }
+
+  /** Ask the helper parrot to keep near a player, or to go to a place; null sends it back to its stump. */
+  helperDoes(task: HelperTask | null): void {
+    this.helperMember()?.brain.setTask(task);
   }
 
   /** The helper parrot could not answer: it gives its own call instead. */

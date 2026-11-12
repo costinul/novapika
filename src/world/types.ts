@@ -149,6 +149,9 @@ export interface PetCornerDef {
   goodbye: { perch: Stand; pads: readonly [Stand, Stand] };
 }
 
+/** One of the places the helper parrot can lead a player to. The names are in shared/helper.ts. */
+export type HelperPlaces = Readonly<Partial<Record<string, Vec3>>>;
+
 export interface LobbyContent {
   toyTypes: Record<string, ToyTypeDef>;
   toys: readonly ToyDef[];
@@ -159,6 +162,8 @@ export interface LobbyContent {
   characterPerches?: readonly CharacterPerchDef[];
   petCorner?: PetCornerDef;
   flock?: FlockDef;
+  /** Where the helper parrot lands at each place it can lead a player to. */
+  helperPlaces?: HelperPlaces;
 }
 
 /** Collision shape of a toy: a ball of radius half[0], or a box of half extents. */
