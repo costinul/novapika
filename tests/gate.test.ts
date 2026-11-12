@@ -252,8 +252,7 @@ describe('flying through the doorway', () => {
 
 const BODY = cfg.bodyRadius.value;
 const GATES = [
-  // The Aviary has a perch in front of its doorway, to be flown over.
-  { name: 'the Aviary', id: 'aviary', def: GATE, content: CONTENT, half: HALF, build: buildScenery, lowest: 1.5 },
+  { name: 'the Aviary', id: 'aviary', def: GATE, content: CONTENT, half: HALF, build: buildScenery },
   {
     name: 'Downham Market',
     id: 'downham-market',
@@ -261,7 +260,6 @@ const GATES = [
     content: TOWN,
     half: TOWN_HALF,
     build: buildTown,
-    lowest: OPENING.bottom + BODY + 0.05,
   },
   {
     name: 'London',
@@ -270,7 +268,6 @@ const GATES = [
     content: LONDON,
     half: LONDON_HALF,
     build: buildLondon,
-    lowest: OPENING.bottom + BODY + 0.05,
   },
   {
     name: 'New York',
@@ -279,11 +276,10 @@ const GATES = [
     content: NEW_YORK,
     half: NEW_YORK_HALF,
     build: buildNewYork,
-    lowest: OPENING.bottom + BODY + 0.05,
   },
 ];
 
-describe.each(GATES)('the gate of $name', ({ id, def, content, half, build, lowest }) => {
+describe.each(GATES)('the gate of $name', ({ id, def, content, half, build }) => {
   let physics: PhysicsWorld;
   const layout = gateLayout(def, id);
   const body = BODY;
@@ -341,12 +337,12 @@ describe.each(GATES)('the gate of $name', ({ id, def, content, half, build, lowe
     }
   });
 
-  it('leaves the way through the doorway clear', () => {
+  it('leaves the way through the doorway clear, walking or flying', () => {
     const from = 1.4;
     const inward = at(0, 0, -1).sub(at(0, 0, 0));
     const side = OPENING.halfWidth - body - 0.05;
     for (const x of [-side, 0, side]) {
-      for (const y of [lowest, MID_Y, OPENING.top - body - 0.05]) {
+      for (const y of [OPENING.bottom + body + 0.05, MID_Y, OPENING.top - body - 0.05]) {
         const hit = physics.castSphere(at(x, y, from), inward, 5, body);
         // The body gets far enough for the head, in the middle of it, to be through the sheet.
         expect(hit?.distance ?? Infinity, `${x}, ${y}`).toBeGreaterThan(from - OPENING.z + 0.1);

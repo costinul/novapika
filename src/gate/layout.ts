@@ -43,7 +43,7 @@ export const REACH = 0.3;
 
 /**
  * Where a player's feet are put on arriving: at the front of the step, with
- * the doorway behind them. The Aviary has a perch between the two.
+ * the doorway behind them.
  */
 const ARRIVAL_Z = 1.2;
 /** Players who arrive one after another stand this far apart, side by side. */

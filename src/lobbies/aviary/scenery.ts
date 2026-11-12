@@ -209,7 +209,6 @@ export function buildScenery(b: StaticBuilder): void {
   }
 
   buildGate(b, gateLayout(GATE, 'aviary'));
-  gatePerch(b);
   farAway(b);
 }
 
@@ -257,13 +256,6 @@ function playGym(b: StaticBuilder): void {
   // Low perch rails round the outside, at standing height.
   b.limb(BAR, at(-h, 0.55, -h), at(-h, 0.55, h), 0.07, 0.07, { sides: 6 });
   b.limb(BAR, at(h, 0.55, -h), at(h, 0.55, h), 0.07, 0.07, { sides: 6 });
-}
-
-/** A perch on the gate's step, in front of the doorway. */
-function gatePerch(b: StaticBuilder): void {
-  const [px, , pz] = GATE.position;
-  for (const x of [-0.9, 0.9]) b.limb(WOOD, [px + x, 0.4, pz + 0.7], [px + x, 1.0, pz + 0.7], 0.06, 0.06, { sides: 6 });
-  b.limb(WOOD, [px - 1.1, 1.0, pz + 0.7], [px + 1.1, 1.0, pz + 0.7], 0.08, 0.08, { sides: 6 });
 }
 
 /** Things seen through the netting: more grass, hills and clouds. */

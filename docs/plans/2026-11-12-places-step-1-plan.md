@@ -186,7 +186,8 @@ Built as planned, with these differences:
   again, when the Aviary's board grew to two pictures. Its check was then
   changed: a parrot that touches down and comes straight off counts as a
   failed landing against the test's pass mark, rather than failing the test
-  outright. So the perch no longer has to stay for the test's sake.
+  outright. The perch was then taken out, on the owner's word, so a parrot
+  can walk straight into the gate.
 - **Each player has their own spot to arrive at**, side by side along the
   front of the step, picked by their slot in the lobby they left. The
   two-player check showed friends who follow each other through landing
